@@ -4398,3 +4398,142 @@ def test_hmax_014_collision_detected_even_when_both_claims_are_individually_vali
 
     with pytest.raises(HandoffError, match="duplicate claim_id"):
         handoff_module.build([claim_a, claim_b], [dec_a, dec_b], doc)
+
+
+def test_hmax_015_q1_fix_never_cross_checks_kind_against_extractor():
+    """[EXECUTING] HMAX-015 (HMAX-7.0 post-remediation verification pass).
+    Fresh finding, not a re-run of an earlier test: the Q1 remediation's
+    verify_against() re-derives `value` from `raw` using the extractor
+    NAMED on the claim, and compares that to the claim's current value.
+    It never checks that the named extractor's own declared kind matches
+    `claim.kind`.
+
+    Confirmed live: a claim with kind="amount", extractor="quantity", and
+    a genuinely quantity-shaped value ({"value": 40.0, "unit": "units"})
+    -- where raw/span honestly correspond to a real "quantity" match --
+    passes verify_against() cleanly, since re-deriving via the "quantity"
+    spec against that raw text correctly reproduces the exact value
+    already on the claim. Reaches ADMITTED_FOR_GOVERNANCE and exports
+    with kind="amount" carrying a value no amount-consumer's parsing code
+    would expect ({"value":..., "unit":...} instead of
+    {"amount":..., "currency":...}) -- real type-confusion surface for
+    anything downstream that branches on `kind` to decide how to
+    interpret `value`.
+
+    RALPH's challenge: is this a new primitive, or just HMAX-002/003
+    restated? Verdict: distinct. HMAX-002/003 are about value disagreeing
+    with what the SAME extractor would derive from raw. This is about
+    kind disagreeing with what the extractor's own SPECS.kind says it
+    produces -- a cross-field consistency check Q1's control never
+    attempted, because it was scoped to value-vs-raw, not kind-vs-
+    extractor. Recorded as a residual of the Q1 control, not a failure
+    of it to do what it was built to do.
+    """
+    text = "A separate note mentions 40 units."
+    doc = SourceDocument(source_id="hmax-015", text=text, standing=STANDING_RECORD)
+    start = text.index("40 units")
+
+    claim = CandidateClaim(
+        kind="amount",  # inconsistent with the extractor and value below
+        value={"value": 40.0, "unit": "units"},
+        raw="40 units",
+        span=(start, start + len("40 units")),
+        source_id="hmax-015",
+        source_hash=doc.content_hash,
+        extractor="quantity",
+        base_confidence=0.85,
+        provenance=PROV_EXTRACTED,
+    )
+    claim.seal()
+
+    claim.verify_against(doc)  # does not raise -- the residual
+
+    gate = gate_module.ConfidenceGate(require_source=True)
+    decision = gate.submit(claim, document=doc)
+    assert decision.verdict == gate_module.VERDICT_ADMITTED
+
+    pkg = handoff_module.build([claim], [decision], doc)
+    assert pkg.admitted[0].kind == "amount"
+    assert pkg.admitted[0].value == {"value": 40.0, "unit": "units"}
+
+
+def test_hmax_016_verify_export_is_never_called_by_production_code():
+    """[EXECUTING] HMAX-016 (HMAX-7.0 post-remediation verification pass),
+    SEVERE. Fresh finding: grepping herald/*.py for "verify_export" turns
+    up exactly one line -- its own definition. export_mac IS computed and
+    attached automatically inside handoff.build() (real, automatic,
+    confirmed). But CHECKING it is entirely opt-in: no production code
+    path calls verify_export() on anything, ever.
+
+    This is, verbatim, the Q2 primitive ("opt-in, not mandatory
+    enforcement") -- the architectural weakness this entire campaign
+    spent multiple phases identifying and separating from every other
+    primitive -- reproduced inside the Q3 fix that was supposed to be
+    independent of it. A consumer doing the natural, expected thing
+    (parse the JSON, read admitted[0]["value"]) gets zero protection from
+    export_mac's existence unless they independently discover this
+    function and remember to call it themselves, entirely outside
+    HERALD's own pipeline -- the identical shape of gap Q2 was built to
+    close for Binding.verify(), now present in the mechanism Q3 built to
+    close a different primitive.
+
+    RALPH's challenge: is this actually a new primitive, or just Q2
+    again? Verdict: same primitive (opt-in enforcement), new instance --
+    not a new Q7. Recorded as a residual of the Q3 control specifically
+    because it undercuts Q3's practical value: export_mac provides no
+    real-world protection to a consumer who doesn't already know to look
+    for it, which is most of them.
+    """
+    import inspect
+
+    read_src = inspect.getsource(handoff_module.read)
+    build_src = inspect.getsource(handoff_module.build)
+    assert "verify_export" not in read_src
+    assert "verify_export" not in build_src
+
+    to_dict_src = inspect.getsource(handoff_module.Handoff.to_dict)
+    assert "verify_export" not in to_dict_src
+
+    # Confirm the function exists and works when called directly, to show
+    # the mechanism is real and simply never invoked from the pipeline --
+    # the same shape of evidence HMAX-001/the original Binding finding used.
+    doc = SourceDocument(source_id="hmax-016", text="Paid $500.00 today.", standing=STANDING_RECORD)
+    pkg = handoff_module.read(doc)
+    handoff_module.verify_export(pkg.to_dict())  # works, but nothing calls it automatically
+
+
+def test_hmax_017_q5_fix_has_no_diacritic_or_homoglyph_normalization():
+    """[EXECUTING] HMAX-017 (HMAX-7.0 post-remediation verification pass).
+    Fresh finding, distinct from the zero-width-character evasions Q5
+    already closes (U+200B, U+200C, U+2060, U+FEFF -- all confirmed
+    caught, since Python's Unicode-aware \\W correctly treats them as
+    non-word). "adverseáction" (accented a, U+00E1, instead of plain
+    ASCII a) is NOT caught: tokenization correctly produces the tokens
+    "adverse" and "áction" (or similar), but the exact-string
+    comparison against the forbidden set fails because the accented
+    variant is a different string than "action" byte-for-byte.
+
+    This is not a tokenization-completeness gap (what Q5 actually closed)
+    -- it is a canonicalization gap: nothing in _segments() normalizes
+    Unicode variants (diacritics, and by the same mechanism, true
+    homoglyphs from other scripts) before comparing against
+    _GOVERNED_DETERMINATIONS. Q5's fix improved WHERE token boundaries
+    are found; it never touched WHAT counts as the same word once found.
+
+    RALPH's challenge: does this collapse into Q1's "no independent
+    correctness check" primitive? Verdict: related in spirit (both are
+    "the check trusts a literal string comparison with no normalization
+    step"), but mechanically distinct enough to record separately --
+    Q1 is about a VALUE's relationship to RAW TEXT; this is about a
+    KIND STRING's relationship to a FORBIDDEN-SET STRING. Different code,
+    different fix shape (Unicode NFKD normalization + accent stripping,
+    not value re-derivation).
+    """
+    from herald.boundary import is_governed_determination, assert_permitted_kind
+
+    accented = "adverseáction".replace("áction", "_áction")  # "adverse_áction"
+    assert not is_governed_determination(accented), (
+        "if this now returns True, someone added Unicode normalization -- "
+        "update this test's docstring and this session's records"
+    )
+    assert_permitted_kind(accented)  # must NOT raise -- the residual
