@@ -4537,3 +4537,126 @@ def test_hmax_017_q5_fix_has_no_diacritic_or_homoglyph_normalization():
         "update this test's docstring and this session's records"
     )
     assert_permitted_kind(accented)  # must NOT raise -- the residual
+
+
+def test_hmax_018_confirmation_race_silently_attributes_a_to_bs_review():
+    """[EXECUTING] HMAX-018 (HMAX-8.0, fresh ground: concurrency). SEVERE,
+    genuinely new primitive candidate, not a re-classification of Q1-Q6.
+
+    ConfidenceGate._confirmations is a single plain dict keyed by
+    claim_id, with no locking and no atomicity between
+    record_confirmation() and the later submit() that consumes it.
+    Nothing in gate.py, claim.py, or CONSTITUTION.md/README.md documents
+    any thread-safety contract, single-threaded-only assumption, or
+    concurrency guidance at all (confirmed by grep -- zero mentions of
+    thread/concurrent/lock/race anywhere).
+
+    Deterministic reproduction (explicit threading.Event synchronization,
+    not relying on scheduling luck): thread A records its own
+    HumanConfirmation, then calls submit() shortly after. In between,
+    thread B records a DIFFERENT confirmation for the SAME claim_id
+    (legitimate -- both are confirming the literal same claim object, by
+    design, not a claim_id collision like Q4). Thread A's own submit()
+    call returns a GateDecision reporting confirmed_by="reviewer-B" and
+    an authorized value that is entirely B's, with zero signal to A that
+    this happened. A's code has no way to detect its own confirmation was
+    silently discarded and misattributed.
+
+    RALPH's challenge: is this an unsupported usage pattern (one gate
+    instance shared across threads), making the finding moot? Verdict:
+    no documented restriction exists anywhere to make it unsupported --
+    a shared long-lived ConfidenceGate handling concurrent requests (e.g.
+    behind a web server) is a completely plausible, undocumented-as-
+    forbidden real-world deployment shape. Recorded as a genuinely new
+    primitive candidate: weak isolation between concurrent callers
+    sharing one claim_id's confirmation slot, distinct from Q4 (which is
+    about claim_id COLLISION across different claims) and from every
+    other Q1-Q6 primitive.
+    """
+    import threading
+
+    doc = SourceDocument(source_id="hmax-018", text="Paid $1,250.00 today.", standing=STANDING_RECORD)
+    claim = [c for c in extract_module.extract(doc) if c.kind == "amount"][0]
+    gate = gate_module.ConfidenceGate(require_source=True)
+
+    a_recorded = threading.Event()
+    b_recorded = threading.Event()
+    a_decision = {}
+
+    def thread_a():
+        conf_a = HumanConfirmation(
+            claim_id=claim.claim_id, confirmed_value={"amount": 111.0, "currency": "USD"},
+            confirmed_by="reviewer-A", rationale="A's review",
+        )
+        gate.record_confirmation(conf_a)
+        a_recorded.set()
+        b_recorded.wait(timeout=5)
+        d = gate.submit(claim, document=doc)
+        a_decision["confirmed_by"] = d.confirmed_by
+        a_decision["value_at_submit"] = dict(claim.value)
+
+    def thread_b():
+        a_recorded.wait(timeout=5)
+        conf_b = HumanConfirmation(
+            claim_id=claim.claim_id, confirmed_value={"amount": 222.0, "currency": "USD"},
+            confirmed_by="reviewer-B", rationale="B's review",
+        )
+        gate.record_confirmation(conf_b)
+        b_recorded.set()
+
+    ta = threading.Thread(target=thread_a)
+    tb = threading.Thread(target=thread_b)
+    ta.start()
+    tb.start()
+    ta.join(timeout=5)
+    tb.join(timeout=5)
+
+    assert a_decision["confirmed_by"] == "reviewer-B", (
+        "expected A's own submit() call to be silently misattributed to "
+        "B's confirmation -- if this now shows 'reviewer-A', the race no "
+        "longer reproduces deterministically; re-verify the synchronization"
+    )
+    assert a_decision["value_at_submit"] == {"amount": 222.0, "currency": "USD"}
+
+
+def test_hmax_019_claim_from_dict_reconstructs_without_verifying_the_seal():
+    """[EXECUTING] HMAX-019 (HMAX-8.0). Fourth sighting of the opt-in-
+    enforcement primitive (Q2's family), in code never previously
+    attacked this engagement: CandidateClaim.to_dict()/from_dict() are
+    never called anywhere in herald/*.py outside their own definitions
+    (confirmed by grep) -- a pure public API for a consumer choosing to
+    persist/reload a claim, not wired into extract()/gate.py/handoff.py.
+
+    from_dict() reconstructs a CandidateClaim via cls(**data), which runs
+    __post_init__ (boundary/authority/provenance/confidence-range checks)
+    but never calls verify_seal(). A forged dict with value changed and
+    content_hash left at its original (now-stale) value reconstructs into
+    an object that looks fully sealed -- content_hash is present and
+    non-None -- but does not actually match its own current content.
+    verify_seal() correctly catches this WHEN CALLED; nothing calls it
+    automatically as part of from_dict().
+
+    RALPH's challenge: is this just Q1/Q2 restated? Verdict: same
+    architectural STYLE (a real check exists, isn't automatically
+    invoked) as Q2 and HMAX-016, but a fourth independent code path
+    (claim.py's own serialization, never touched by anything built or
+    tested in this campaign until now) -- worth recording as evidence
+    the pattern is pervasive across the codebase, not confined to the
+    two places (Binding, export_mac) already found.
+    """
+    doc = SourceDocument(source_id="hmax-019", text="Paid $1,250.00 today.", standing=STANDING_RECORD)
+    claim = [c for c in extract_module.extract(doc) if c.kind == "amount"][0]
+    original = claim.to_dict()
+
+    forged = dict(original)
+    forged["value"] = {"amount": 999999.0, "currency": "USD"}  # content_hash left stale
+    reconstructed = CandidateClaim.from_dict(forged)
+
+    assert reconstructed.value == {"amount": 999999.0, "currency": "USD"}
+    assert reconstructed.content_hash == original["content_hash"]
+    assert reconstructed.content_hash != reconstructed.compute_hash(), (
+        "expected the reconstructed object's stale content_hash to no "
+        "longer match its own current content"
+    )
+    with pytest.raises(SealIntegrityError):
+        reconstructed.verify_seal()  # catches it -- but only if called
