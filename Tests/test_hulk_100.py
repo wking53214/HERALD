@@ -2997,7 +2997,11 @@ def test_boundary_no_separator_evasion_remains_an_honest_residual():
 
 
 def test_boundary_evasion_reaches_actual_claim_construction_end_to_end():
-    """[EXECUTING] Confirms the evasion is not a boundary.py-only curiosity
+    """[EXECUTING] Post Q5-remediation, this specifically exercises the
+    one case that remains open (see
+    test_boundary_no_separator_evasion_remains_an_honest_residual):
+    "adverseaction" has no separator and no case signal, so it's still
+    accepted. Confirms that residual is not a boundary.py-only curiosity
     -- it reaches the actual public CandidateClaim constructor, the one
     real path every extractor (present or future) uses.
     """
