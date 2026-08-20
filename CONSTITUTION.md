@@ -59,7 +59,39 @@ authorization.
 
 ---
 
-## 4. Containment
+## 4. A span is only a citation if it is bound
+
+Every claim carries the content hash of the document it was read from, and
+`verify_against()` re-checks it. A claim that seals only its own content can
+be **internally perfect and externally wrong**: still verifying cleanly while
+its offsets point at characters that now say something else. The
+internally-perfect part is what makes that dangerous.
+
+A claim with no source binding is not a weaker citation. It is not a
+citation, and it does not pass.
+
+Verification belongs at the gate, not in caller discipline. A check you have
+to remember to run is a check that will not survive contact with a deadline.
+
+---
+
+## 5. Ingestion is a contract, not an open door
+
+A source document declares its identity, its medium, and optionally its
+anchors, and is validated on the way in. Malformed input is refused loudly,
+never coerced or defaulted. An empty document is an ingestion failure, not a
+document that happens to contain no claims, and the two must never produce
+the same result.
+
+Character offsets into a long document are not a citation a human can act on.
+Named anchors (pages, turns, sections) are what a person is given; the offset
+stays for machine re-checking. Partial labelling is refused: a citation that
+is sometimes a real page number and sometimes a guess is worse than one that
+is consistently a guess.
+
+---
+
+## 6. Containment
 
 Consuming projects pin to an exact HERALD version **and code hash**. Same
 discipline as a cassette code-hash bump. A fix does not propagate silently;
@@ -71,7 +103,7 @@ otherwise cost.
 
 ---
 
-## 5. Test standard: calibration, not correctness
+## 7. Test standard: calibration, not correctness
 
 HERALD is graded on whether it is **honest about its own uncertainty**, not
 on whether its reading of a sentence is right. Reading is contested; a suite
@@ -93,7 +125,7 @@ must never look like a clean run.
 
 ---
 
-## 6. Determinism in the core
+## 8. Determinism in the core
 
 The core detectors are rule-based and reproducible. A model may be layered on
 top to propose additional flags, but it enters as `INFERRED` provenance and

@@ -23,6 +23,15 @@ or safe to act on. There is deliberately no verdict in this file that a
 consuming system could mistake for authorization, because producing one
 would break the boundary this package exists to hold.
 
+SOURCE VERIFICATION IS PART OF THE GATE, NOT AN OPTIONAL EXTRA
+---------------------------------------------------------------
+When the source document is supplied, the gate re-checks that each claim
+still points where it says it points, and BLOCKS it if the source has
+moved since extraction. This is deliberately at the gate rather than left
+to the caller: a check you have to remember to run is a check that will
+not survive contact with a deadline. Callers who cannot supply the
+document get a verdict that says so, rather than a silent pass.
+
 NO SILENT SKIPS
 ----------------
 Every claim submitted comes back with a verdict and a reason. Nothing is
@@ -130,11 +139,21 @@ class ConfidenceGate:
         self,
         default_threshold: float = DEFAULT_THRESHOLD,
         thresholds: Optional[Mapping[str, float]] = None,
+        require_source: bool = False,
     ):
+        """
+        require_source -- when True, a claim submitted without its source
+            document is BLOCKED rather than judged on confidence alone.
+            Off by default so the simple path still works, but any consumer
+            whose claims carry real-world consequence should turn it on:
+            it converts "the caller should verify the source" from advice
+            into a condition of passing.
+        """
         if not 0.0 <= default_threshold <= 1.0:
             raise ValueError("default_threshold must be between 0 and 1")
         self.default_threshold = default_threshold
         self.thresholds: Dict[str, float] = dict(thresholds or {})
+        self.require_source = require_source
         self._confirmations: Dict[str, HumanConfirmation] = {}
 
     def threshold_for(self, kind: str) -> float:
@@ -146,8 +165,14 @@ class ConfidenceGate:
         self._confirmations[confirmation.claim_id] = confirmation
         return confirmation
 
-    def submit(self, claim: CandidateClaim) -> GateDecision:
-        """Decide whether one claim may proceed to the governance layer."""
+    def submit(self, claim: CandidateClaim, document=None) -> GateDecision:
+        """Decide whether one claim may proceed to the governance layer.
+
+        document -- the SourceDocument the claim was read from. Supply it
+                    whenever it is available: without it the gate can
+                    confirm the claim has not been edited, but not that
+                    the text it cites still says what it said.
+        """
         threshold = self.threshold_for(claim.kind)
 
         try:
@@ -159,6 +184,29 @@ class ConfidenceGate:
                 confidence=claim.confidence,
                 threshold=threshold,
                 reason=f"integrity: {exc}",
+            )
+
+        if document is not None:
+            try:
+                claim.verify_against(document)
+            except SealIntegrityError as exc:
+                return GateDecision(
+                    claim_id=claim.claim_id,
+                    verdict=VERDICT_BLOCKED,
+                    confidence=claim.confidence,
+                    threshold=threshold,
+                    reason=f"source: {exc}",
+                )
+        elif self.require_source:
+            return GateDecision(
+                claim_id=claim.claim_id,
+                verdict=VERDICT_BLOCKED,
+                confidence=claim.confidence,
+                threshold=threshold,
+                reason=(
+                    "source document not supplied and this gate requires it; "
+                    "an unverifiable citation is refused rather than assumed good"
+                ),
             )
 
         confirmation = self._confirmations.get(claim.claim_id)
@@ -197,9 +245,11 @@ class ConfidenceGate:
             ),
         )
 
-    def submit_all(self, claims: Iterable[CandidateClaim]) -> List[GateDecision]:
+    def submit_all(
+        self, claims: Iterable[CandidateClaim], document=None
+    ) -> List[GateDecision]:
         """Every claim in, every claim out. No silent drops."""
-        return [self.submit(c) for c in claims]
+        return [self.submit(c, document=document) for c in claims]
 
 
 def summarize(decisions: Iterable[GateDecision]) -> Dict[str, Any]:

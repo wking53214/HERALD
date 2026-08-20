@@ -29,6 +29,20 @@ governed determination raises `BoundaryViolation` at construction. See
 
 ---
 
+## Ingestion
+
+Text does not enter loose. A `SourceDocument` declares its identity, its
+medium, an optional version, and optional named anchors, and is validated on
+the way in. Malformed input is refused rather than read anyway. An empty
+document is an ingestion failure, not a document with no claims in it.
+
+Anchors matter because character offset 184,203 into a three-hundred-page
+filing is not a citation anyone can act on. Supply page breaks, transcript
+turns, or section numbers and every claim records which one it fell in. The
+offset stays for machine re-checking; the label is what a human is handed.
+
+---
+
 ## What a claim carries
 
 Every extracted claim comes back with:
@@ -41,10 +55,27 @@ Every extracted claim comes back with:
 - the **opacity flags** that fired nearby (hedging, modals, conditionals,
   elastic terms, negation, coordination, vague quantifiers, unclear referents)
 - a **content hash**, so post-hoc edits are detected rather than trusted
+- the **content hash of the source document**, so a moved source is detected
+  rather than silently cited
+- the **anchor** it should be cited by, when the document supplied one
 - an **authority level frozen at `ADVISORY`**, with no setter
 
 A claim can explain itself in plain language via `.explain()`. A bare number
 cannot, which is why there isn't one.
+
+---
+
+## Why the source hash matters more than it sounds
+
+A claim that seals only its own content can be internally perfect and
+externally wrong. Edit the source document and the claim still verifies
+cleanly, while its offsets now point at characters that say something else.
+The internally-perfect part is what makes it convincing.
+
+So claims bind to their source, and the gate re-checks. Turn on
+`require_source` and a claim submitted without its document is blocked rather
+than judged on confidence alone: it converts "the caller should verify the
+source" from advice into a condition of passing.
 
 ---
 
@@ -111,6 +142,7 @@ stated figure next to a conditional sentence scored zero.
 | File | What it does |
 |---|---|
 | `boundary.py` | The constitutional rule, as running code |
+| `source.py` | Ingestion contract, document identity, anchors |
 | `claim.py` | The only output type; traceable, self-explaining, sealed |
 | `ambiguity.py` | Deterministic opacity detection |
 | `extract.py` | The domain-agnostic extractors, and nothing else |
@@ -125,6 +157,13 @@ Standard library only. No dependencies.
 
 ## Status
 
-Version 0.1.0. 83 tests passing, ruff clean (0.15.22, the pinned version the
+Version 0.2.0. 112 tests passing, ruff clean (0.15.22, the pinned version the
 rest of the stack gates on), bandit clean at `-ll`. No consuming project is
 wired in yet.
+
+**Known gap, deliberately open:** the downstream seam. Nothing yet translates
+an admitted claim into a consuming system's own event contract, and the
+provenance vocabularies do not map on their own. That adapter is the next
+piece, and it belongs on the consuming side, because mapping a domain-agnostic
+`amount` onto a domain word is domain knowledge and domain knowledge does not
+live here.

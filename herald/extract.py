@@ -32,10 +32,11 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Pattern
+from typing import Callable, Dict, List, Optional, Pattern, Union
 
 from . import ambiguity
 from .claim import CandidateClaim, PROV_EXTRACTED
+from .source import SourceDocument
 
 KIND_DATE = "date"
 KIND_AMOUNT = "amount"
@@ -212,17 +213,32 @@ def _norm_amount_dispatch(m: re.Match):
 
 
 def extract(
-    text: str,
-    source_id: str,
+    source: Union[SourceDocument, str],
+    source_id: Optional[str] = None,
     specs: Optional[List[ExtractorSpec]] = None,
     window: int = 60,
 ) -> List[CandidateClaim]:
-    """Run every extractor over the text and return sealed candidate claims.
+    """Run every extractor over a document and return sealed candidate claims.
+
+    Accepts a SourceDocument, or a plain string plus a source_id for the
+    simple case. Either way the document is validated on the way in and
+    every claim is bound to its content hash: there is no path through
+    this function that produces an unbound claim.
 
     Overlapping matches from different extractors are all returned. Nothing
     here decides which of two competing readings is right; that is a
     judgment, and judgments leave this package.
     """
+    if isinstance(source, str):
+        if not source_id:
+            raise ValueError("source_id is required when passing raw text")
+        document = SourceDocument.from_text(source, source_id)
+    else:
+        document = source
+        document.validate()
+
+    text = document.text
+    source_hash = document.content_hash
     flags = ambiguity.detect(text)
     claims: List[CandidateClaim] = []
     for spec in specs or SPECS:
@@ -235,10 +251,12 @@ def extract(
                 value=value,
                 raw=match.group(0),
                 span=(match.start(), match.end()),
-                source_id=source_id,
+                source_id=document.source_id,
                 provenance=PROV_EXTRACTED,
                 base_confidence=spec.base_confidence,
                 extractor=spec.name,
+                source_hash=source_hash,
+                segment=document.segment_label_for((match.start(), match.end())),
             )
             ambiguity.apply_to_claim(claim, flags, window=window, text=text)
             claims.append(claim.seal())

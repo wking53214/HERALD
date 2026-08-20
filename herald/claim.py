@@ -20,6 +20,16 @@ offsets and the literal excerpt, so a human or an auditor can put the
 claim next to its source and disagree with it. Challengeability is not a
 feature added later; it is the reason the span field exists.
 
+WHY THE SOURCE HASH IS ALSO MANDATORY
+--------------------------------------
+An offset is only a citation if the document it points into has not
+moved. A claim that seals its own content but not its source can be
+internally perfect and externally wrong -- still verifying cleanly while
+pointing at characters that now say something else. That is worse than an
+obvious break, because the internally-perfect part is what makes it
+convincing. So the claim also carries the content hash of the text it was
+read from, and verify_against() re-checks both.
+
 WHY CONFIDENCE CARRIES ITS OWN REASONS
 ---------------------------------------
 A bare number invites exactly the failure this package exists to
@@ -109,6 +119,8 @@ class CandidateClaim:
     reasons: List[ConfidenceReason] = field(default_factory=list)
     opacity_flags: List[str] = field(default_factory=list)
     extractor: str = "unspecified"
+    source_hash: Optional[str] = None
+    segment: Optional[str] = None
     claim_id: str = field(default_factory=lambda: f"clm-{uuid.uuid4().hex[:12]}")
     created_at: str = field(default_factory=_utc_now)
     content_hash: Optional[str] = None
@@ -193,6 +205,8 @@ class CandidateClaim:
             "reasons": [asdict(r) for r in self.reasons],
             "opacity_flags": sorted(self.opacity_flags),
             "extractor": self.extractor,
+            "source_hash": self.source_hash,
+            "segment": self.segment,
         }
 
     def compute_hash(self) -> str:
@@ -203,6 +217,12 @@ class CandidateClaim:
         return self
 
     def verify_seal(self) -> None:
+        """Has this claim been edited since it was sealed?
+
+        Answers that question only. A claim can pass this and still be
+        pointing into a document that has since changed underneath it,
+        which is what verify_against is for.
+        """
         if self.content_hash is None:
             raise SealIntegrityError(f"{self.claim_id}: never sealed")
         actual = self.compute_hash()
@@ -210,6 +230,45 @@ class CandidateClaim:
             raise SealIntegrityError(
                 f"{self.claim_id}: content changed after sealing "
                 f"(sealed {self.content_hash[:12]}, now {actual[:12]})"
+            )
+
+    def verify_against(self, document) -> None:
+        """Does this claim still point where it says it points?
+
+        Three checks, in the order they fail most usefully:
+
+        1. The claim was bound to a source at all. An unbound claim is not
+           a weaker citation, it is not a citation, and it must not pass.
+        2. The document's content hash matches what was bound. This is the
+           real defect this method exists for: a source edited after
+           extraction.
+        3. The span still slices to the recorded text. Redundant when the
+           hash matches, and kept anyway: it catches a claim that was
+           tampered with and then re-sealed, where the internal seal has
+           been made consistent with a lie.
+        """
+        if self.source_hash is None:
+            raise SealIntegrityError(
+                f"{self.claim_id}: never bound to a source document; "
+                "an unbound claim has no traceability to verify"
+            )
+        if document.source_id != self.source_id:
+            raise SealIntegrityError(
+                f"{self.claim_id}: bound to source {self.source_id!r}, "
+                f"checked against {document.source_id!r}"
+            )
+        actual = document.content_hash
+        if actual != self.source_hash:
+            raise SealIntegrityError(
+                f"{self.claim_id}: source {self.source_id!r} changed since extraction "
+                f"(bound {self.source_hash[:12]}, now {actual[:12]}). "
+                "The span no longer cites what it was read from; re-extract."
+            )
+        start, end = self.span
+        if document.text[start:end] != self.raw:
+            raise SealIntegrityError(
+                f"{self.claim_id}: span {self.span} no longer slices to the recorded "
+                f"text {self.raw!r}"
             )
 
     # -- serialization -------------------------------------------------

@@ -66,6 +66,13 @@ from .gate import (
     HumanConfirmation,
 )
 from .golden_set import starter_set
+from .source import (
+    IngestionError,
+    Segment,
+    SourceDocument,
+    segments_by_marker,
+    segments_by_paragraph,
+)
 
 __version__ = VERSION
 
@@ -99,4 +106,9 @@ __all__ = [
     "SealIntegrityError",
     "BindingError",
     "CalibrationError",
+    "SourceDocument",
+    "Segment",
+    "IngestionError",
+    "segments_by_paragraph",
+    "segments_by_marker",
 ]
