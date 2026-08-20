@@ -120,6 +120,7 @@ class CandidateClaim:
     opacity_flags: List[str] = field(default_factory=list)
     extractor: str = "unspecified"
     source_hash: Optional[str] = None
+    source_standing: Optional[str] = None
     segment: Optional[str] = None
     bundle_id: Optional[str] = None
     claim_id: str = field(default_factory=lambda: f"clm-{uuid.uuid4().hex[:12]}")
@@ -228,6 +229,7 @@ class CandidateClaim:
             "opacity_flags": sorted(self.opacity_flags),
             "extractor": self.extractor,
             "source_hash": self.source_hash,
+            "source_standing": self.source_standing,
             "segment": self.segment,
             "bundle_id": self.bundle_id,
         }
@@ -259,18 +261,32 @@ class CandidateClaim:
         """Does this claim still point where it says it points, and does it
         still mean what its own citation says it means?
 
-        Four checks, in the order they fail most usefully:
+        Five checks, in the order they fail most usefully:
 
         1. The claim was bound to a source at all. An unbound claim is not
            a weaker citation, it is not a citation, and it must not pass.
         2. The document's content hash matches what was bound. This is the
            real defect this method exists for: a source edited after
            extraction.
-        3. The span still slices to the recorded text. Redundant when the
+        3. The document's standing matches what was bound at extraction
+           time (HMAX-020, second-order attack on the documented
+           standing-swap residual). content_hash alone proves the TEXT
+           has not moved; it says nothing about whether the document
+           object handed to build() still carries the standing (record /
+           attestation / derived) that was true when the claim was read.
+           Two SourceDocuments with byte-identical text and different
+           standing have identical content_hash, so check 2 cannot see a
+           swap between them -- confirmed directly by prior adversarial
+           testing (see test_claim_verify_against_would_not_catch_a_
+           standing_only_swap). Binding source_standing into the claim's
+           own seal at extraction time, and checking it here, closes the
+           gap that check does not: a swap is now a citation mismatch,
+           not a silent standing change.
+        4. The span still slices to the recorded text. Redundant when the
            hash matches, and kept anyway: it catches a claim that was
            tampered with and then re-sealed, where the internal seal has
            been made consistent with a lie.
-        4. For EXTRACTED/INFERRED claims only: value is re-derived fresh
+        5. For EXTRACTED/INFERRED claims only: value is re-derived fresh
            from the cited span, using the named extractor's own matching
            and normalization logic, and compared against the claim's
            current value. Checks 1-3 establish that the citation is
@@ -312,6 +328,14 @@ class CandidateClaim:
                 f"{self.claim_id}: source {self.source_id!r} changed since extraction "
                 f"(bound {self.source_hash[:12]}, now {actual[:12]}). "
                 "The span no longer cites what it was read from; re-extract."
+            )
+        if document.standing != self.source_standing:
+            raise SealIntegrityError(
+                f"{self.claim_id}: document {self.source_id!r} standing changed since "
+                f"extraction (bound {self.source_standing!r}, now {document.standing!r}). "
+                "Standing is not part of the document's text and content_hash alone "
+                "cannot detect this; a claim extracted under one standing must not be "
+                "handed off under another. Re-extract if the standing genuinely changed."
             )
         start, end = self.span
         if document.text[start:end] != self.raw:

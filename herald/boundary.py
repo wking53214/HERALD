@@ -44,6 +44,7 @@ point.
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import FrozenSet, Iterable, Set
 
 from .errors import BoundaryViolation
@@ -93,6 +94,41 @@ _SEPARATOR_RUN = re.compile(r"[\W_]+", re.UNICODE)
 _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 
 
+def _fold(kind: str) -> str:
+    """Canonicalize lookalike Unicode to plain ASCII before anything else runs.
+
+    Adversarial testing found this check evaded outright, not just
+    weakened, by three cheap substitutions: a fullwidth Latin letter
+    ("eligibility" with a fullwidth e), a zero-width space inserted mid-
+    word ("e<ZWSP>ligibility"), or a precomposed/combining accent
+    ("eligibility" with an acute e). None of these change what a human
+    reads; all three changed what _segments() tokenized, because the
+    original code compared code points, not meaning.
+
+    Two passes close all three at once: stripping Unicode category Cf
+    (zero-width space, joiners, byte-order marks -- characters defined to
+    render as nothing) removes the invisible-injection vector; NFKD
+    decomposition followed by dropping combining marks (category Mn)
+    folds fullwidth/compatibility variants and accented letters onto
+    their plain-ASCII base, because that decomposition is exactly what
+    those code points are defined to mean. This runs before tokenization
+    so every downstream comparison -- whole-string and segmented alike --
+    sees the same folded form.
+
+    This does NOT close cross-script homoglyphs: Cyrillic "е" (U+0435)
+    or Greek "α" (U+03B1) render identically to Latin "e"/"a" but have no
+    canonical or compatibility relationship to them in the Unicode
+    tables, so no normalization form folds one onto the other. Closing
+    that would require a curated confusables table (as IDN registries
+    use for lookalike-domain detection) -- a materially different and
+    larger mechanism than folding, left as a known, documented residual
+    for the same reason the no-separator-no-case-signal gap below is.
+    """
+    stripped = "".join(ch for ch in kind if unicodedata.category(ch) != "Cf")
+    decomposed = unicodedata.normalize("NFKD", stripped)
+    return "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+
+
 def governed_determinations() -> FrozenSet[str]:
     """The current forbidden set. Read-only view."""
     return frozenset(_GOVERNED_DETERMINATIONS)
@@ -106,7 +142,7 @@ def forbid(*kinds: str) -> None:
     call someone can make at runtime.
     """
     for kind in kinds:
-        normalized = kind.strip().lower()
+        normalized = _fold(kind.strip()).lower()
         if not normalized:
             raise ValueError("cannot forbid an empty kind")
         _GOVERNED_DETERMINATIONS.add(normalized)
@@ -130,9 +166,10 @@ def _segments(kind: str) -> Set[str]:
     different and larger mechanism -- left as a known, documented
     residual rather than folded into this fix.
     """
-    normalized = kind.strip().lower()
+    folded = _fold(kind.strip())
+    normalized = folded.lower()
     parts = [normalized]
-    working = _CAMEL_BOUNDARY.sub(" ", kind.strip())
+    working = _CAMEL_BOUNDARY.sub(" ", folded)
     working = _SEPARATOR_RUN.sub(" ", working)
     tokens = [t.lower() for t in working.split() if t]
     for start in range(len(tokens)):
