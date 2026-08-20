@@ -4055,3 +4055,63 @@ def test_hmax_009_structured_reference_bounded_quantifiers_are_immune_to_the_red
         f"unexpected superlinear growth in structured_reference timings: {timings} -- "
         "if this fails, the bounded-quantifier pattern may no longer be immune"
     )
+
+
+def test_hmax_010_ambiguity_coordination_pattern_redos_is_a_separate_confirmed_vulnerability():
+    """[EXECUTING] HMAX-010. Baseline-completeness fix, found while drafting
+    the HMAX-5.0 adversarial regression plan: this second, independently-
+    isolated ReDoS (first identified during this engagement's earlier
+    discovery work, described in prior session notes) was never actually
+    turned into a permanent regression test until now -- it existed only
+    as narrative, not as executable evidence in this file. Added to the
+    pre-remediation baseline so the Q6 primitive's full confirmed scope is
+    captured before any fix lands, matching what
+    test_nl_redos_missing_required_unit_causes_quadratic_backtracking
+    already does for the extract.py instance.
+
+    ambiguity.py's COORDINATION pattern
+    (`[\\w$£€¥%.,]+\\s+and\\s+[\\w$£€¥%.,]+\\s+or\\s+\\w+`) shares the same
+    vulnerable shape: an unbounded character class followed by a required-
+    but-omittable literal ("and"). A long unbroken word-character run with
+    no " and "/" or " anywhere forces the engine to backtrack through every
+    possible split point. Unlike the extract.py instance (triggered
+    specifically by digit-comma runs), this one is triggered by ANY long
+    unbroken word-character run -- a broader trigger condition, confirmed
+    distinct in this engagement's prior discovery work.
+
+    Verified as genuinely quadratic (not linear) using the same
+    methodology as the extract.py instance: n=1600 must take close to 4x
+    as long as n=800, generous tolerance (>3x) to rule out linear scaling
+    while avoiding environment-timing flakiness. Bounded to a maximum of
+    1600 characters -- large enough to measure the ratio reliably,
+    small enough to keep this test itself fast and safe to run.
+    """
+    from herald import ambiguity as ambiguity_module
+
+    coord_pattern = next(
+        pattern for category, pattern in ambiguity_module._COMPILED
+        if category == ambiguity_module.COORDINATION
+    )
+
+    def timed(n, trials=5):
+        text = "x" * n  # long unbroken word-char run, no "and"/"or" anywhere
+        best = float("inf")
+        for _ in range(trials):
+            t0 = time.time()
+            coord_pattern.search(text)
+            best = min(best, time.time() - t0)
+        return best
+
+    small = timed(800)
+    large = timed(1600)
+    assert large > 0.002, (
+        f"n=1600 took only {large:.5f}s -- too fast to reliably measure "
+        "the ratio; environment may be unusually fast"
+    )
+    ratio = large / max(small, 1e-6)
+    assert ratio > 3.0, (
+        f"doubling input length only scaled runtime by {ratio:.1f}x "
+        "(expected close to 4x, quadratic); the COORDINATION pattern may "
+        "no longer have this vulnerability, or the measurement is "
+        "unreliable in this environment"
+    )
