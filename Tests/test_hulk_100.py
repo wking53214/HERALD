@@ -101,6 +101,7 @@ from herald.extract import (
 from herald.gate import (
     DEFAULT_THRESHOLD,
     VERDICT_ADMITTED,
+    VERDICT_BLOCKED,
     VERDICT_REFUSED,
     ConfidenceGate,
     GateDecision,
@@ -197,6 +198,18 @@ def test_claim_source_swap_with_reseal_passes_both_internal_checks():
     and reseal. Both verify_seal() and verify_against() -- the two checks
     ConfidenceGate.submit() actually runs -- must pass, demonstrating that
     neither is an authorization-continuity check on its own.
+
+    NOTE (post Q1-remediation, see HMAX_HMAX_REMEDIATION_ARCHITECTURE.md):
+    verify_against() now also re-derives value from raw via the named
+    extractor and compares (the HMAX-002/003 fix). For THIS test's point
+    to still hold, value must be updated to something that genuinely,
+    correctly corresponds to the swapped raw text -- {"amount": 999.0,
+    ...}, not a bare int -- exactly as a real, consistent document swap
+    would produce. The original test used a bare `999`, which the new
+    check correctly rejects as a malformed/incorrect value; that was an
+    imprecision in this test's own construction, not evidence the swap
+    itself is newly caught. Corrected here; the swap still passes both
+    checks when done properly, which remains this test's real point.
     """
     doc_a = SourceDocument(source_id="doc-a", text="Paid $100 today.", standing=STANDING_RECORD)
     claim = [c for c in extract_module.extract(doc_a) if c.kind == "amount"][0]
@@ -205,7 +218,7 @@ def test_claim_source_swap_with_reseal_passes_both_internal_checks():
     doc_b = SourceDocument(source_id="doc-a", text="Paid $999 today.", standing=STANDING_RECORD)
     span = claim.span
     claim.raw = doc_b.text[span[0]:span[1]]
-    claim.value = 999
+    claim.value = {"amount": 999.0, "currency": "USD"}
     claim.source_hash = doc_b.content_hash
     claim.seal()
 
@@ -259,10 +272,20 @@ def test_confirmation_reapply_after_tamper_defeats_its_own_verify():
 # ---------------------------------------------------------------------------
 
 def test_gate_regrades_a_resealed_claim_from_scratch():
-    """[EXECUTING] F5. A claim already ADMITTED, then tampered and
-    resealed, is submitted again. The gate has no record of the earlier
-    verdict or the value it was attached to, so it grades the new content
-    as if seeing it for the first time -- and admits it again.
+    """[EXECUTING] F5. Originally: a claim already ADMITTED, then tampered
+    (value substituted, raw/span left untouched) and resealed, was
+    submitted again -- the gate had no record of the earlier verdict or
+    the value it was attached to, and admitted the mismatched value again.
+
+    Post Q1-remediation (see HMAX_REMEDIATION_ARCHITECTURE.md): the second
+    submit() now calls claim.verify_against(document), which re-derives
+    value from raw via the named extractor and finds a mismatch --
+    BLOCKED_INTEGRITY, not a silent re-admission. This was one of the
+    earliest findings in the whole engagement (F5, HULK round 1) and is
+    closed as a side effect of the same fix that closes HMAX-002/003,
+    since it is the identical primitive (value substituted, citation left
+    genuine) reached via a slightly different path (gate resubmission
+    rather than direct handoff).
     """
     doc = SourceDocument(source_id="doc-2", text="Paid $1,250.00 today.", standing=STANDING_RECORD)
     claim = [c for c in extract_module.extract(doc) if c.kind == "amount"][0]
@@ -276,11 +299,14 @@ def test_gate_regrades_a_resealed_claim_from_scratch():
     claim.seal()
 
     second = gate.submit(claim, document=doc)
-    assert second.verdict == VERDICT_ADMITTED
+    assert second.verdict == VERDICT_BLOCKED, (
+        "expected the resubmission to be BLOCKED now that verify_against() "
+        "re-derives value from raw and catches the mismatch -- if this now "
+        "fails, the Q1 remediation may have regressed"
+    )
     assert claim.value != authorized_value, (
-        "the gate admitted a claim_id a second time under a value that "
-        "differs from what it admitted the first time, with no signal "
-        "that this is a divergence from a prior authorization"
+        "the mutated value should still differ from what was originally "
+        "authorized -- this is the premise of the test, not its outcome"
     )
 
 
@@ -3750,32 +3776,24 @@ def test_hmax_gateway_require_source_true_correctly_blocks_the_naive_version():
     assert decision.verdict == gate_module.VERDICT_BLOCKED
 
 
-def test_hmax_gateway_safe_path_verifies_citation_but_never_verifies_value():
-    """[EXECUTING] HMAX-CAMPAIGN, HIGH-LEVERAGE ROOT CAUSE. This is the
-    escalation that survives RALPH's strongest challenge: even on the
-    fully "safe path" (require_source=True, a REAL document genuinely
-    supplied), claim.verify_against(document) checks three things --
-    source binding present, document content_hash unchanged, and the
-    claim's span slices to exactly claim.raw in the document text. All
-    three are real, correct, and confirmed to actually stop a naive
-    fabrication attempt (see test_hmax_gateway_default_path... above).
+def test_hmax_gateway_safe_path_now_verifies_value_against_raw_too():
+    """[EXECUTING] HMAX-002, CLOSED post Q1-remediation (see
+    HMAX_REMEDIATION_ARCHITECTURE.md). Originally: even on the fully "safe
+    path" (require_source=True, a REAL document genuinely supplied),
+    claim.verify_against(document) checked source binding, document hash,
+    and span-to-raw slicing, but never compared `claim.value` against
+    `claim.raw` for consistency -- a claim whose raw genuinely, verifiably
+    said "$50,000,000.00" could carry a value of $500.00 and pass cleanly.
 
-    But NONE of the three checks -- nor anything else in claim.py,
-    gate.py, or handoff.py -- ever compares `claim.value` (the structured,
-    parsed fact) against `claim.raw` (the literal cited text) for
-    consistency. A claim whose `raw` is genuinely, verifiably,
-    span-correctly "$50,000,000.00" -- present at that exact location in
-    that exact real document -- can carry a `value` of $500.00, or
-    anything else, and every check HERALD has passes cleanly.
-
-    This is the root cause unifying three already-confirmed NL-parsing
-    bugs in this harness (European-decimal misparse, $mm-shorthand
-    under/over-value, negative-sign loss): none of those bugs are
-    "caught late" by some other layer, because no layer anywhere checks
-    value-against-raw consistency, structurally, even in the fully
-    verified case. Any future bug in any extractor's parsing arithmetic
-    -- not just today's three known ones -- is undetectable by design,
-    forever, regardless of how carefully the citation itself is verified.
+    verify_against() now adds a fourth check: for EXTRACTED/INFERRED
+    claims, it looks up the claim's named extractor in extract.py's SPECS
+    registry, re-matches `raw` at its recorded span in the actual document
+    text (not the isolated raw string -- word-boundary assertions are
+    context-sensitive at the edges of a match, so re-matching an isolated
+    substring can silently produce a different match than the original
+    extraction did), re-derives value via that extractor's own
+    normalize(), and compares. A genuine mismatch is now BLOCKED_INTEGRITY,
+    not silently admitted.
     """
     text = "The invoice states $50,000,000.00 as the total due."
     doc = SourceDocument(source_id="real-doc-hmax-1", text=text, standing=STANDING_RECORD)
@@ -3797,68 +3815,53 @@ def test_hmax_gateway_safe_path_verifies_citation_but_never_verifies_value():
 
     gate = gate_module.ConfidenceGate(require_source=True)  # the fully safe posture
     decision = gate.submit(claim, document=doc)  # a REAL document, genuinely supplied
-    assert decision.verdict == gate_module.VERDICT_ADMITTED, (
-        "expected the mismatched-value claim to be admitted despite the wrong "
-        "value, since nothing checks value against raw -- if this now fails, "
-        "a value/raw consistency check may have been added; re-verify"
+    assert decision.verdict == gate_module.VERDICT_BLOCKED, (
+        "expected the mismatched-value claim to now be BLOCKED -- if this "
+        "fails, the Q1 remediation's value-vs-raw check may have regressed"
     )
-
-    pkg = handoff_module.build([claim], [decision], doc)
-    assert pkg.admitted[0].value == {"amount": 500.0, "currency": "USD"}
-    assert pkg.admitted[0].raw == "$50,000,000.00"
-    # The exported claim is internally contradictory -- raw and value
-    # disagree by five orders of magnitude -- and nothing in the export
-    # marks it as such.
+    assert "does not match what the" in decision.reason
 
 
-def test_hmax_003_value_reseal_on_a_genuine_extraction_reaches_full_admission():
-    """[EXECUTING] HMAX-003. A sharper, more realistic reproduction of the
-    HMAX-002 primitive than direct construction: start from a genuinely,
-    honestly extract()-produced claim -- real text, real regex match, real
-    seal. Mutate ONLY `claim.value` (a plain, unguarded, mutable field) and
-    call the real, public, documented `claim.seal()` method -- the exact
-    same two-step pattern (`claim.value = ...; claim.seal()`) gate.py's own
-    ConfidenceGate.submit() uses internally for legitimate human
-    confirmations.
+def test_hmax_003_value_reseal_on_a_genuine_extraction_is_now_caught():
+    """[EXECUTING] HMAX-003, CLOSED post Q1-remediation (see
+    HMAX_REMEDIATION_ARCHITECTURE.md). Originally: start from a genuinely,
+    honestly extract()-produced claim, mutate ONLY `claim.value` (a plain,
+    unguarded, mutable field), call the real, public `claim.seal()` method
+    -- the exact same two-step pattern (`claim.value = ...; claim.seal()`)
+    gate.py's own ConfidenceGate.submit() uses internally for legitimate
+    human confirmations -- and the claim reached full ADMITTED_FOR_GOVERNANCE
+    on the safe path, exporting with `reading: EXTRACTED`, full confidence,
+    and no opacity flags, while `raw` said "$50,000,000.00" and `value`
+    said "$500.00" simultaneously.
 
-    Confirmed live: this passes verify_seal() (self-consistent with the new
-    value), passes verify_against(document) (raw/span/hash all untouched
-    and still genuinely correct), is ADMITTED_FOR_GOVERNANCE on the fully
-    safe path (require_source=True, real document), and exports with
-    `reading: EXTRACTED`, `derivation_method: herald:currency_amount`,
-    `confidence: 0.95`, `opacity_flags: []` -- every signal asserting a
-    clean, direct, unmediated extraction, while `raw` genuinely says
-    "$50,000,000.00" and `value` says "$500.00" simultaneously. Nothing in
-    claim.py documents value-mutation as dangerous (confirmed by grep).
+    verify_seal() still does not raise (self-consistent with the new
+    value, by design -- that check answers "edited since its own last
+    seal", not "correct"). verify_against(document) NOW raises: it
+    re-derives value from raw via the currency_amount extractor and finds
+    the mismatch. The gate correctly BLOCKS on resubmission.
 
-    This is a stronger reproduction than HMAX-002 because it requires no
-    fabrication from scratch -- only a single-field mutation plus a
-    legitimate reseal() call on any real claim object a caller happens to
-    hold a reference to between extract() and gate.submit().
+    Still true, and still worth stating: this remains a sharper
+    reproduction than a from-scratch HMAX-002-style construction, since it
+    requires only a single-field mutation on a real object -- the fix
+    closes it exactly the same way, via the same verify_against() check.
     """
     text = "The invoice states $50,000,000.00 as the total due."
     doc = SourceDocument(source_id="hmax-003", text=text, standing=STANDING_RECORD)
     claim = [c for c in extract_module.extract(doc) if c.kind == "amount"][0]
-    original_value = dict(claim.value)
 
     claim.value = {"amount": 500.0, "currency": "USD"}
     claim.seal()
 
-    claim.verify_seal()  # does not raise -- self-consistent with the new value
-    claim.verify_against(doc)  # does not raise -- raw/span/hash untouched
+    claim.verify_seal()  # still does not raise -- self-consistent with the new value
+    with pytest.raises(SealIntegrityError, match="does not match what the"):
+        claim.verify_against(doc)
 
     gate = gate_module.ConfidenceGate(require_source=True)
     decision = gate.submit(claim, document=doc)
-    assert decision.verdict == gate_module.VERDICT_ADMITTED
-
-    pkg = handoff_module.build([claim], [decision], doc)
-    export = pkg.admitted[0]
-    assert export.value == {"amount": 500.0, "currency": "USD"}
-    assert export.value != original_value
-    assert export.raw.strip() == "$50,000,000.00"
-    assert export.reading == "EXTRACTED"
-    assert export.derivation_method == "herald:currency_amount"
-    assert export.opacity_flags == []
+    assert decision.verdict == gate_module.VERDICT_BLOCKED, (
+        "expected the resubmission to be BLOCKED now that verify_against() "
+        "catches the value/raw mismatch"
+    )
 
 
 def test_hmax_006_forged_provenance_does_not_change_gate_decision_logic():
@@ -4114,4 +4117,79 @@ def test_hmax_010_ambiguity_coordination_pattern_redos_is_a_separate_confirmed_v
         "(expected close to 4x, quadratic); the COORDINATION pattern may "
         "no longer have this vulnerability, or the measurement is "
         "unreliable in this environment"
+    )
+
+
+def test_hmax_011_q1_fix_does_not_false_positive_on_legitimate_extraction_or_confirmation():
+    """[EXECUTING] HMAX-011. Regression guard for the Q1 remediation
+    (verify_against()'s new value-vs-raw re-derivation check). Two cases
+    that must NOT be flagged:
+
+    (a) A plain, untouched, genuinely extract()-produced claim -- the
+        overwhelming majority of real usage -- must still pass
+        verify_against() cleanly across every extractor kind.
+    (b) A legitimate HumanConfirmation, applied through the real
+        gate.record_confirmation()/submit() flow, deliberately overrides
+        the extractor's raw-derived value (that is the entire point of a
+        human confirmation) and must NOT be flagged as a mismatch. This
+        is exactly why the fix exempts PROV_HUMAN_CONFIRMED claims --
+        confirmed here to actually work end to end, not just reasoned
+        about.
+    """
+    text = ("Paid $1,250.00 on 2026-03-14, filed March 14th, 2026, growth was "
+            "12.5%, processed 40 items in 3 hours, ticket ref AB-12345.")
+    doc = SourceDocument(source_id="hmax-011-a", text=text, standing=STANDING_RECORD)
+    for claim in extract_module.extract(doc):
+        claim.verify_against(doc)  # must not raise for any extractor kind
+
+    doc2 = SourceDocument(source_id="hmax-011-b", text="Paid $1,250.00 today.", standing=STANDING_RECORD)
+    claim2 = [c for c in extract_module.extract(doc2) if c.kind == "amount"][0]
+    gate = gate_module.ConfidenceGate(require_source=True)
+    gate.record_confirmation(HumanConfirmation(
+        claim_id=claim2.claim_id, confirmed_value={"amount": 1300.0, "currency": "USD"},
+        confirmed_by="reviewer", rationale="corrected a misread digit",
+    ))
+    decision = gate.submit(claim2, document=doc2)
+    assert decision.verdict == gate_module.VERDICT_ADMITTED, (
+        "a legitimate human confirmation overriding the extracted value "
+        "must not be blocked by the new value-vs-raw check"
+    )
+    assert claim2.value == {"amount": 1300.0, "currency": "USD"}
+
+
+def test_hmax_012_q1_fix_residual_forged_provenance_still_escapes_the_new_check():
+    """[EXECUTING] HMAX-012. Honestly-documented residual of the Q1 fix
+    (see HMAX_REMEDIATION_ARCHITECTURE.md's Q1 section). The new
+    value-vs-raw check is exempted for PROV_HUMAN_CONFIRMED claims,
+    because a real human confirmation legitimately overrides the raw-
+    derived value. This exemption is keyed on `claim.provenance` alone,
+    which HMAX-006 already established is not itself gate-enforced or
+    authenticated -- so forging `provenance = PROV_HUMAN_CONFIRMED`
+    directly (with no real HumanConfirmation on file in the gate) escapes
+    the new check the same way it always could escape the old confidence-
+    based checks, by ALSO forging base_confidence high enough to pass the
+    threshold without needing a real confirmation record.
+
+    This is not a failure of the Q1 fix to do its job -- it composes two
+    separately pre-existing, separately documented weaknesses (forgeable
+    provenance, forgeable confidence) rather than defeating the new check
+    on its own. Recorded honestly as a residual rather than silently
+    left for someone else to discover.
+    """
+    text = "The invoice states $50,000,000.00 as the total due."
+    doc = SourceDocument(source_id="hmax-012", text=text, standing=STANDING_RECORD)
+    claim = [c for c in extract_module.extract(doc) if c.kind == "amount"][0]
+
+    claim.value = {"amount": 500.0, "currency": "USD"}
+    claim.provenance = PROV_HUMAN_CONFIRMED  # forged -- no real confirmation on file
+    claim.base_confidence = 0.99             # forged -- passes threshold without one
+    claim.seal()
+
+    claim.verify_against(doc)  # does NOT raise -- exempted by the forged provenance
+
+    gate = gate_module.ConfidenceGate(require_source=True)
+    decision = gate.submit(claim, document=doc)
+    assert decision.verdict == gate_module.VERDICT_ADMITTED, (
+        "documents the residual: composing forged provenance with forged "
+        "confidence still reaches admission despite the Q1 fix"
     )

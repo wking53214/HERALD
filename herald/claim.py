@@ -256,9 +256,10 @@ class CandidateClaim:
             )
 
     def verify_against(self, document) -> None:
-        """Does this claim still point where it says it points?
+        """Does this claim still point where it says it points, and does it
+        still mean what its own citation says it means?
 
-        Three checks, in the order they fail most usefully:
+        Four checks, in the order they fail most usefully:
 
         1. The claim was bound to a source at all. An unbound claim is not
            a weaker citation, it is not a citation, and it must not pass.
@@ -269,6 +270,31 @@ class CandidateClaim:
            hash matches, and kept anyway: it catches a claim that was
            tampered with and then re-sealed, where the internal seal has
            been made consistent with a lie.
+        4. For EXTRACTED/INFERRED claims only: value is re-derived fresh
+           from the cited span, using the named extractor's own matching
+           and normalization logic, and compared against the claim's
+           current value. Checks 1-3 establish that the citation is
+           genuine; this checks that the citation still means what it is
+           claimed to mean. A claim whose raw, span and source are all
+           honest can still carry a value that was substituted afterward
+           -- raw and span keep telling the truth, only value changed --
+           and nothing above this line would catch that.
+
+           HUMAN_CONFIRMED claims are exempt: a human confirmation
+           legitimately overrides the extractor's raw-derived value (that
+           is the entire point of confirming one), so re-deriving and
+           comparing here would flag every correction as tampering. This
+           mirrors derivation_method's own provenance-based exemption.
+
+           Skipped, not failed, when the claim's extractor name does not
+           match any registered extractor: there is nothing to re-derive
+           against. A claim naming an unrecognized extractor is a
+           different, narrower gap than this check closes -- notably, a
+           claim with a forged provenance of HUMAN_CONFIRMED (with no
+           real confirmation on file) also escapes this specific check,
+           since forged provenance and forged confidence are each
+           individually pre-existing, separately-documented weaknesses
+           this check does not additionally address.
         """
         if self.source_hash is None:
             raise SealIntegrityError(
@@ -293,6 +319,23 @@ class CandidateClaim:
                 f"{self.claim_id}: span {self.span} no longer slices to the recorded "
                 f"text {self.raw!r}"
             )
+        if self.provenance != PROV_HUMAN_CONFIRMED:
+            # Deferred import: extract.py imports claim.py at module level,
+            # so a top-level import here would be circular.
+            from . import extract as extract_module
+
+            spec = next((s for s in extract_module.SPECS if s.name == self.extractor), None)
+            if spec is not None:
+                match = spec.pattern.match(document.text, start)
+                expected = (
+                    spec.normalize(match) if (match is not None and match.end() == end) else None
+                )
+                if expected is None or expected != self.value:
+                    raise SealIntegrityError(
+                        f"{self.claim_id}: value {self.value!r} does not match what the "
+                        f"{self.extractor!r} extractor derives from its own cited span "
+                        f"({expected!r}); the citation is genuine but the value was changed"
+                    )
 
     # -- serialization -------------------------------------------------
 
