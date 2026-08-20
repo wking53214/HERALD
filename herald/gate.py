@@ -342,13 +342,38 @@ class ConfidenceGate:
         self._confirmations[confirmation.claim_id] = confirmation
         return confirmation
 
-    def submit(self, claim: CandidateClaim, document=None) -> GateDecision:
+    def submit(
+        self,
+        claim: CandidateClaim,
+        document=None,
+        confirmation: Optional[HumanConfirmation] = None,
+    ) -> GateDecision:
         """Decide whether one claim may proceed to the governance layer.
 
         document -- the SourceDocument the claim was read from. Supply it
                     whenever it is available: without it the gate can
                     confirm the claim has not been edited, but not that
                     the text it cites still says what it said.
+
+        confirmation -- when supplied, used directly instead of looking
+                    one up in self._confirmations by claim_id. The lookup
+                    exists for the simple, single-threaded case and has a
+                    real race in any other: record_confirmation() and this
+                    method are two separate calls with a caller-visible
+                    gap between them, so a second caller's
+                    record_confirmation() for the same claim_id can land
+                    in that gap and be silently used in place of the
+                    first caller's own confirmation, with no signal to
+                    either caller that it happened (HMAX-018). No amount
+                    of locking inside either individual method closes
+                    that gap, since it spans two separate top-level calls
+                    -- passing the confirmation explicitly here is what
+                    actually removes the race, by never touching the
+                    shared dict for this call at all. The dict-based
+                    lookup remains the default for backward compatibility
+                    and the simple case; it is not retroactively made
+                    safe by this parameter's existence, and no warning is
+                    raised for callers who don't use it.
         """
         threshold = self.threshold_for(claim.kind)
 
@@ -401,7 +426,8 @@ class ConfidenceGate:
                 ),
             )
 
-        confirmation = self._confirmations.get(claim.claim_id)
+        if confirmation is None:
+            confirmation = self._confirmations.get(claim.claim_id)
         if confirmation is not None:
             confirmation.verify()
             claim.provenance = PROV_HUMAN_CONFIRMED

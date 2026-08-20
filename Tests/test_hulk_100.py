@@ -4539,9 +4539,16 @@ def test_hmax_017_q5_fix_has_no_diacritic_or_homoglyph_normalization():
     assert_permitted_kind(accented)  # must NOT raise -- the residual
 
 
-def test_hmax_018_confirmation_race_silently_attributes_a_to_bs_review():
-    """[EXECUTING] HMAX-018 (HMAX-8.0, fresh ground: concurrency). SEVERE,
-    genuinely new primitive candidate, not a re-classification of Q1-Q6.
+def test_hmax_018_confirmation_race_on_the_default_dict_lookup_path():
+    """[EXECUTING] HMAX-018, PARTIALLY CLOSED (see
+    HMAX_REMEDIATION_ARCHITECTURE.md's HMAX-018 section). This test now
+    specifically documents the residual: the DEFAULT path (bare submit(),
+    no explicit confirmation passed) remains exactly as racy as before,
+    by design -- the fix is an opt-in escape hatch
+    (submit(..., confirmation=...)), not a retroactive change to the old
+    two-step record-then-submit pattern's behavior. See
+    test_hmax_018b_explicit_confirmation_parameter_closes_the_race for
+    confirmation the new path actually works.
 
     ConfidenceGate._confirmations is a single plain dict keyed by
     claim_id, with no locking and no atomicity between
@@ -4617,6 +4624,66 @@ def test_hmax_018_confirmation_race_silently_attributes_a_to_bs_review():
         "longer reproduces deterministically; re-verify the synchronization"
     )
     assert a_decision["value_at_submit"] == {"amount": 222.0, "currency": "USD"}
+
+
+def test_hmax_018b_explicit_confirmation_parameter_closes_the_race():
+    """[EXECUTING] CLOSED, the escape hatch half of HMAX-018 (see
+    HMAX_REMEDIATION_ARCHITECTURE.md). submit() now accepts an optional
+    `confirmation` parameter; when supplied, it is used directly instead
+    of looking one up in the shared, racy self._confirmations dict.
+
+    Identical race setup to test_hmax_018_confirmation_race_on_the_
+    default_dict_lookup_path (thread A records, thread B overwrites the
+    shared dict entry before A's submit() call), except thread A now
+    passes its own confirmation object explicitly to submit(). A's
+    decision correctly reports confirmed_by="reviewer-A" -- B's
+    concurrent overwrite of the shared dict never affects A's call at
+    all, since A's call never reads that dict entry in the first place.
+    """
+    import threading
+
+    doc = SourceDocument(source_id="hmax-018b", text="Paid $1,250.00 today.", standing=STANDING_RECORD)
+    claim = [c for c in extract_module.extract(doc) if c.kind == "amount"][0]
+    gate = gate_module.ConfidenceGate(require_source=True)
+
+    a_recorded = threading.Event()
+    b_recorded = threading.Event()
+    a_decision = {}
+
+    def thread_a():
+        conf_a = HumanConfirmation(
+            claim_id=claim.claim_id, confirmed_value={"amount": 111.0, "currency": "USD"},
+            confirmed_by="reviewer-A", rationale="A's review",
+        )
+        gate.record_confirmation(conf_a)
+        a_recorded.set()
+        b_recorded.wait(timeout=5)
+        d = gate.submit(claim, document=doc, confirmation=conf_a)  # bypasses the shared dict
+        a_decision["confirmed_by"] = d.confirmed_by
+        a_decision["value_at_submit"] = dict(claim.value)
+
+    def thread_b():
+        a_recorded.wait(timeout=5)
+        conf_b = HumanConfirmation(
+            claim_id=claim.claim_id, confirmed_value={"amount": 222.0, "currency": "USD"},
+            confirmed_by="reviewer-B", rationale="B's review",
+        )
+        gate.record_confirmation(conf_b)
+        b_recorded.set()
+
+    ta = threading.Thread(target=thread_a)
+    tb = threading.Thread(target=thread_b)
+    ta.start()
+    tb.start()
+    ta.join(timeout=5)
+    tb.join(timeout=5)
+
+    assert a_decision["confirmed_by"] == "reviewer-A", (
+        "expected A's explicit confirmation to be honored despite B's "
+        "concurrent overwrite of the shared dict -- if this fails, the "
+        "confirmation parameter may have regressed"
+    )
+    assert a_decision["value_at_submit"] == {"amount": 111.0, "currency": "USD"}
 
 
 def test_hmax_019_claim_from_dict_reconstructs_without_verifying_the_seal():
