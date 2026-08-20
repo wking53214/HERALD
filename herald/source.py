@@ -43,6 +43,29 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from .errors import HeraldError
 
+# What a document IS, epistemically. Bounded on purpose, because a consumer
+# has to branch on it and an open vocabulary cannot be branched on.
+#
+# This axis is not about how well HERALD read the document. It is about
+# whether the document itself is worth believing. A bank statement and a
+# borrower's letter can both state "$1,250" with equal clarity, and HERALD
+# will read both at high confidence, because reading them IS easy. One is a
+# system of record and one is an interested party's assertion. Collapsing
+# that difference downstream is how an unverified claim acquires the
+# appearance of a measurement.
+#
+# UNKNOWN is permitted and is deliberately not a safe default: a handoff
+# refuses to characterize a claim from an UNKNOWN-standing document rather
+# than guessing a reasonable-looking answer.
+STANDING_RECORD = "record"            # system of record; the authoritative copy
+STANDING_ATTESTATION = "attestation"  # a party asserts it; truth not established
+STANDING_DERIVED = "derived"          # another system computed it
+STANDING_UNKNOWN = "unknown"          # not declared
+
+STANDINGS = frozenset({
+    STANDING_RECORD, STANDING_ATTESTATION, STANDING_DERIVED, STANDING_UNKNOWN,
+})
+
 # Conventional media. Not enforced as a closed set: the useful constraint
 # is that SOMETHING was declared, not that it came off a list this package
 # guessed at in advance.
@@ -76,6 +99,11 @@ class SourceDocument:
     source_id    -- stable identity of the document.
     text         -- the exact characters claims will point into.
     medium       -- what kind of thing this is. Declared, not guessed.
+    standing     -- what this document IS: a record, an assertion, or
+                    something another system derived. Declared by the
+                    caller, because only the caller knows where the text
+                    came from. Left UNKNOWN, a handoff will say so rather
+                    than assume.
     version      -- the caller's own version marker, if it has one. The
                     content hash is authoritative; this is for humans.
     retrieved_at -- when the caller obtained this text. Kept separate from
@@ -87,6 +115,7 @@ class SourceDocument:
     source_id: str
     text: str
     medium: str = MEDIUM_DOCUMENT
+    standing: str = STANDING_UNKNOWN
     version: Optional[str] = None
     retrieved_at: Optional[str] = None
     segments: List[Segment] = field(default_factory=list)
@@ -110,6 +139,13 @@ class SourceDocument:
             )
         if not isinstance(self.medium, str) or not self.medium.strip():
             raise IngestionError(f"{self.source_id}: medium must be declared")
+        if self.standing not in STANDINGS:
+            raise IngestionError(
+                f"{self.source_id}: standing {self.standing!r} not in "
+                f"{sorted(STANDINGS)}. The vocabulary is bounded because a "
+                "consumer has to branch on it; an unrecognized standing is not "
+                "a new kind of document, it is an unreadable one."
+            )
 
         length = len(self.text)
         previous_end = -1
@@ -155,6 +191,7 @@ class SourceDocument:
         return {
             "source_id": self.source_id,
             "medium": self.medium,
+            "standing": self.standing,
             "version": self.version,
             "retrieved_at": self.retrieved_at,
             "content_hash": self.content_hash,

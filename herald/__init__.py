@@ -66,7 +66,19 @@ from .gate import (
     HumanConfirmation,
 )
 from .golden_set import starter_set
+from .handoff import (
+    ClaimExport,
+    Handoff,
+    HandoffError,
+    RefusalExport,
+    build as build_handoff,
+    read as read_document,
+)
 from .source import (
+    STANDING_ATTESTATION,
+    STANDING_DERIVED,
+    STANDING_RECORD,
+    STANDING_UNKNOWN,
     IngestionError,
     Segment,
     SourceDocument,
@@ -111,4 +123,14 @@ __all__ = [
     "IngestionError",
     "segments_by_paragraph",
     "segments_by_marker",
+    "STANDING_RECORD",
+    "STANDING_ATTESTATION",
+    "STANDING_DERIVED",
+    "STANDING_UNKNOWN",
+    "Handoff",
+    "ClaimExport",
+    "RefusalExport",
+    "HandoffError",
+    "build_handoff",
+    "read_document",
 ]

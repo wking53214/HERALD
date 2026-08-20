@@ -7,7 +7,8 @@ Run: python3 -m herald.demo
 from __future__ import annotations
 
 from . import binding, boundary, extract, gate
-from .source import SourceDocument, segments_by_marker
+from . import handoff as handoff_module
+from .source import STANDING_ATTESTATION, SourceDocument, segments_by_marker
 from .calibration import run as run_calibration
 from .claim import CandidateClaim
 from .errors import BoundaryViolation
@@ -34,6 +35,7 @@ def main() -> None:
         source_id="demo-doc",
         text=text,
         medium="document",
+        standing=STANDING_ATTESTATION,
         version="v1",
         segments=segments_by_marker(text, "\f", labels=["p. 1", "p. 2"]),
     )
@@ -91,7 +93,19 @@ def main() -> None:
             print(f"  REFUSED {kind}: {str(exc).splitlines()[0]}")
     print(f"\n  {len(boundary.governed_determinations())} determinations currently forbidden")
 
-    _rule("8. Calibration: is HERALD honest about its own uncertainty?")
+    _rule("8. The handoff: what a consuming system actually receives")
+    package = handoff_module.build(claims, decisions, document)
+    print(package.render())
+    print("\n  co-occurrence groups (written together, relationship NOT asserted):")
+    for bundle_id, members in package.bundles.items():
+        kinds = [e.kind for e in package.admitted if e.bundle_id == bundle_id]
+        print(f"    {bundle_id}: {kinds}")
+    print("\n  what a consumer maps FROM (HERALD stops one step short of its vocabulary):")
+    for export in package.admitted[:3]:
+        print(f"    {export.kind:10s} reading={export.reading:10s} "
+              f"standing={export.standing:12s} derived_by={export.derivation_method}")
+
+    _rule("9. Calibration: is HERALD honest about its own uncertainty?")
     report = run_calibration(starter_set())
     print(report.render())
     print(f"\n  build blocking: {report.is_blocking}")

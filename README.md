@@ -79,6 +79,45 @@ source" from advice into a condition of passing.
 
 ---
 
+## The handoff
+
+What a consuming system receives is a self-describing package: the document's
+identity and standing, HERALD's own build identity, every admitted claim,
+**every refused claim and why**, and the co-occurrence groups needed to
+reassemble facts that were written as one and read as several.
+
+It stops one step short of the consumer's vocabulary, and supplies two
+orthogonal facts instead:
+
+- **reading** — read by a named extractor, proposed by a model, or confirmed
+  by a named human
+- **standing** — whether the document is a record, an interested party's
+  assertion, or another system's output
+
+A borrower's letter and a bank statement can both state a figure with perfect
+clarity, so HERALD reads both at high confidence. Only standing separates
+them. A consumer that collapses the two axes gives an assertion the
+appearance of a measurement, and nothing downstream can recover the
+difference.
+
+`derivation_method` is the field that keeps consumers out of the common trap
+at this seam. Target schemas often forbid a fact stamped as observed or
+claimed from also carrying a derivation method, because something observed
+was not derived. A human-confirmed claim maps naturally onto "claimed" while
+still carrying the extractor that first read it, and passing that through is
+a contradiction the target will refuse. HERALD states the fact rather than the
+mapping: extracted values name what derived them, confirmed values return
+None. Pass it through unchanged and the invariant holds on its own.
+
+**Refusals travel.** A consumer receiving only the admitted claims sees a
+clean set and cannot know what was held back.
+
+**Co-occurrence is observed, not interpreted.** HERALD reports that two
+claims were written in the same sentence. Deciding that the date qualifies
+the amount is the consumer's call, in the consumer's domain vocabulary.
+
+---
+
 ## The gate
 
 Claims below the confidence threshold are **refused**, not merely flagged.
@@ -142,7 +181,8 @@ stated figure next to a conditional sentence scored zero.
 | File | What it does |
 |---|---|
 | `boundary.py` | The constitutional rule, as running code |
-| `source.py` | Ingestion contract, document identity, anchors |
+| `source.py` | Ingestion contract, document identity, standing, anchors |
+| `handoff.py` | The downstream export contract |
 | `claim.py` | The only output type; traceable, self-explaining, sealed |
 | `ambiguity.py` | Deterministic opacity detection |
 | `extract.py` | The domain-agnostic extractors, and nothing else |
@@ -157,13 +197,14 @@ Standard library only. No dependencies.
 
 ## Status
 
-Version 0.2.0. 112 tests passing, ruff clean (0.15.22, the pinned version the
+Version 0.3.0. 135 tests passing, ruff clean (0.15.22, the pinned version the
 rest of the stack gates on), bandit clean at `-ll`. No consuming project is
 wired in yet.
 
-**Known gap, deliberately open:** the downstream seam. Nothing yet translates
-an admitted claim into a consuming system's own event contract, and the
-provenance vocabularies do not map on their own. That adapter is the next
-piece, and it belongs on the consuming side, because mapping a domain-agnostic
-`amount` onto a domain word is domain knowledge and domain knowledge does not
-live here.
+Both seams are built. The handoff was validated by writing a real adapter
+against a live consuming system's event contract and running every admitted
+claim through its validator. Two defects surfaced that code review had missed
+and are now closed: a record and an assertion arrived downstream looking
+identical, and atomized claims left an adapter unable to tell that a date and
+an amount were written as one fact, so every event was stamped as having
+occurred at ingest time.

@@ -32,7 +32,7 @@ from typing import Dict, List, Optional
 
 from .errors import BindingError
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 _PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 

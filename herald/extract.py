@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Pattern, Union
+from typing import Callable, Dict, List, Optional, Pattern, Tuple, Union
 
 from . import ambiguity
 from .claim import CandidateClaim, PROV_EXTRACTED
@@ -212,6 +212,14 @@ def _norm_amount_dispatch(m: re.Match):
     return {"amount": value, "currency": m.group("code").upper()}
 
 
+def _bundle_for(position: int, sentences: List[Tuple[int, int]]) -> Optional[str]:
+    """Which sentence a claim was read out of, as a stable label."""
+    for index, (start, end) in enumerate(sentences, start=1):
+        if start <= position < end:
+            return f"s{index}"
+    return None
+
+
 def extract(
     source: Union[SourceDocument, str],
     source_id: Optional[str] = None,
@@ -240,6 +248,15 @@ def extract(
     text = document.text
     source_hash = document.content_hash
     flags = ambiguity.detect(text)
+    # Co-occurrence: claims read out of the same sentence share a bundle id.
+    # This is an observation about the source, in the same class as the
+    # segment label -- NOT an assertion that the claims are related. What
+    # the relationship IS, if any, is interpretation, and interpretation
+    # leaves this package. But a consumer cannot bundle "$1,250" with
+    # "2026-03-14" into one fact without first being told they were written
+    # in the same breath, and withholding that turns one fact into two
+    # unrelated ones that arrive with no way to reassemble them.
+    sentences = ambiguity.sentence_spans(text)
     claims: List[CandidateClaim] = []
     for spec in specs or SPECS:
         for match in spec.pattern.finditer(text):
@@ -257,6 +274,7 @@ def extract(
                 extractor=spec.name,
                 source_hash=source_hash,
                 segment=document.segment_label_for((match.start(), match.end())),
+                bundle_id=_bundle_for(match.start(), sentences),
             )
             ambiguity.apply_to_claim(claim, flags, window=window, text=text)
             claims.append(claim.seal())

@@ -91,7 +91,43 @@ is consistently a guess.
 
 ---
 
-## 6. Containment
+## 6. The handoff stops one step short of the consumer's vocabulary
+
+HERALD supplies two orthogonal facts and refuses to collapse them:
+
+- **Reading** — how the value was obtained: read by a named extractor,
+  proposed by a model, or confirmed by a named human.
+- **Standing** — what the document itself is: a system of record, an
+  interested party's assertion, or another system's output.
+
+These are independent. A borrower's letter and a bank statement can both
+state a figure with perfect clarity, so HERALD reads both at high confidence.
+One is a record and one is a claim. A consumer that collapses the two axes
+into a single stamp gives an unverified assertion the appearance of a
+measurement, and nothing downstream can recover the difference.
+
+Mapping a domain-agnostic `amount` onto a domain word is domain knowledge,
+and domain knowledge does not live here. A mapping table in this package
+would be one project's vocabulary imported into every other project's
+pipeline, which is the coupling this package exists to avoid.
+
+**Undeclared standing is reported, never defaulted.** A gap and a declared
+value must not produce the same record.
+
+**Refusals travel with the handoff.** A consumer that receives only the
+admitted claims sees a clean set and cannot know what was held back. That is
+the shrinking-denominator problem relocated to the seam.
+
+**Co-occurrence is observed, not interpreted.** HERALD reports that claims
+were read out of the same sentence. It does not say what their relationship
+is. The first is an observation about the source; the second is
+interpretation, and interpretation leaves this package. Withholding the
+observation turns one written fact into several unrelated ones with no way to
+reassemble them.
+
+---
+
+## 7. Containment
 
 Consuming projects pin to an exact HERALD version **and code hash**. Same
 discipline as a cassette code-hash bump. A fix does not propagate silently;
@@ -103,7 +139,7 @@ otherwise cost.
 
 ---
 
-## 7. Test standard: calibration, not correctness
+## 8. Test standard: calibration, not correctness
 
 HERALD is graded on whether it is **honest about its own uncertainty**, not
 on whether its reading of a sentence is right. Reading is contested; a suite
@@ -125,7 +161,7 @@ must never look like a clean run.
 
 ---
 
-## 8. Determinism in the core
+## 9. Determinism in the core
 
 The core detectors are rule-based and reproducible. A model may be layered on
 top to propose additional flags, but it enters as `INFERRED` provenance and

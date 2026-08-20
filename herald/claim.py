@@ -121,6 +121,7 @@ class CandidateClaim:
     extractor: str = "unspecified"
     source_hash: Optional[str] = None
     segment: Optional[str] = None
+    bundle_id: Optional[str] = None
     claim_id: str = field(default_factory=lambda: f"clm-{uuid.uuid4().hex[:12]}")
     created_at: str = field(default_factory=_utc_now)
     content_hash: Optional[str] = None
@@ -184,6 +185,27 @@ class CandidateClaim:
         lines.append("  NOT A FINDING. Requires governance before any use with consequence.")
         return "\n".join(lines)
 
+    @property
+    def derivation_method(self) -> Optional[str]:
+        """How this value was derived, or None if it was not derived at all.
+
+        This single field is what keeps a consumer out of the trap at the
+        seam. Target schemas commonly hold an invariant that a fact stamped
+        as observed or claimed may not also carry a derivation method,
+        because something observed was not derived. A human-confirmed claim
+        maps naturally onto "claimed" while still carrying the name of the
+        extractor that first read it, and passing that name through is a
+        contradiction the target will refuse.
+
+        So HERALD states the fact rather than the mapping: extracted and
+        inferred values were derived, and here is by what; a confirmed value
+        was not derived, and there is nothing to name. The consumer passes
+        this through unchanged and the invariant holds on its own.
+        """
+        if self.provenance == PROV_HUMAN_CONFIRMED:
+            return None
+        return f"herald:{self.extractor}"
+
     # -- sealing -------------------------------------------------------
 
     def hashable_content(self) -> Dict[str, Any]:
@@ -207,6 +229,7 @@ class CandidateClaim:
             "extractor": self.extractor,
             "source_hash": self.source_hash,
             "segment": self.segment,
+            "bundle_id": self.bundle_id,
         }
 
     def compute_hash(self) -> str:
