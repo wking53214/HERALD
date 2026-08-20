@@ -1,0 +1,47 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          # ruff is pinned rather than floating, for the same reason the
+          # rest of the stack pins it: 0.16.0 broadened its default rule
+          # selection with no local config to hold it steady, which turns a
+          # clean tree red with no code change to blame. Bump this pin
+          # deliberately and clean up what the new rule set flags.
+          pip install pytest ruff==0.15.22 bandit
+
+      - name: Tests
+        run: python3 -m pytest Tests -q
+
+      - name: Calibration gate
+        run: |
+          # The real gate for this repo. False confidence blocks; over-caution
+          # does not. An empty calibration set blocks too, so a set that gets
+          # accidentally emptied cannot pass as a clean run.
+          python3 -c "
+          from herald import run_calibration, starter_set
+          import sys
+          report = run_calibration(starter_set())
+          print(report.render())
+          sys.exit(1 if report.is_blocking else 0)
+          "
+
+      - name: Lint (ruff)
+        if: always()
+        run: ruff check .
+
+      - name: Security scan (bandit)
+        if: always()
+        run: bandit -ll -r herald
