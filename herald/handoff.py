@@ -259,13 +259,23 @@ def build(
     claims: Sequence[CandidateClaim],
     decisions: Sequence[GateDecision],
     document: SourceDocument,
+    binding_pin: Optional["binding.Binding"] = None,
 ) -> Handoff:
     """Assemble the handoff for one document.
 
     Requires the decisions alongside the claims, rather than re-judging
     here, so that what leaves is exactly what the gate decided and not a
     second opinion formed at export time.
+
+    binding_pin -- when supplied, verified before anything else. A
+        consumer whose pinned version or code hash has drifted from this
+        build refuses outright, rather than producing a Handoff under a
+        build it never validated against. Optional because build() has no
+        way to know a consumer's pin unless handed one; read(), the
+        default entry point, takes the same parameter for the same reason.
     """
+    if binding_pin is not None:
+        binding_pin.verify()
     if len(claims) != len(decisions):
         raise HandoffError(
             f"{len(claims)} claims but {len(decisions)} decisions -- every claim "
@@ -333,16 +343,24 @@ def build(
 def read(
     document: SourceDocument,
     gate_instance: Optional[ConfidenceGate] = None,
+    binding_pin: Optional["binding.Binding"] = None,
 ) -> Handoff:
     """The whole path in one call: extract, gate, package.
 
     The gate defaults to require_source=True here. A convenience entry point
     should carry the stricter setting, not the laxer one: the easy path is
     the one people actually use, and it should be the safe one.
+
+    binding_pin -- when supplied, verified before extraction even runs --
+        checked here directly rather than left to build()'s own check, so
+        a mismatched pin doesn't pay for extraction and gating first.
     """
+    if binding_pin is not None:
+        binding_pin.verify()
+
     from . import extract as extract_module
 
     claims = extract_module.extract(document)
     controller = gate_instance or ConfidenceGate(require_source=True)
     decisions = controller.submit_all(claims, document=document)
-    return build(claims, decisions, document)
+    return build(claims, decisions, document, binding_pin=binding_pin)

@@ -84,7 +84,7 @@ import pytest
 import herald.gate as gate_module
 from herald import extract as extract_module
 from herald import handoff as handoff_module
-from herald.binding import Binding, VERSION, code_hash
+from herald.binding import Binding, VERSION, code_hash, current_pin
 from herald.boundary import assert_permitted_kind, is_governed_determination
 from herald.calibration import CalibrationReport, GoldenCase, run as run_calibration_cases, score_case
 from herald.claim import PROV_EXTRACTED, PROV_HUMAN_CONFIRMED, CandidateClaim
@@ -1075,13 +1075,18 @@ def test_policy_drift_what_a_gate_decision_actually_binds_to():
     # -- "attempt to consume the old decision under policy B" --------------
     # There is no method on ConfidenceGate, and nothing in handoff.py,
     # that takes both a GateDecision and a policy/gate to re-validate one
-    # against the other. handoff.build() is the sole consumption point:
+    # against the other. handoff.build() is the sole consumption point.
+    # Post Q2-remediation (see HMAX_REMEDIATION_ARCHITECTURE.md), build()
+    # gained `binding_pin` -- a version/code_hash pin check, unrelated to
+    # policy/threshold drift, which this test's premise is specifically
+    # about. Updated to reflect the new signature rather than the old one.
     import inspect
     build_params = list(inspect.signature(handoff_module.build).parameters)
-    assert build_params == ["claims", "decisions", "document"], (
+    assert build_params == ["claims", "decisions", "document", "binding_pin"], (
         f"handoff.build() now accepts {build_params}; if a policy/gate "
-        "argument was added, this test's premise (there is no such "
-        "argument) needs to be revisited"
+        "argument was added (distinct from the existing binding_pin), "
+        "this test's premise (there is no such argument) needs to be "
+        "revisited"
     )
 
     package = handoff_module.build([claim], [decision_a], doc)
@@ -3625,29 +3630,60 @@ def test_herald_metadata_block_is_unsigned_free_text():
     assert json.dumps(forged)  # still trivially serializes; no gate anywhere
 
 
-def test_binding_verify_is_never_called_anywhere_in_the_read_or_build_path():
-    """[EXECUTING] binding.Binding.verify() exists and works correctly when
-    called directly (confirmed: a mismatched version/hash raises
-    BindingError). But neither handoff.read() nor handoff.build() accepts a
-    Binding argument or calls verify() internally anywhere. A consumer must
-    remember to call it themselves, entirely outside HERALD's own pipeline --
-    the mechanism binding.py's own docstring describes ("refuses to run if
-    either has moved") is never enforced by the one function
-    (handoff.read()) the module documents as the safe default entry point.
+def test_binding_can_now_be_passed_to_read_and_build_and_is_enforced():
+    """[EXECUTING] CLOSED (half of Q2) post remediation, see
+    HMAX_REMEDIATION_ARCHITECTURE.md. Originally: binding.Binding.verify()
+    worked correctly in isolation, but neither handoff.read() nor
+    handoff.build() accepted a Binding argument or called verify()
+    anywhere -- a consumer had to remember to call it themselves, entirely
+    outside HERALD's own pipeline.
+
+    Both functions now accept an optional `binding_pin` parameter; when
+    supplied, it is verified before anything else runs (read() checks it
+    before extraction even starts, to avoid paying for extraction and
+    gating under a pin that was always going to fail). A mismatched pin
+    now raises BindingError from inside the pipeline itself, not only when
+    a consumer remembers to call verify() separately.
+
+    NOTE, the other half of Q2 not addressed here: this closes "the
+    mechanism exists but nothing calls it" for Binding specifically. It
+    does NOT make binding_pin mandatory -- passing None (the default)
+    skips the check entirely, same as always. The narrower version of Q2
+    was chosen deliberately after the full require_source-default-flip
+    version was found to break 9 tests in HERALD's original CI suite,
+    including one asserting the current lenient default as intentional
+    product behavior, not an oversight -- see the remediation architecture
+    doc's Q2 section for the full reasoning.
     """
     import inspect
-    read_src = inspect.getsource(handoff_module.read)
-    build_src = inspect.getsource(handoff_module.build)
-    assert "Binding" not in read_src and "binding.Binding" not in read_src
-    assert "verify()" not in read_src
-    assert "Binding" not in build_src and "binding.Binding" not in build_src
-    assert "verify()" not in build_src
 
-    # Confirm Binding.verify() itself does work, in isolation, to show the
-    # mechanism is real and simply never invoked from the pipeline.
+    read_params = list(inspect.signature(handoff_module.read).parameters)
+    build_params = list(inspect.signature(handoff_module.build).parameters)
+    assert "binding_pin" in read_params
+    assert "binding_pin" in build_params
+
+    # A mismatched pin passed to build() raises BindingError before
+    # anything else is checked.
+    text = "Paid $1,250.00 today."
+    doc = SourceDocument(source_id="binding-enforce-1", text=text, standing=STANDING_RECORD)
+    claim = [c for c in extract_module.extract(doc) if c.kind == "amount"][0]
+    gate = ConfidenceGate(require_source=True)
+    decision = gate.submit(claim, document=doc)
+
     mismatched = Binding(consumer="test-consumer", version="0.0.1", pinned_hash=None)
     with pytest.raises(BindingError):
-        mismatched.verify()
+        handoff_module.build([claim], [decision], doc, binding_pin=mismatched)
+
+    # And the same mismatched pin passed to read() rejects before
+    # extraction ever runs -- confirmed by using a document that would
+    # otherwise extract cleanly.
+    with pytest.raises(BindingError):
+        handoff_module.read(doc, binding_pin=mismatched)
+
+    # A pin that actually matches this build does not interfere.
+    real_pin = current_pin("test-consumer")
+    pkg = handoff_module.build([claim], [decision], doc, binding_pin=real_pin)
+    assert len(pkg.admitted) == 1
 
 
 def test_document_standing_is_forgeable_post_export_with_zero_detection():
