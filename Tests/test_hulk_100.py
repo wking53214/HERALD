@@ -72,9 +72,11 @@ combination of tamper + reseal, not source verification in general.
 
 from __future__ import annotations
 
+import copy
 import dataclasses
 import hashlib
 import hmac
+import json
 import time
 
 import pytest
@@ -3455,3 +3457,601 @@ def test_quantity_negative_count_silently_loses_its_sign_same_as_amount_did():
         "The adjustment removed 5 records from the queue.", source_id="t") if c.kind == KIND_QUANTITY][0]
     assert negative.value == positive.value == {"value": 5.0, "unit": "records"}
     assert negative.confidence == positive.confidence
+
+
+# ---------------------------------------------------------------------------
+# HULK HANDOFF INTEGRITY -- does the authorization proof survive export?
+# ---------------------------------------------------------------------------
+#
+# Rounds 1-3 of this session built and adversarially tested an in-process
+# authorization chain: CandidateClaim.seal()/verify_seal() protects a claim's
+# own content, and GateDecision.authorization_mac (HMAC-SHA256) protects a
+# decision's own fields and binds it to the exact claim content it authorized.
+# Both are exercised, end to end, inside handoff.build().
+#
+# This section asks a different question: once build() returns a Handoff and
+# that Handoff is serialized (Handoff.to_dict(), the class's own documented
+# purpose -- "the complete, self-describing package a consuming system
+# receives") -- does ANY of that authorization proof travel with it?
+#
+# Answer, confirmed live below: no. ClaimExport and RefusalExport carry no
+# MAC, no signature, and no authorized_content_hash field. herald.handoff
+# exposes no function that takes a Handoff dict/JSON blob and re-verifies it.
+# The `herald` metadata block (version/code_hash) is plain, unsigned strings.
+# And even a consumer motivated to reimplement HERALD's own hashing to
+# self-check would fail, because `authority` -- one of the fields
+# hashable_content() covers -- is never exported on ClaimExport at all, so
+# content_hash is not independently recomputable from the exported data.
+#
+# Net effect: the entire in-process authenticity mechanism protects the
+# single call inside build(). It does not protect the deliverable. Anything
+# with write access to the Handoff after it leaves build() -- a message
+# queue, a log store, a network hop, a file on disk -- can rewrite any
+# admitted claim's value, confidence, verdict-bucket, or standing with zero
+# detectability by the receiving system.
+
+
+def test_handoff_to_dict_carries_no_mac_or_signature_of_any_kind():
+    """[EXECUTING] The exported Handoff structure -- document, herald,
+    admitted, refused, bundles, summary -- is searched for every name this
+    session has used for the authorization proof (mac, signature, hmac,
+    authorized_content_hash, sign). None appear anywhere in the serialized
+    JSON. Round 3's entire HMAC mechanism lives and dies inside gate.py and
+    handoff.build(); it never reaches the object that actually leaves HERALD.
+    """
+    doc = SourceDocument(source_id="hulk-handoff-1", text="Paid $1,250.00 today.",
+                          standing=STANDING_RECORD)
+    pkg = handoff_module.read(doc)
+    blob = json.dumps(pkg.to_dict())
+    for needle in ("mac", "signature", "hmac", "authorized_content_hash", "sign"):
+        assert needle not in blob.lower(), (
+            f"unexpectedly found '{needle}' in the exported Handoff -- "
+            "if this now fails, the authenticity proof may have started "
+            "traveling with the export; re-read this finding before acting"
+        )
+    assert pkg.admitted, "need at least one admitted claim for this to be meaningful"
+
+
+def test_claim_export_has_no_field_the_consumer_could_verify_against():
+    """[EXECUTING] ClaimExport's own dataclass field names are enumerated
+    directly (not just grepped from one JSON blob) to confirm there is no
+    field, under any name, that could serve as an authorization proof for
+    a consumer holding nothing but the exported object.
+    """
+    field_names = {f.name for f in dataclasses.fields(handoff_module.ClaimExport)}
+    suspicious = {n for n in field_names if any(
+        tok in n.lower() for tok in ("mac", "sig", "hmac", "auth", "sign", "verif"))}
+    assert suspicious == set(), (
+        f"ClaimExport unexpectedly has authorization-shaped field(s): {suspicious}"
+    )
+
+
+def test_claim_export_omits_authority_so_content_hash_is_not_independently_recomputable():
+    """[EXECUTING] hashable_content() (claim.py) includes `authority` as one
+    of the fields folded into content_hash. ClaimExport does not export
+    `authority` at all. So even a consumer that reimplemented HERALD's exact
+    hashing algorithm to self-check an exported claim could not reproduce
+    content_hash from the exported fields alone -- one required input is
+    structurally missing from the deliverable.
+    """
+    doc = SourceDocument(source_id="hulk-handoff-2", text="Paid $1,250.00 today.",
+                          standing=STANDING_RECORD)
+    claim = [c for c in extract_module.extract(doc) if c.kind == "amount"][0]
+    hashable_fields = set(claim.hashable_content().keys())
+    export_fields = {f.name for f in dataclasses.fields(handoff_module.ClaimExport)}
+    missing = hashable_fields - export_fields
+    assert "authority" in missing, (
+        "expected 'authority' to be one of the hashable_content() fields "
+        "absent from ClaimExport; if this fails, either the seal no longer "
+        "covers authority, or the export now includes it -- re-check which"
+    )
+
+
+def test_tampering_an_admitted_value_after_export_is_completely_undetected():
+    """[EXECUTING] End-to-end demonstration: read() a real document, export
+    the Handoff to a dict (simulating serialization to JSON for a message
+    queue, log, or network hop), rewrite an admitted claim's value in the
+    exported structure, and confirm HERALD offers no function anywhere that
+    could catch this. herald.handoff's own public surface is enumerated to
+    show there is no re-verification entry point to even attempt calling.
+    """
+    doc = SourceDocument(source_id="hulk-handoff-3", text="Paid $1,250.00 today.",
+                          standing=STANDING_RECORD)
+    pkg = handoff_module.read(doc)
+    exported = pkg.to_dict()
+    tampered = copy.deepcopy(exported)
+    original_value = tampered["admitted"][0]["value"]
+    tampered["admitted"][0]["value"] = {"amount": 999999999.0, "currency": "USD"}
+    assert tampered["admitted"][0]["value"] != original_value
+
+    # No function in herald.handoff takes a dict/JSON blob and re-verifies it.
+    public_surface = {n for n in dir(handoff_module) if not n.startswith("_")}
+    verifier_candidates = {n for n in public_surface if "verify" in n.lower()
+                            or "check" in n.lower() or "validate" in n.lower()}
+    assert verifier_candidates == set(), (
+        f"unexpected verifier-shaped name(s) in herald.handoff: {verifier_candidates} -- "
+        "if this fails, a re-verification entry point may now exist; use it instead "
+        "of trusting the export blindly"
+    )
+    # The tampered blob round-trips through JSON with no structural marker
+    # distinguishing it from a genuine one.
+    reloaded = json.loads(json.dumps(tampered))
+    assert reloaded["admitted"][0]["value"] == {"amount": 999999999.0, "currency": "USD"}
+
+
+def test_herald_metadata_block_is_unsigned_free_text():
+    """[EXECUTING] Handoff.herald (version, code_hash) is meant to let a
+    consumer know which HERALD build produced this handoff -- the same pair
+    a Binding pins against. But it is exported as plain strings with nothing
+    binding them to the rest of the payload. Overwriting them in an exported
+    dict is a no-op as far as HERALD is concerned: there is no function that
+    reads a Handoff dict back and checks `herald` against anything.
+    """
+    doc = SourceDocument(source_id="hulk-handoff-4", text="Paid $1,250.00 today.",
+                          standing=STANDING_RECORD)
+    pkg = handoff_module.read(doc)
+    exported = pkg.to_dict()
+    forged = copy.deepcopy(exported)
+    forged["herald"] = {"version": "99.99.99", "code_hash": "0" * 64}
+    # Nothing rejects this -- to_dict()'s output is a plain dict, and there
+    # is no herald.handoff function that ingests one and checks it.
+    assert forged["herald"]["version"] == "99.99.99"
+    assert json.dumps(forged)  # still trivially serializes; no gate anywhere
+
+
+def test_binding_verify_is_never_called_anywhere_in_the_read_or_build_path():
+    """[EXECUTING] binding.Binding.verify() exists and works correctly when
+    called directly (confirmed: a mismatched version/hash raises
+    BindingError). But neither handoff.read() nor handoff.build() accepts a
+    Binding argument or calls verify() internally anywhere. A consumer must
+    remember to call it themselves, entirely outside HERALD's own pipeline --
+    the mechanism binding.py's own docstring describes ("refuses to run if
+    either has moved") is never enforced by the one function
+    (handoff.read()) the module documents as the safe default entry point.
+    """
+    import inspect
+    read_src = inspect.getsource(handoff_module.read)
+    build_src = inspect.getsource(handoff_module.build)
+    assert "Binding" not in read_src and "binding.Binding" not in read_src
+    assert "verify()" not in read_src
+    assert "Binding" not in build_src and "binding.Binding" not in build_src
+    assert "verify()" not in build_src
+
+    # Confirm Binding.verify() itself does work, in isolation, to show the
+    # mechanism is real and simply never invoked from the pipeline.
+    mismatched = Binding(consumer="test-consumer", version="0.0.1", pinned_hash=None)
+    with pytest.raises(BindingError):
+        mismatched.verify()
+
+
+def test_document_standing_is_forgeable_post_export_with_zero_detection():
+    """[EXECUTING] handoff.py's own module docstring states the harm HERALD
+    exists to prevent: "A consumer that collapses the two axes into a single
+    stamp gives an unverified assertion the appearance of a measurement, and
+    nothing downstream can tell the difference afterwards." That harm turns
+    out not to require a careless consumer at all -- it is directly
+    achievable by anyone with write access to the exported Handoff, since
+    `document.standing` is a plain unsigned string with nothing tying it to
+    the rest of the payload. Confirmed live: flipping STANDING_ATTESTATION
+    to STANDING_RECORD in an already-exported dict is silent and undetected.
+    """
+    doc = SourceDocument(source_id="hulk-standing-test", text="Paid $1,250.00 today.",
+                          standing=STANDING_ATTESTATION)
+    pkg = handoff_module.read(doc)
+    exported = pkg.to_dict()
+    assert exported["document"]["standing"] == "attestation"
+
+    forged = copy.deepcopy(exported)
+    forged["document"]["standing"] = "record"
+    assert forged["document"]["standing"] == "record"
+    # No signature anywhere ties document{} to admitted[]/refused[] together,
+    # so nothing in the exported structure itself objects to this flip.
+    assert "signature" not in json.dumps(exported).lower()
+
+
+def test_refused_claims_silently_lose_their_bundle_id_on_export():
+    """[EXECUTING] RefusalExport has no bundle_id field at all (ClaimExport
+    does). If a sentence produces one admitted claim and one refused claim
+    together, the underlying CandidateClaim objects share a bundle_id, but
+    only the admitted one's is exported. A consumer reading the handoff has
+    no way to learn that an admitted claim had a refused sibling written in
+    the same breath -- the co-occurrence link handoff.py's own docstring
+    calls necessary ("a consumer needs the first fact to reassemble... into
+    one event instead of two unrelated ones") is silently one-directional:
+    it only survives for claims that were admitted.
+    """
+    refusal_fields = {f.name for f in dataclasses.fields(handoff_module.RefusalExport)}
+    claim_fields = {f.name for f in dataclasses.fields(handoff_module.ClaimExport)}
+    assert "bundle_id" in claim_fields
+    assert "bundle_id" not in refusal_fields
+
+
+# ---------------------------------------------------------------------------
+# HULK/RALPH MAX CAMPAIGN -- GATEWAY dimension
+# ---------------------------------------------------------------------------
+#
+# HULK: "Can an attacker reach a security-sensitive state (ADMITTED, with a
+# valid HMAC, inside a real Handoff) without ever crossing the check that
+# supposedly protects that state -- extraction from real text?"
+#
+# Two distinct primitives confirmed, one of them surviving even the fully
+# "safe path" (require_source=True, a real document supplied).
+
+
+def test_hmax_gateway_default_path_admits_a_claim_with_no_real_document_at_all():
+    """[EXECUTING] HMAX-CAMPAIGN. ConfidenceGate.submit()'s `document`
+    parameter only triggers claim.verify_against(document) when it is not
+    None -- and ConfidenceGate's own constructor defaults require_source to
+    False ("Off by default so the simple path still works", per its own
+    docstring). handoff.read() deliberately overrides this to True as "the
+    safe path," but ConfidenceGate() constructed directly -- a real,
+    supported, undocumented-as-forbidden API surface -- does not.
+
+    RALPH's challenge: is this an impossible caller? No -- it is the
+    literal default constructor, used exactly as HERALD's own docstring
+    describes ("the simple path"). Anyone using the decomposed pipeline
+    (extract()+submit()+build(), rather than the read() convenience
+    wrapper) without explicitly opting into require_source=True reproduces
+    this by default.
+
+    Confirmed live: a CandidateClaim built entirely by hand (never passed
+    through extract(), fabricated source_hash matching no real document)
+    reaches ADMITTED_FOR_GOVERNANCE with a fully valid HMAC, and flows
+    cleanly into a real Handoff with standing "record" -- alongside an
+    accompanying document whose actual text says nothing related to the
+    fabricated claim.
+    """
+    fake_claim = CandidateClaim(
+        kind="amount",
+        value={"amount": 50_000_000.0, "currency": "USD"},
+        raw="$50,000,000.00",
+        span=[0, 14],
+        source_id="totally-fabricated-doc-id",
+        extractor="currency_amount",
+        base_confidence=0.99,
+        provenance=PROV_EXTRACTED,
+        source_hash="0" * 64,
+    )
+    fake_claim.seal()
+
+    gate = gate_module.ConfidenceGate()  # default: require_source=False
+    decision = gate.submit(fake_claim, document=None)
+    assert decision.verdict == gate_module.VERDICT_ADMITTED
+    assert decision.authorization_mac is not None
+
+    from herald.source import SourceDocument as _SD
+    placeholder_doc = _SD(
+        source_id="totally-fabricated-doc-id",
+        text="This document says nothing about fifty million dollars.",
+        standing=STANDING_RECORD,
+    )
+    pkg = handoff_module.build([fake_claim], [decision], placeholder_doc)
+    assert len(pkg.admitted) == 1
+    assert pkg.admitted[0].value == {"amount": 50_000_000.0, "currency": "USD"}
+    assert pkg.admitted[0].standing == "record"
+
+
+def test_hmax_gateway_require_source_true_correctly_blocks_the_naive_version():
+    """[EXECUTING] RALPH control: confirms the previous finding is really
+    about the default posture, not about require_source being broken.
+    Same fabricated claim, same gate, but require_source=True and
+    document=None (the caller simply doesn't have a document to supply) --
+    correctly BLOCKED, not silently admitted. The vulnerability is
+    specifically the *default*, not the mechanism when actually engaged.
+    """
+    fake_claim = CandidateClaim(
+        kind="amount", value={"amount": 1.0, "currency": "USD"}, raw="$1.00",
+        span=[0, 5], source_id="d", extractor="currency_amount",
+        base_confidence=0.99, provenance=PROV_EXTRACTED, source_hash="0" * 64,
+    )
+    fake_claim.seal()
+    gate = gate_module.ConfidenceGate(require_source=True)
+    decision = gate.submit(fake_claim, document=None)
+    assert decision.verdict == gate_module.VERDICT_BLOCKED
+
+
+def test_hmax_gateway_safe_path_verifies_citation_but_never_verifies_value():
+    """[EXECUTING] HMAX-CAMPAIGN, HIGH-LEVERAGE ROOT CAUSE. This is the
+    escalation that survives RALPH's strongest challenge: even on the
+    fully "safe path" (require_source=True, a REAL document genuinely
+    supplied), claim.verify_against(document) checks three things --
+    source binding present, document content_hash unchanged, and the
+    claim's span slices to exactly claim.raw in the document text. All
+    three are real, correct, and confirmed to actually stop a naive
+    fabrication attempt (see test_hmax_gateway_default_path... above).
+
+    But NONE of the three checks -- nor anything else in claim.py,
+    gate.py, or handoff.py -- ever compares `claim.value` (the structured,
+    parsed fact) against `claim.raw` (the literal cited text) for
+    consistency. A claim whose `raw` is genuinely, verifiably,
+    span-correctly "$50,000,000.00" -- present at that exact location in
+    that exact real document -- can carry a `value` of $500.00, or
+    anything else, and every check HERALD has passes cleanly.
+
+    This is the root cause unifying three already-confirmed NL-parsing
+    bugs in this harness (European-decimal misparse, $mm-shorthand
+    under/over-value, negative-sign loss): none of those bugs are
+    "caught late" by some other layer, because no layer anywhere checks
+    value-against-raw consistency, structurally, even in the fully
+    verified case. Any future bug in any extractor's parsing arithmetic
+    -- not just today's three known ones -- is undetectable by design,
+    forever, regardless of how carefully the citation itself is verified.
+    """
+    text = "The invoice states $50,000,000.00 as the total due."
+    doc = SourceDocument(source_id="real-doc-hmax-1", text=text, standing=STANDING_RECORD)
+    start = text.index("$50,000,000.00")
+    real_span = [start, start + len("$50,000,000.00")]
+
+    claim = CandidateClaim(
+        kind="amount",
+        value={"amount": 500.0, "currency": "USD"},  # WRONG -- raw says $50,000,000.00
+        raw=text[real_span[0]:real_span[1]],
+        span=real_span,
+        source_id="real-doc-hmax-1",
+        source_hash=doc.content_hash,
+        extractor="currency_amount",
+        base_confidence=0.99,
+        provenance=PROV_EXTRACTED,
+    )
+    claim.seal()
+
+    gate = gate_module.ConfidenceGate(require_source=True)  # the fully safe posture
+    decision = gate.submit(claim, document=doc)  # a REAL document, genuinely supplied
+    assert decision.verdict == gate_module.VERDICT_ADMITTED, (
+        "expected the mismatched-value claim to be admitted despite the wrong "
+        "value, since nothing checks value against raw -- if this now fails, "
+        "a value/raw consistency check may have been added; re-verify"
+    )
+
+    pkg = handoff_module.build([claim], [decision], doc)
+    assert pkg.admitted[0].value == {"amount": 500.0, "currency": "USD"}
+    assert pkg.admitted[0].raw == "$50,000,000.00"
+    # The exported claim is internally contradictory -- raw and value
+    # disagree by five orders of magnitude -- and nothing in the export
+    # marks it as such.
+
+
+def test_hmax_003_value_reseal_on_a_genuine_extraction_reaches_full_admission():
+    """[EXECUTING] HMAX-003. A sharper, more realistic reproduction of the
+    HMAX-002 primitive than direct construction: start from a genuinely,
+    honestly extract()-produced claim -- real text, real regex match, real
+    seal. Mutate ONLY `claim.value` (a plain, unguarded, mutable field) and
+    call the real, public, documented `claim.seal()` method -- the exact
+    same two-step pattern (`claim.value = ...; claim.seal()`) gate.py's own
+    ConfidenceGate.submit() uses internally for legitimate human
+    confirmations.
+
+    Confirmed live: this passes verify_seal() (self-consistent with the new
+    value), passes verify_against(document) (raw/span/hash all untouched
+    and still genuinely correct), is ADMITTED_FOR_GOVERNANCE on the fully
+    safe path (require_source=True, real document), and exports with
+    `reading: EXTRACTED`, `derivation_method: herald:currency_amount`,
+    `confidence: 0.95`, `opacity_flags: []` -- every signal asserting a
+    clean, direct, unmediated extraction, while `raw` genuinely says
+    "$50,000,000.00" and `value` says "$500.00" simultaneously. Nothing in
+    claim.py documents value-mutation as dangerous (confirmed by grep).
+
+    This is a stronger reproduction than HMAX-002 because it requires no
+    fabrication from scratch -- only a single-field mutation plus a
+    legitimate reseal() call on any real claim object a caller happens to
+    hold a reference to between extract() and gate.submit().
+    """
+    text = "The invoice states $50,000,000.00 as the total due."
+    doc = SourceDocument(source_id="hmax-003", text=text, standing=STANDING_RECORD)
+    claim = [c for c in extract_module.extract(doc) if c.kind == "amount"][0]
+    original_value = dict(claim.value)
+
+    claim.value = {"amount": 500.0, "currency": "USD"}
+    claim.seal()
+
+    claim.verify_seal()  # does not raise -- self-consistent with the new value
+    claim.verify_against(doc)  # does not raise -- raw/span/hash untouched
+
+    gate = gate_module.ConfidenceGate(require_source=True)
+    decision = gate.submit(claim, document=doc)
+    assert decision.verdict == gate_module.VERDICT_ADMITTED
+
+    pkg = handoff_module.build([claim], [decision], doc)
+    export = pkg.admitted[0]
+    assert export.value == {"amount": 500.0, "currency": "USD"}
+    assert export.value != original_value
+    assert export.raw.strip() == "$50,000,000.00"
+    assert export.reading == "EXTRACTED"
+    assert export.derivation_method == "herald:currency_amount"
+    assert export.opacity_flags == []
+
+
+def test_hmax_006_forged_provenance_does_not_change_gate_decision_logic():
+    """[EXECUTING] HMAX-006 (RALPH refinement, HMAX-3.0). Cross-layer check:
+    does `claim.provenance` mutation actually change ConfidenceGate.submit()'s
+    ADMIT/REFUSE/BLOCK decision, or only the exported presentation? Confirmed
+    by direct code inspection first (submit() reads only
+    `self._confirmations.get(claim.claim_id)`, never `claim.provenance`
+    itself), then live: forging provenance to HUMAN_CONFIRMED with no real
+    HumanConfirmation recorded in the gate produces an IDENTICAL verdict to
+    the unforged claim (both REFUSED_PENDING_HUMAN for a heavily-hedged
+    claim). This narrows the provenance-mutability finding: it does not
+    bypass gate logic (a genuine confirmation record, keyed separately in
+    ConfidenceGate._confirmations, is what actually changes the decision).
+    Its real damage is purely at the export/presentation layer, where a
+    consumer sees `reading: HUMAN_CONFIRMED` and may treat it as a strong
+    trust signal the gate never actually verified.
+    """
+    text = "This may possibly be approximately $500, roughly speaking."
+    doc = SourceDocument(source_id="hmax-006", text=text, standing=STANDING_RECORD)
+    claim = [c for c in extract_module.extract(doc) if c.kind == "amount"][0]
+
+    gate_natural = gate_module.ConfidenceGate(require_source=True)
+    decision_natural = gate_natural.submit(claim, document=doc)
+
+    claim.provenance = PROV_HUMAN_CONFIRMED
+    claim.seal()
+    gate_forged = gate_module.ConfidenceGate(require_source=True)  # no confirmation on file
+    decision_forged = gate_forged.submit(claim, document=doc)
+
+    assert decision_natural.verdict == decision_forged.verdict == gate_module.VERDICT_REFUSED
+
+
+def test_hmax_007_state_a_to_b_to_a_cycle_revalidates_the_original_decision():
+    """[EXECUTING] HMAX-007 (HMAX-4.0, Mission 2: TEMPORAL). A decision
+    issued for a claim at state A remains valid if the claim is later
+    mutated to state B and then mutated BACK to state A, with no trace that
+    a detour ever happened. content_hash is a pure function of CURRENT
+    field values, not a chronological ledger -- returning to byte-identical
+    content produces a byte-identical hash, and decision.verify_against()
+    has no way to distinguish "never touched" from "touched and reverted."
+
+    RALPH classification: this reduces cleanly to Q1
+    (continuity-without-correctness) -- it is not a new temporal primitive.
+    HERALD's continuity check answers "does current state match a captured
+    snapshot," never "has anything happened since." Confirmed live as part
+    of the HMAX-4.0 TEMPORAL mission's central finding: temporal replay
+    does not require a Q7 primitive.
+    """
+    text = "The invoice states $50,000,000.00 as the total due."
+    doc = SourceDocument(source_id="hmax-007", text=text, standing=STANDING_RECORD)
+    claim = [c for c in extract_module.extract(doc) if c.kind == "amount"][0]
+    original_value = dict(claim.value)
+
+    gate = gate_module.ConfidenceGate(require_source=True)
+    decision_A = gate.submit(claim, document=doc)
+    assert decision_A.verdict == gate_module.VERDICT_ADMITTED
+
+    claim.value = {"amount": 1.0, "currency": "USD"}  # detour: state B
+    claim.seal()
+    state_b_hash = claim.content_hash
+    assert state_b_hash != decision_A.authorized_content_hash
+
+    claim.value = dict(original_value)  # back to state A
+    claim.seal()
+    assert claim.content_hash == decision_A.authorized_content_hash
+
+    decision_A.verify_against(claim)  # does not raise -- the detour left no trace
+    pkg = handoff_module.build([claim], [decision_A], doc)
+    assert len(pkg.admitted) == 1
+
+
+def test_hmax_008_authorization_mac_does_not_survive_a_process_boundary():
+    """[EXECUTING] HMAX-008 (HMAX-4.0, Mission 4: REPLAY/DISTRIBUTED).
+    Upgrades a previously REASONED_NOT_EXECUTED claim (gate.py's own
+    docstring states the HMAC is "process-local," no cross-process
+    validity) to CONFIRMED via an actual two-subprocess test.
+
+    A claim is genuinely extracted and admitted in subprocess 1. Every one
+    of its hashable_content() fields (including segment/bundle_id/reasons/
+    opacity_flags, not just the obvious ones) is captured and used to
+    faithfully reconstruct a byte-for-byte identical claim in subprocess 2
+    -- confirmed via matching content_hash before testing the MAC itself,
+    isolating the test from reconstruction-fidelity noise. Despite
+    identical content_hash, decision.verify_against() in subprocess 2
+    rejects the decision, because subprocess 2's herald.gate module
+    generated its own, different _ISSUER_KEY at import time.
+
+    Significance beyond confirming the documented boundary: this is not
+    merely an academic caveat. Any REAL downstream governance consumer --
+    the entire stated purpose of a Handoff -- is essentially guaranteed to
+    run in a different process than the HERALD instance that produced it.
+    This means the Round-3 HMAC, exactly as designed and documented,
+    cannot be verified by the one party the "AUTHORIZATION AUTHENTICITY"
+    mechanism exists to protect a handoff on its way to. Classified as a
+    concrete, sharper articulation of Q3 (no continuity protection past
+    export) rather than a new primitive: the MAC is real continuity
+    protection that simply never reaches the boundary that matters.
+    """
+    import subprocess
+    import sys
+
+    proc1 = '''
+import json, dataclasses
+from herald import extract as extract_module
+from herald.gate import ConfidenceGate
+from herald.source import SourceDocument, STANDING_RECORD
+
+doc = SourceDocument(source_id="hmax-008", text="The invoice states $500.00 as the total due.", standing=STANDING_RECORD)
+claim = [c for c in extract_module.extract(doc) if c.kind == "amount"][0]
+gate = ConfidenceGate(require_source=True)
+decision = gate.submit(claim, document=doc)
+print(json.dumps({
+    "claim_id": claim.claim_id, "kind": claim.kind, "value": claim.value, "raw": claim.raw,
+    "span": list(claim.span), "source_id": claim.source_id, "source_hash": claim.source_hash,
+    "extractor": claim.extractor, "base_confidence": claim.base_confidence, "provenance": claim.provenance,
+    "reasons": [dataclasses.asdict(r) for r in claim.reasons], "opacity_flags": sorted(claim.opacity_flags),
+    "segment": claim.segment, "bundle_id": claim.bundle_id,
+    "original_content_hash": claim.content_hash,
+    "verdict": decision.verdict, "threshold": decision.threshold, "reason": decision.reason,
+    "authorized_content_hash": decision.authorized_content_hash, "authorization_mac": decision.authorization_mac,
+}))
+'''
+    out1 = subprocess.run([sys.executable, "-c", proc1], capture_output=True, text=True, check=True)
+    payload = out1.stdout.strip()
+
+    proc2 = '''
+import json, sys
+from herald.claim import CandidateClaim, ConfidenceReason
+from herald.gate import GateDecision
+from herald.errors import SealIntegrityError
+
+data = json.loads(sys.argv[1])
+claim = CandidateClaim(
+    claim_id=data["claim_id"], kind=data["kind"], value=data["value"], raw=data["raw"],
+    span=tuple(data["span"]), source_id=data["source_id"], source_hash=data["source_hash"],
+    extractor=data["extractor"], base_confidence=data["base_confidence"], provenance=data["provenance"],
+    reasons=[ConfidenceReason(**r) for r in data["reasons"]], opacity_flags=set(data["opacity_flags"]),
+    segment=data["segment"], bundle_id=data["bundle_id"],
+)
+claim.seal()
+assert claim.content_hash == data["original_content_hash"], "reconstruction fidelity check failed"
+decision = GateDecision(
+    claim_id=data["claim_id"], verdict=data["verdict"], confidence=claim.confidence,
+    threshold=data["threshold"], reason=data["reason"],
+    authorized_content_hash=data["authorized_content_hash"], authorization_mac=data["authorization_mac"],
+)
+try:
+    decision.verify_against(claim)
+    print("PASSED")
+except SealIntegrityError:
+    print("REJECTED")
+'''
+    out2 = subprocess.run(
+        [sys.executable, "-c", proc2, payload], capture_output=True, text=True, check=True
+    )
+    assert out2.stdout.strip() == "REJECTED", (
+        "expected the cross-process reconstruction to be rejected by the MAC check "
+        "despite matching content_hash -- if this now says PASSED, the key may no "
+        "longer be process-local; re-verify against gate.py's own documentation"
+    )
+
+
+def test_hmax_009_structured_reference_bounded_quantifiers_are_immune_to_the_redos_class():
+    """[EXECUTING] HMAX-009 (HMAX-5.0, Mission 2: Q6 analysis).
+    CONFIRMED-NONFINDING, deliberately sought as a boundary check on Q6.
+    percent/duration/quantity's shared ReDoS (pre-campaign finding) traces
+    to an UNBOUNDED `[\\d,]*` quantifier followed by a required-but-
+    omittable trailing match. structured_reference's pattern
+    (`[A-Z]{2,6}[-_]\\d{2,10}`) uses only BOUNDED quantifiers throughout.
+
+    Measured growth across a long adversarial all-uppercase run (n=500 to
+    n=4000, no trailing separator/digits to complete a match) is linear,
+    not quadratic -- confirming Q6 is a real but NARROW primitive tied to
+    a specific pattern shape (unbounded quantifier + omittable suffix), not
+    a universal property of every regex in extract.py. This is the clean
+    separating evidence for "is Q6 architecturally distinct and how far
+    does it reach": it reaches exactly as far as the vulnerable pattern
+    shape, not every extractor.
+    """
+    import time
+
+    spec = [s for s in extract_module.SPECS if s.name == "structured_reference"][0]
+    timings = []
+    for n in (500, 1000, 2000, 4000):
+        text = "A" * n
+        t0 = time.perf_counter()
+        list(spec.pattern.finditer(text))
+        timings.append(time.perf_counter() - t0)
+    # Linear growth: doubling input size should not multiply time by more
+    # than a generous constant factor (quadratic/exponential blowup would
+    # multiply it by 4x+ per doubling, compounding across 3 doublings).
+    assert timings[-1] < timings[0] * 50, (
+        f"unexpected superlinear growth in structured_reference timings: {timings} -- "
+        "if this fails, the bounded-quantifier pattern may no longer be immune"
+    )
