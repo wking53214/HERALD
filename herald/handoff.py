@@ -64,14 +64,16 @@ under someone else's authorization.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from . import binding
-from .claim import CandidateClaim
+from .claim import CandidateClaim, _canonical
 from .errors import HeraldError, SealIntegrityError
-from .gate import VERDICT_ADMITTED, ConfidenceGate, GateDecision
+from .gate import VERDICT_ADMITTED, ConfidenceGate, GateDecision, _ISSUER_KEY
 from .source import STANDING_UNKNOWN, SourceDocument
 
 
@@ -81,6 +83,118 @@ class HandoffError(HeraldError):
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _export_mac_payload(
+    document: Mapping[str, Any],
+    herald: Mapping[str, Any],
+    admitted: Sequence[Mapping[str, Any]],
+    refused: Sequence[Mapping[str, Any]],
+) -> Dict[str, Any]:
+    """The fields export_mac actually covers.
+
+    Takes plain dict-shaped admitted/refused entries (the output of each
+    export's own to_dict()) rather than the dataclass instances, so this
+    same function verifies a live build() and a deserialized JSON blob
+    identically -- there is exactly one code path for "what does the MAC
+    cover," not two that could quietly drift apart.
+
+    document: source_id, standing, content_hash -- what the document-
+    standing-swap and document-forgery findings tampered. herald: version,
+    code_hash -- what the metadata-forgery finding tampered. admitted:
+    claim_id, value, raw, content_hash, standing, authority per entry --
+    what the value-tampering finding tampered, plus authority now that it
+    is exported at all. refused: claim_id, verdict, reason per entry --
+    mirrors what authorization_mac already covers on the underlying
+    decision, so a refusal can't be silently reclassified on the way out
+    either. prepared_at and the computed bundles/summary views are
+    deliberately NOT covered: they are either a timestamp (not security-
+    relevant, same reasoning as claim.py's created_at) or pure functions
+    of the fields already covered (covering them too would be redundant,
+    not additionally protective).
+    """
+    return {
+        "document": {
+            "source_id": document.get("source_id"),
+            "standing": document.get("standing"),
+            "content_hash": document.get("content_hash"),
+        },
+        "herald": {
+            "version": herald.get("version"),
+            "code_hash": herald.get("code_hash"),
+        },
+        "admitted": [
+            {
+                "claim_id": e.get("claim_id"),
+                "value": e.get("value"),
+                "raw": e.get("raw"),
+                "content_hash": e.get("content_hash"),
+                "standing": e.get("standing"),
+                "authority": e.get("authority"),
+            }
+            for e in admitted
+        ],
+        "refused": [
+            {"claim_id": r.get("claim_id"), "verdict": r.get("verdict"), "reason": r.get("reason")}
+            for r in refused
+        ],
+    }
+
+
+def _sign_export(
+    document: Mapping[str, Any],
+    herald: Mapping[str, Any],
+    admitted: Sequence[Mapping[str, Any]],
+    refused: Sequence[Mapping[str, Any]],
+) -> str:
+    """HMAC-SHA256 over the export payload.
+
+    Keyed with the same process-local issuer key gate.py uses for
+    decision authorization (_ISSUER_KEY, imported from .gate) -- the same
+    trust domain and the same documented process-local limitation, not a
+    second, separately-managed secret with its own boundary to track.
+    """
+    payload = _canonical(_export_mac_payload(document, herald, admitted, refused))
+    return hmac.new(_ISSUER_KEY, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def verify_export(payload: Mapping[str, Any]) -> None:
+    """Re-verify a Handoff.to_dict() (or its JSON round-trip) after the
+    fact.
+
+    Recomputes export_mac from the payload's own document/herald/admitted/
+    refused fields and compares it, constant-time, to the mac the payload
+    claims. Raises SealIntegrityError if the mac is missing or does not
+    match. Previously there was no function anywhere in this module that
+    could do this at all -- the entire deliverable left the package
+    unverifiable after the fact.
+
+    Same trust boundary as gate.py's authorization_mac, and for the same
+    reason: this proves the export was not altered since THIS PROCESS
+    produced it. It does not, and is not intended to, provide cross-
+    process authenticity -- a downstream consumer in a different process
+    cannot call this function meaningfully unless it has this process's
+    _ISSUER_KEY, which is deliberately never exported. See
+    HMAX_REMEDIATION_ARCHITECTURE.md's Q3 section for the full reasoning.
+    """
+    claimed = payload.get("export_mac")
+    if not claimed:
+        raise SealIntegrityError(
+            "export has no export_mac -- not provably issued by a real "
+            "handoff.build() call, or altered since issuance"
+        )
+    expected = _sign_export(
+        payload.get("document") or {},
+        payload.get("herald") or {},
+        payload.get("admitted") or [],
+        payload.get("refused") or [],
+    )
+    if not hmac.compare_digest(expected, claimed):
+        raise SealIntegrityError(
+            "export_mac does not match this export's own document/herald/"
+            "admitted/refused fields -- not provably issued by a real "
+            "handoff.build() call, or altered since issuance"
+        )
 
 
 @dataclass(frozen=True)
@@ -109,6 +223,7 @@ class ClaimExport:
     source_id: str
     source_hash: Optional[str]
     content_hash: Optional[str]
+    authority: str
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -129,6 +244,7 @@ class ClaimExport:
             "source_id": self.source_id,
             "source_hash": self.source_hash,
             "content_hash": self.content_hash,
+            "authority": self.authority,
         }
 
     @property
@@ -145,6 +261,7 @@ class RefusalExport:
     raw: str
     span: List[int]
     segment: Optional[str]
+    bundle_id: Optional[str]
     confidence: float
     verdict: str
     reason: str
@@ -153,21 +270,30 @@ class RefusalExport:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "claim_id": self.claim_id, "kind": self.kind, "raw": self.raw,
-            "span": self.span, "segment": self.segment,
+            "span": self.span, "segment": self.segment, "bundle_id": self.bundle_id,
             "confidence": self.confidence, "verdict": self.verdict,
             "reason": self.reason, "opacity_flags": self.opacity_flags,
         }
 
 
-@dataclass
+@dataclass(frozen=True)
 class Handoff:
-    """Everything one document's reading produced, ready to leave."""
+    """Everything one document's reading produced, ready to leave.
+
+    Frozen, with admitted/refused as tuples rather than lists: this object
+    is meant to be exactly what build() assembled, not a scratch pad a
+    caller can append a fabricated entry into before serializing it. See
+    export_mac below for the complementary protection on the serialized
+    form -- freezing this object stops in-process injection; export_mac
+    stops post-serialization tampering. Neither alone was sufficient.
+    """
 
     document: Dict[str, Any]
     herald: Dict[str, Any]
-    admitted: List[ClaimExport] = field(default_factory=list)
-    refused: List[RefusalExport] = field(default_factory=list)
+    admitted: Tuple[ClaimExport, ...] = ()
+    refused: Tuple[RefusalExport, ...] = ()
     prepared_at: str = field(default_factory=_utc_now)
+    export_mac: Optional[str] = None
 
     # -- co-occurrence -------------------------------------------------
 
@@ -228,6 +354,7 @@ class Handoff:
             "refused": [r.to_dict() for r in self.refused],
             "bundles": self.bundles,
             "summary": self.summary(),
+            "export_mac": self.export_mac,
         }
 
     def render(self) -> str:
@@ -318,6 +445,7 @@ def build(
                 source_id=claim.source_id,
                 source_hash=claim.source_hash,
                 content_hash=claim.content_hash,
+                authority=claim.authority,
             ))
         else:
             refused.append(RefusalExport(
@@ -326,17 +454,25 @@ def build(
                 raw=claim.raw,
                 span=[claim.span[0], claim.span[1]],
                 segment=claim.segment,
+                bundle_id=claim.bundle_id,
                 confidence=claim.confidence,
                 verdict=decision.verdict,
                 reason=decision.reason,
                 opacity_flags=sorted(set(claim.opacity_flags)),
             ))
 
+    document_dict = document.describe()
+    herald_dict = {"version": binding.VERSION, "code_hash": binding.code_hash()}
+    admitted_dicts = [e.to_dict() for e in admitted]
+    refused_dicts = [r.to_dict() for r in refused]
+    export_mac = _sign_export(document_dict, herald_dict, admitted_dicts, refused_dicts)
+
     return Handoff(
-        document=document.describe(),
-        herald={"version": binding.VERSION, "code_hash": binding.code_hash()},
-        admitted=admitted,
-        refused=refused,
+        document=document_dict,
+        herald=herald_dict,
+        admitted=tuple(admitted),
+        refused=tuple(refused),
+        export_mac=export_mac,
     )
 
 

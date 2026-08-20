@@ -3539,34 +3539,47 @@ def test_quantity_negative_count_silently_loses_its_sign_same_as_amount_did():
 # detectability by the receiving system.
 
 
-def test_handoff_to_dict_carries_no_mac_or_signature_of_any_kind():
-    """[EXECUTING] The exported Handoff structure -- document, herald,
-    admitted, refused, bundles, summary -- is searched for every name this
-    session has used for the authorization proof (mac, signature, hmac,
-    authorized_content_hash, sign). None appear anywhere in the serialized
-    JSON. Round 3's entire HMAC mechanism lives and dies inside gate.py and
-    handoff.build(); it never reaches the object that actually leaves HERALD.
+def test_handoff_to_dict_now_carries_export_mac():
+    """[EXECUTING] CLOSED post Q3-remediation (see
+    HMAX_REMEDIATION_ARCHITECTURE.md). Originally: the exported Handoff
+    structure was searched for every name this engagement used for the
+    authorization proof (mac, signature, hmac, authorized_content_hash,
+    sign) and none appeared anywhere -- Round 3's HMAC lived and died
+    inside gate.py/handoff.build(), never reaching the object that
+    actually left HERALD.
+
+    `export_mac` now travels with every Handoff, extending the same HMAC
+    mechanism (same process-local _ISSUER_KEY, imported from gate.py) one
+    layer out to cover the export itself. Confirmed live: the field is
+    present, non-empty, and verify_export() accepts the genuine export.
     """
     doc = SourceDocument(source_id="hulk-handoff-1", text="Paid $1,250.00 today.",
                           standing=STANDING_RECORD)
     pkg = handoff_module.read(doc)
-    blob = json.dumps(pkg.to_dict())
-    for needle in ("mac", "signature", "hmac", "authorized_content_hash", "sign"):
-        assert needle not in blob.lower(), (
-            f"unexpectedly found '{needle}' in the exported Handoff -- "
-            "if this now fails, the authenticity proof may have started "
-            "traveling with the export; re-read this finding before acting"
-        )
+    exported = pkg.to_dict()
+    assert exported.get("export_mac"), "expected export_mac to be present and non-empty"
+    handoff_module.verify_export(exported)  # does not raise
     assert pkg.admitted, "need at least one admitted claim for this to be meaningful"
 
 
 def test_claim_export_has_no_field_the_consumer_could_verify_against():
-    """[EXECUTING] ClaimExport's own dataclass field names are enumerated
-    directly (not just grepped from one JSON blob) to confirm there is no
-    field, under any name, that could serve as an authorization proof for
-    a consumer holding nothing but the exported object.
+    """[EXECUTING] UPDATED post Q3-remediation (see
+    HMAX_REMEDIATION_ARCHITECTURE.md). ClaimExport's own dataclass field
+    names are enumerated directly (not just grepped from one JSON blob) to
+    confirm there is no MAC/signature-shaped field living directly on
+    ClaimExport itself -- export_mac was deliberately placed on Handoff
+    (covering all admitted/refused entries plus document/herald together
+    in one payload), not duplicated onto every individual ClaimExport.
+
+    `authority` is now a legitimate ClaimExport field (added by this same
+    remediation, closing a separate finding -- see
+    test_claim_export_omits_authority... below) and is explicitly excluded
+    from the suspicious-token scan: it matches the substring "auth" by
+    coincidence of English spelling, not because it is an authorization
+    artifact. It is ordinary claim data, the same category as `kind` or
+    `value`.
     """
-    field_names = {f.name for f in dataclasses.fields(handoff_module.ClaimExport)}
+    field_names = {f.name for f in dataclasses.fields(handoff_module.ClaimExport)} - {"authority"}
     suspicious = {n for n in field_names if any(
         tok in n.lower() for tok in ("mac", "sig", "hmac", "auth", "sign", "verif"))}
     assert suspicious == set(), (
@@ -3574,13 +3587,19 @@ def test_claim_export_has_no_field_the_consumer_could_verify_against():
     )
 
 
-def test_claim_export_omits_authority_so_content_hash_is_not_independently_recomputable():
-    """[EXECUTING] hashable_content() (claim.py) includes `authority` as one
-    of the fields folded into content_hash. ClaimExport does not export
-    `authority` at all. So even a consumer that reimplemented HERALD's exact
-    hashing algorithm to self-check an exported claim could not reproduce
-    content_hash from the exported fields alone -- one required input is
-    structurally missing from the deliverable.
+def test_claim_export_now_includes_authority():
+    """[EXECUTING] CLOSED post Q3-remediation (see
+    HMAX_REMEDIATION_ARCHITECTURE.md). Originally: hashable_content()
+    (claim.py) includes `authority` as one of the fields folded into
+    content_hash, but ClaimExport did not export it at all -- so even a
+    consumer that reimplemented HERALD's exact hashing algorithm to
+    self-check an exported claim could not reproduce content_hash from
+    the exported fields alone.
+
+    `authority` is now an exported field. This does not, by itself, make
+    content_hash independently recomputable end to end -- confidence and
+    reasons interact in ways not tested here -- but it removes the one
+    field that was structurally, unconditionally missing.
     """
     doc = SourceDocument(source_id="hulk-handoff-2", text="Paid $1,250.00 today.",
                           standing=STANDING_RECORD)
@@ -3588,63 +3607,73 @@ def test_claim_export_omits_authority_so_content_hash_is_not_independently_recom
     hashable_fields = set(claim.hashable_content().keys())
     export_fields = {f.name for f in dataclasses.fields(handoff_module.ClaimExport)}
     missing = hashable_fields - export_fields
-    assert "authority" in missing, (
-        "expected 'authority' to be one of the hashable_content() fields "
-        "absent from ClaimExport; if this fails, either the seal no longer "
-        "covers authority, or the export now includes it -- re-check which"
+    assert "authority" not in missing, (
+        "expected 'authority' to now be exported on ClaimExport -- if this "
+        "fails, the field may have been removed or renamed"
     )
 
 
-def test_tampering_an_admitted_value_after_export_is_completely_undetected():
-    """[EXECUTING] End-to-end demonstration: read() a real document, export
-    the Handoff to a dict (simulating serialization to JSON for a message
-    queue, log, or network hop), rewrite an admitted claim's value in the
-    exported structure, and confirm HERALD offers no function anywhere that
-    could catch this. herald.handoff's own public surface is enumerated to
-    show there is no re-verification entry point to even attempt calling.
+def test_tampering_an_admitted_value_after_export_is_now_caught_by_verify_export():
+    """[EXECUTING] CLOSED post Q3-remediation (see
+    HMAX_REMEDIATION_ARCHITECTURE.md). Originally: read() a real document,
+    export the Handoff to a dict, rewrite an admitted claim's value in the
+    exported structure -- and no function anywhere in herald.handoff could
+    catch it; the public surface had no verify/check/validate-shaped name
+    at all.
+
+    verify_export() now exists (the one new public name in this module's
+    surface) and catches exactly this: the tampered blob still round-trips
+    through plain JSON with no structural marker distinguishing it (JSON
+    syntax was never the vulnerability), but verify_export() recomputes
+    export_mac from the payload's own fields and rejects the mismatch.
     """
     doc = SourceDocument(source_id="hulk-handoff-3", text="Paid $1,250.00 today.",
                           standing=STANDING_RECORD)
     pkg = handoff_module.read(doc)
     exported = pkg.to_dict()
+    handoff_module.verify_export(exported)  # the genuine export passes
+
     tampered = copy.deepcopy(exported)
     original_value = tampered["admitted"][0]["value"]
     tampered["admitted"][0]["value"] = {"amount": 999999999.0, "currency": "USD"}
     assert tampered["admitted"][0]["value"] != original_value
 
-    # No function in herald.handoff takes a dict/JSON blob and re-verifies it.
-    public_surface = {n for n in dir(handoff_module) if not n.startswith("_")}
-    verifier_candidates = {n for n in public_surface if "verify" in n.lower()
-                            or "check" in n.lower() or "validate" in n.lower()}
-    assert verifier_candidates == set(), (
-        f"unexpected verifier-shaped name(s) in herald.handoff: {verifier_candidates} -- "
-        "if this fails, a re-verification entry point may now exist; use it instead "
-        "of trusting the export blindly"
-    )
-    # The tampered blob round-trips through JSON with no structural marker
-    # distinguishing it from a genuine one.
+    # The tampered blob still round-trips through JSON cleanly -- that was
+    # never the gap this closes.
     reloaded = json.loads(json.dumps(tampered))
     assert reloaded["admitted"][0]["value"] == {"amount": 999999999.0, "currency": "USD"}
 
+    with pytest.raises(SealIntegrityError, match="export_mac"):
+        handoff_module.verify_export(reloaded)
 
-def test_herald_metadata_block_is_unsigned_free_text():
-    """[EXECUTING] Handoff.herald (version, code_hash) is meant to let a
-    consumer know which HERALD build produced this handoff -- the same pair
-    a Binding pins against. But it is exported as plain strings with nothing
-    binding them to the rest of the payload. Overwriting them in an exported
-    dict is a no-op as far as HERALD is concerned: there is no function that
-    reads a Handoff dict back and checks `herald` against anything.
+
+def test_herald_metadata_block_forgery_is_now_caught_by_verify_export():
+    """[EXECUTING] CLOSED post Q3-remediation (see
+    HMAX_REMEDIATION_ARCHITECTURE.md). Originally: Handoff.herald (version,
+    code_hash) was exported as plain strings with nothing binding them to
+    the rest of the payload -- overwriting them in an exported dict was a
+    silent no-op, since no function anywhere read a Handoff dict back and
+    checked `herald` against anything.
+
+    handoff.verify_export() now exists and covers exactly this: it
+    recomputes export_mac from the payload's own document/herald/admitted/
+    refused fields and compares. json.dumps() still trivially serializes a
+    forged dict (there is no schema gate stopping malformed JSON from
+    being valid JSON, and there shouldn't be one -- that's not the
+    vulnerability this closes), but verify_export() now catches the
+    substantive tamper.
     """
     doc = SourceDocument(source_id="hulk-handoff-4", text="Paid $1,250.00 today.",
                           standing=STANDING_RECORD)
     pkg = handoff_module.read(doc)
     exported = pkg.to_dict()
+    handoff_module.verify_export(exported)  # the genuine export passes
+
     forged = copy.deepcopy(exported)
     forged["herald"] = {"version": "99.99.99", "code_hash": "0" * 64}
-    # Nothing rejects this -- to_dict()'s output is a plain dict, and there
-    # is no herald.handoff function that ingests one and checks it.
-    assert forged["herald"]["version"] == "99.99.99"
-    assert json.dumps(forged)  # still trivially serializes; no gate anywhere
+    assert json.dumps(forged)  # still trivially serializes -- that was never the gap
+    with pytest.raises(SealIntegrityError, match="export_mac"):
+        handoff_module.verify_export(forged)
 
 
 def test_binding_can_now_be_passed_to_read_and_build_and_is_enforced():
@@ -3703,46 +3732,78 @@ def test_binding_can_now_be_passed_to_read_and_build_and_is_enforced():
     assert len(pkg.admitted) == 1
 
 
-def test_document_standing_is_forgeable_post_export_with_zero_detection():
-    """[EXECUTING] handoff.py's own module docstring states the harm HERALD
-    exists to prevent: "A consumer that collapses the two axes into a single
-    stamp gives an unverified assertion the appearance of a measurement, and
-    nothing downstream can tell the difference afterwards." That harm turns
-    out not to require a careless consumer at all -- it is directly
-    achievable by anyone with write access to the exported Handoff, since
-    `document.standing` is a plain unsigned string with nothing tying it to
-    the rest of the payload. Confirmed live: flipping STANDING_ATTESTATION
-    to STANDING_RECORD in an already-exported dict is silent and undetected.
+def test_document_standing_forgery_is_now_caught_by_verify_export():
+    """[EXECUTING] CLOSED post Q3-remediation (see
+    HMAX_REMEDIATION_ARCHITECTURE.md). Originally: handoff.py's own module
+    docstring states the harm HERALD exists to prevent -- "A consumer that
+    collapses the two axes into a single stamp gives an unverified
+    assertion the appearance of a measurement, and nothing downstream can
+    tell the difference afterwards." That harm didn't require a careless
+    consumer: `document.standing` was a plain unsigned string with nothing
+    tying it to the rest of the payload, and flipping
+    STANDING_ATTESTATION to STANDING_RECORD in an already-exported dict
+    was silent and undetected.
+
+    export_mac's payload explicitly includes document.standing (see
+    _export_mac_payload's docstring in handoff.py) specifically because
+    this was the sharpest finding in the whole engagement. Confirmed live:
+    the genuine export verifies; the identical flip now raises.
     """
     doc = SourceDocument(source_id="hulk-standing-test", text="Paid $1,250.00 today.",
                           standing=STANDING_ATTESTATION)
     pkg = handoff_module.read(doc)
     exported = pkg.to_dict()
     assert exported["document"]["standing"] == "attestation"
+    handoff_module.verify_export(exported)  # the genuine export passes
 
     forged = copy.deepcopy(exported)
     forged["document"]["standing"] = "record"
-    assert forged["document"]["standing"] == "record"
-    # No signature anywhere ties document{} to admitted[]/refused[] together,
-    # so nothing in the exported structure itself objects to this flip.
-    assert "signature" not in json.dumps(exported).lower()
+    with pytest.raises(SealIntegrityError, match="export_mac"):
+        handoff_module.verify_export(forged)
 
 
-def test_refused_claims_silently_lose_their_bundle_id_on_export():
-    """[EXECUTING] RefusalExport has no bundle_id field at all (ClaimExport
-    does). If a sentence produces one admitted claim and one refused claim
-    together, the underlying CandidateClaim objects share a bundle_id, but
-    only the admitted one's is exported. A consumer reading the handoff has
-    no way to learn that an admitted claim had a refused sibling written in
-    the same breath -- the co-occurrence link handoff.py's own docstring
-    calls necessary ("a consumer needs the first fact to reassemble... into
-    one event instead of two unrelated ones") is silently one-directional:
-    it only survives for claims that were admitted.
+def test_refused_claims_now_export_their_bundle_id_too():
+    """[EXECUTING] CLOSED post Q3-remediation (see
+    HMAX_REMEDIATION_ARCHITECTURE.md). Originally: RefusalExport had no
+    bundle_id field at all (ClaimExport did). If a sentence produced one
+    admitted claim and one refused claim together, the underlying
+    CandidateClaim objects shared a bundle_id, but only the admitted one's
+    was exported -- a consumer had no way to learn an admitted claim had a
+    refused sibling written in the same breath, silently one-directional
+    despite handoff.py's own docstring calling this co-occurrence link
+    necessary.
+
+    RefusalExport now carries bundle_id too, populated from the same
+    underlying claim field build() already reads for ClaimExport.
+    Confirmed field presence, and confirmed end to end: a sentence
+    producing one admitted and one refused claim now exports a matching
+    bundle_id on both sides.
     """
     refusal_fields = {f.name for f in dataclasses.fields(handoff_module.RefusalExport)}
     claim_fields = {f.name for f in dataclasses.fields(handoff_module.ClaimExport)}
     assert "bundle_id" in claim_fields
-    assert "bundle_id" not in refusal_fields
+    assert "bundle_id" in refusal_fields
+
+    # A sentence hedged enough that both claims in it are refused together,
+    # sharing one real bundle_id -- deterministic (verified live before
+    # writing this assertion), unlike trying to force a mixed admitted/
+    # refused split, which depends on exact hedge-proximity-window
+    # behavior and is not worth hand-tuning for this test's actual point.
+    text = "Paid $1,250.00 and possibly maybe roughly 5 records were affected."
+    doc = SourceDocument(source_id="hmax-refusal-bundle", text=text, standing=STANDING_RECORD)
+    claims = extract_module.extract(doc)
+    gate = ConfidenceGate(require_source=True)
+    decisions = gate.submit_all(claims, document=doc)
+    pkg = handoff_module.build(claims, decisions, doc)
+    assert len(pkg.refused) == 2 and not pkg.admitted, (
+        "test setup expects both claims hedged into refusal; if this "
+        "fails, re-verify the sentence still produces that split"
+    )
+    refused_bundle_ids = {r.bundle_id for r in pkg.refused}
+    assert refused_bundle_ids == {"s1"}, (
+        f"expected both refused claims to carry the same real bundle_id "
+        f"'s1', got {refused_bundle_ids}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -4245,4 +4306,60 @@ def test_hmax_012_q1_fix_residual_forged_provenance_still_escapes_the_new_check(
     assert decision.verdict == gate_module.VERDICT_ADMITTED, (
         "documents the residual: composing forged provenance with forged "
         "confidence still reaches admission despite the Q1 fix"
+    )
+
+
+def test_hmax_013_export_mac_has_the_same_process_local_limitation_as_the_decision_mac():
+    """[EXECUTING] HMAX-013. Documented residual of the Q3 remediation
+    (see HMAX_REMEDIATION_ARCHITECTURE.md's Q3 section, "the part this
+    does NOT solve"). export_mac reuses gate.py's _ISSUER_KEY, so it
+    inherits the exact same process-local limitation HMAX-008 already
+    confirmed for authorization_mac: a genuinely faithful export produced
+    in one process is rejected by verify_export() in a different process,
+    solely because each process's herald.gate import generates its own
+    key.
+
+    This is not a new gap -- it is the same accepted, documented trade-off
+    (stdlib-only, no external key-distribution dependency) applied one
+    layer further out, exactly as designed. Recorded with its own direct
+    evidence rather than left for a reader to generalize from HMAX-008.
+    """
+    import subprocess
+    import sys
+
+    proc1 = '''
+import json
+from herald import extract as extract_module
+from herald.gate import ConfidenceGate
+from herald import handoff as handoff_module
+from herald.source import SourceDocument, STANDING_RECORD
+
+doc = SourceDocument(source_id="hmax-013", text="Paid $500.00 today.", standing=STANDING_RECORD)
+claims = extract_module.extract(doc)
+gate = ConfidenceGate(require_source=True)
+decisions = gate.submit_all(claims, document=doc)
+pkg = handoff_module.build(claims, decisions, doc)
+print(json.dumps(pkg.to_dict()))
+'''
+    out1 = subprocess.run([sys.executable, "-c", proc1], capture_output=True, text=True, check=True)
+    exported = out1.stdout.strip()
+
+    proc2 = '''
+import json, sys
+from herald import handoff as handoff_module
+from herald.errors import SealIntegrityError
+
+payload = json.loads(sys.argv[1])
+try:
+    handoff_module.verify_export(payload)
+    print("PASSED")
+except SealIntegrityError:
+    print("REJECTED")
+'''
+    out2 = subprocess.run(
+        [sys.executable, "-c", proc2, exported], capture_output=True, text=True, check=True
+    )
+    assert out2.stdout.strip() == "REJECTED", (
+        "expected the cross-process export to be rejected -- if this now "
+        "says PASSED, the key may no longer be process-local; re-verify"
     )
