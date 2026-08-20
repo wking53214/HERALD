@@ -71,7 +71,14 @@ _PATTERNS: List[Tuple[str, str]] = [
     (NEGATION, r"\b(not|no|never|without|except|excluding|other than|fail(?:s|ed)? to)\b"),
     # Operands may be currency- or symbol-prefixed ("$500 and $250 or a
     # waiver"), so a bare \w+ misses exactly the money cases that matter.
-    (COORDINATION, r"\band/or\b|[\w$\u00a3\u20ac\u00a5%.,]+\s+and\s+[\w$\u00a3\u20ac\u00a5%.,]+\s+or\s+\w+"),
+    # {1,40}, not +: an unbounded run here, followed by a required-but-
+    # not-yet-matched " and "/" or ", is the same backtracking shape
+    # extract.py's amount/percent/duration/quantity patterns had
+    # (confirmed quadratic on any long unbroken word-character run, not
+    # just digits, before this bound existed) -- 40 characters is far
+    # longer than any realistic single operand and keeps worst-case
+    # backtracking trivial regardless of input length.
+    (COORDINATION, r"\band/or\b|[\w$\u00a3\u20ac\u00a5%.,]{1,40}\s+and\s+[\w$\u00a3\u20ac\u00a5%.,]{1,40}\s+or\s+\w+"),
     (DEIXIS, r"\b(this|that|these|those|it|they|them|such|the former|the latter|said)\b"),
 ]
 

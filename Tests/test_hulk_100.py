@@ -2694,26 +2694,26 @@ def test_nl_percent_range_collapses_into_two_independent_full_confidence_claims(
 # NOTHING instead of producing something wrong).
 # =============================================================================
 
-def test_nl_redos_missing_required_unit_causes_quadratic_backtracking():
-    """[EXECUTING] CRITICAL -- this is not a misreading, it is a resource-
-    exhaustion vulnerability. percent, duration, and quantity (herald/
-    extract.py) all share the shape
+def test_nl_redos_missing_required_unit_is_now_bounded_not_quadratic():
+    """[EXECUTING] CLOSED post Q6-remediation (see
+    HMAX_REMEDIATION_ARCHITECTURE.md). Originally: percent, duration, and
+    quantity (herald/extract.py) all shared the shape
     `\\d[\\d,]*(?:\\.\\d+)?\\s?(?P<unit>REQUIRED_WORD_ALTERNATION)\\b`
-    where the trailing unit is MANDATORY, not optional. Fed a long run of
+    where the trailing unit is mandatory, not optional. Fed a long run of
     digit-comma characters with no matching unit anywhere nearby, the
-    engine backtracks through every possible split of `[\\d,]*` at every
-    starting position before concluding no match exists there --
-    classic quadratic (ReDoS-shaped) blowup.
+    engine backtracked through every possible split of `[\\d,]*` at every
+    starting position before concluding no match exists -- classic
+    quadratic (ReDoS-shaped) blowup, confirmed at n=1200 taking close to
+    4x as long as n=600.
 
-    currency_amount, structured next to these in the same file, is NOT
-    vulnerable: its trailing suffix group is genuinely optional
-    (`(?P<suffix>k|m|bn|b)?`), so it never needs to search forward for a
-    word that might not exist -- confirmed as the immune control below.
-
-    Verified as actual quadratic scaling, not asserted: n=1200 must take
-    close to 4x as long as n=600, not close to 2x (linear) -- generous
-    tolerance (>3x) to avoid environment-timing flakiness while still
-    ruling out linear.
+    `[\\d,]*` is now `[\\d,]{0,24}` in all three patterns (plus
+    currency_amount, already immune before this fix since its trailing
+    suffix was genuinely optional). Bounding the quantifier means the
+    engine can never backtrack past 24 characters regardless of how long
+    the adversarial input is -- confirmed here by checking growth from
+    n=600 to n=1200 stays close to linear (ratio well under the 3x+
+    threshold that would indicate quadratic scaling is still present),
+    matching what currency_amount's shape already looked like.
     """
     percent_spec = next(s for s in SPECS if s.name == "percent")
     duration_spec = next(s for s in SPECS if s.name == "duration")
@@ -2721,13 +2721,6 @@ def test_nl_redos_missing_required_unit_causes_quadratic_backtracking():
     currency_spec = next(s for s in SPECS if s.name == "currency_amount")
 
     def timed(spec, n, trials=5):
-        """Best-of-`trials`: quadratic-vs-linear is the signal here, and
-        a single wall-clock sample is noisy enough under shared/CI CPU
-        load to flip a 4x ratio down toward 2x by chance. The minimum
-        across repeated trials is the closest available proxy for actual
-        computational cost, since noise only ever adds time, never
-        removes it.
-        """
         text = "$" + ("1," * n) + "000"  # digits with no unit word anywhere
         best = float("inf")
         for _ in range(trials):
@@ -2736,54 +2729,43 @@ def test_nl_redos_missing_required_unit_causes_quadratic_backtracking():
             best = min(best, time.time() - t0)
         return best
 
-    for spec in (percent_spec, duration_spec, quantity_spec):
+    for spec in (percent_spec, duration_spec, quantity_spec, currency_spec):
         small = timed(spec, 600)
         large = timed(spec, 1200)
-        assert large > 0.02, (
-            f"{spec.name}: n=1200 took only {large:.4f}s -- too fast to "
-            "reliably measure the ratio; environment may be unusually fast"
-        )
         ratio = large / max(small, 1e-6)
-        assert ratio > 3.0, (
-            f"{spec.name}: doubling input length only scaled runtime by "
-            f"{ratio:.1f}x (expected close to 4x, quadratic); this "
-            "extractor may no longer have the vulnerability, or the "
-            "measurement is unreliable in this environment"
+        assert ratio < 3.0, (
+            f"{spec.name}: doubling input length scaled runtime by "
+            f"{ratio:.1f}x -- expected well under 3x (linear-ish, bounded); "
+            "if this fails, the [\\d,]{0,24} bound may have regressed"
+        )
+        assert large < 0.05, (
+            f"{spec.name}: n=1200 took {large:.4f}s -- expected fast "
+            "regardless of input length now that the quantifier is bounded"
         )
 
-    currency_immune_time = timed(currency_spec, 1200)
-    assert currency_immune_time < 0.02, (
-        f"currency_amount took {currency_immune_time:.4f}s on the same "
-        "adversarial input that makes percent/duration/quantity blow up -- "
-        "expected it to stay fast, confirming the optional-suffix shape "
-        "is what makes it immune"
-    )
 
+def test_nl_redos_tiny_document_no_longer_causes_disproportionate_full_extract_delay():
+    """[EXECUTING] CLOSED post Q6-remediation (see
+    HMAX_REMEDIATION_ARCHITECTURE.md). Originally: the same adversarial
+    payload run through the real public extract() function (every
+    extractor, not just one pattern in isolation) took roughly two orders
+    of magnitude longer than a same-length control with no long digit-
+    comma run -- a 2.4KB string, smaller than a single paragraph, was
+    enough to demonstrate it, reachable by the first function any caller
+    runs on untrusted text, no authorization bypass or forged decision
+    needed.
 
-def test_nl_redos_tiny_document_causes_disproportionate_full_extract_delay():
-    """[EXECUTING] CRITICAL, real-world framing: the SAME adversarial
-    payload run through the actual public extract() function (every
-    extractor, not just one pattern in isolation), contrasted against a
-    control string of identical length with no long digit-comma run at
-    all. A 2.4KB string -- smaller than a single paragraph, well within
-    what any consuming system would accept as ordinary input -- takes
-    roughly two orders of magnitude longer than the control. This scales
-    quadratically (confirmed above), so a realistic document-sized
-    payload (tens of KB, unremarkable for a real filing or transcript)
-    would hang extract() for seconds to minutes, and this needs no
-    authorization bypass, no forged decision, nothing from any earlier
-    round -- it is reachable by the first function any caller runs on
-    untrusted text.
-
-    NOTE on the control's construction: a first attempt at a control used
-    `("1,"*n) + "000 calls"` -- the same giant digit run, just with a
-    valid trailing unit for the QUANTITY extractor. That was still slow
-    (~0.5s): extract() runs every extractor over the full text
-    independently, so percent and duration still searched the same
-    digit run for their OWN required unit, which never appears, and both
-    still blew up even though quantity matched cleanly. The control below
-    avoids the digit run entirely, which is the only way to get a
-    genuinely fast comparison.
+    With [\\d,]{0,24} bounding every affected pattern, the engine can
+    never backtrack past 24 characters into the digit run regardless of
+    how long the run actually is -- both inputs now stay well under 50ms
+    in absolute terms, the practically meaningful claim (a real request
+    handler is not going to hang). The adversarial input is still
+    somewhat slower than the control in relative terms (dense
+    digit/comma content gives every extractor, not just the three that
+    were vulnerable, more to scan than the control's sparse repeated
+    "word "), so this checks the absolute bound rather than reasserting
+    a tight ratio -- the ratio was never the actual harm; unbounded
+    absolute time was.
     """
     n = 1200
     adversarial = "$" + ("1," * n) + "000"
@@ -2799,11 +2781,10 @@ def test_nl_redos_tiny_document_causes_disproportionate_full_extract_delay():
     adversarial_time = time.time() - t0
 
     assert control_time < 0.05, f"control unexpectedly slow: {control_time:.4f}s"
-    assert adversarial_time > 20 * control_time, (
-        f"adversarial input ({len(adversarial)} chars) took {adversarial_time:.4f}s "
-        f"vs. control's {control_time:.4f}s -- expected at least a 20x gap; "
-        "a single malformed/adversarial document can cost orders of "
-        "magnitude more processing time than equivalent well-formed text"
+    assert adversarial_time < 0.05, (
+        f"adversarial input ({len(adversarial)} chars) took {adversarial_time:.4f}s -- "
+        "expected it to stay fast (well under the 100x+ blowup this test "
+        "used to demonstrate) now that the vulnerable quantifiers are bounded"
     )
 
 
@@ -4190,34 +4171,23 @@ def test_hmax_009_structured_reference_bounded_quantifiers_are_immune_to_the_red
     )
 
 
-def test_hmax_010_ambiguity_coordination_pattern_redos_is_a_separate_confirmed_vulnerability():
-    """[EXECUTING] HMAX-010. Baseline-completeness fix, found while drafting
-    the HMAX-5.0 adversarial regression plan: this second, independently-
-    isolated ReDoS (first identified during this engagement's earlier
-    discovery work, described in prior session notes) was never actually
-    turned into a permanent regression test until now -- it existed only
-    as narrative, not as executable evidence in this file. Added to the
-    pre-remediation baseline so the Q6 primitive's full confirmed scope is
-    captured before any fix lands, matching what
-    test_nl_redos_missing_required_unit_causes_quadratic_backtracking
-    already does for the extract.py instance.
+def test_hmax_010_ambiguity_coordination_pattern_redos_is_now_bounded():
+    """[EXECUTING] HMAX-010, CLOSED post Q6-remediation (see
+    HMAX_REMEDIATION_ARCHITECTURE.md). Originally: ambiguity.py's
+    COORDINATION pattern
+    (`[\\w$£€¥%.,]+\\s+and\\s+[\\w$£€¥%.,]+\\s+or\\s+\\w+`) shared the same
+    vulnerable shape as extract.py's amount/percent/duration/quantity
+    patterns -- an unbounded character class followed by a required-but-
+    omittable literal ("and"). A long unbroken word-character run with no
+    " and "/" or " anywhere forced the engine to backtrack through every
+    possible split point, confirmed quadratic at n=1600 vs n=800.
 
-    ambiguity.py's COORDINATION pattern
-    (`[\\w$£€¥%.,]+\\s+and\\s+[\\w$£€¥%.,]+\\s+or\\s+\\w+`) shares the same
-    vulnerable shape: an unbounded character class followed by a required-
-    but-omittable literal ("and"). A long unbroken word-character run with
-    no " and "/" or " anywhere forces the engine to backtrack through every
-    possible split point. Unlike the extract.py instance (triggered
-    specifically by digit-comma runs), this one is triggered by ANY long
-    unbroken word-character run -- a broader trigger condition, confirmed
-    distinct in this engagement's prior discovery work.
-
-    Verified as genuinely quadratic (not linear) using the same
-    methodology as the extract.py instance: n=1600 must take close to 4x
-    as long as n=800, generous tolerance (>3x) to rule out linear scaling
-    while avoiding environment-timing flakiness. Bounded to a maximum of
-    1600 characters -- large enough to measure the ratio reliably,
-    small enough to keep this test itself fast and safe to run.
+    Both `[\\w$£€¥%.,]+` occurrences are now `[\\w$£€¥%.,]{1,40}` --
+    40 characters is far longer than any realistic single operand, and
+    bounding the quantifier means the engine can never backtrack past it
+    regardless of how long the adversarial run actually is. Confirmed
+    here by checking the same n=800 to n=1600 growth stays well under the
+    3x threshold that would indicate quadratic scaling is still present.
     """
     from herald import ambiguity as ambiguity_module
 
@@ -4237,16 +4207,15 @@ def test_hmax_010_ambiguity_coordination_pattern_redos_is_a_separate_confirmed_v
 
     small = timed(800)
     large = timed(1600)
-    assert large > 0.002, (
-        f"n=1600 took only {large:.5f}s -- too fast to reliably measure "
-        "the ratio; environment may be unusually fast"
-    )
     ratio = large / max(small, 1e-6)
-    assert ratio > 3.0, (
-        f"doubling input length only scaled runtime by {ratio:.1f}x "
-        "(expected close to 4x, quadratic); the COORDINATION pattern may "
-        "no longer have this vulnerability, or the measurement is "
-        "unreliable in this environment"
+    assert ratio < 3.0, (
+        f"doubling input length scaled runtime by {ratio:.1f}x -- expected "
+        "well under 3x now that the quantifier is bounded; if this fails, "
+        "the {1,40} bound may have regressed"
+    )
+    assert large < 0.05, (
+        f"n=1600 took {large:.5f}s -- expected fast regardless of input "
+        "length now that the quantifier is bounded"
     )
 
 

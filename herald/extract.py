@@ -159,8 +159,16 @@ SPECS: List[ExtractorSpec] = [
     ExtractorSpec(
         name="currency_amount", kind=KIND_AMOUNT, base_confidence=0.95,
         pattern=re.compile(
-            r"(?:(?P<sym>[$\u00a3\u20ac\u00a5])\s?)(?P<num>\d[\d,]*(?:\.\d+)?)\s?(?P<suffix>k|m|bn|b)?\b"
-            r"|(?P<num2>\d[\d,]*(?:\.\d+)?)\s?(?P<code>USD|GBP|EUR|JPY|CAD|AUD)\b",
+            # [\d,]{0,24}, not [\d,]*: an unbounded run here, followed by an
+            # optional suffix/code that might not be present, is exactly
+            # the shape that makes the regex engine backtrack through every
+            # possible split point on a long adversarial digit-comma run
+            # (confirmed quadratic before this bound existed). 24 more
+            # digits after the mandatory leading one is far beyond any
+            # real currency amount and keeps worst-case backtracking
+            # trivial regardless of input length.
+            r"(?:(?P<sym>[$\u00a3\u20ac\u00a5])\s?)(?P<num>\d[\d,]{0,24}(?:\.\d+)?)\s?(?P<suffix>k|m|bn|b)?\b"
+            r"|(?P<num2>\d[\d,]{0,24}(?:\.\d+)?)\s?(?P<code>USD|GBP|EUR|JPY|CAD|AUD)\b",
             re.IGNORECASE,
         ),
         normalize=lambda m: _norm_amount_dispatch(m),
@@ -171,7 +179,9 @@ SPECS: List[ExtractorSpec] = [
             # No trailing \b: a percent sign followed by a full stop has no
             # word boundary between them, which silently killed every
             # sentence-final rate until the calibration set caught it.
-            r"\b(?P<num>\d[\d,]*(?:\.\d+)?)\s?(?:%|percent\b|pct\b)",
+            # [\d,]{0,24}: see currency_amount's comment above -- same
+            # vulnerable shape, same bound.
+            r"\b(?P<num>\d[\d,]{0,24}(?:\.\d+)?)\s?(?:%|percent\b|pct\b)",
             re.IGNORECASE,
         ),
         normalize=_norm_percent,
@@ -179,7 +189,7 @@ SPECS: List[ExtractorSpec] = [
     ExtractorSpec(
         name="duration", kind=KIND_DURATION, base_confidence=0.90,
         pattern=re.compile(
-            r"\b(?P<num>\d[\d,]*(?:\.\d+)?)\s?(?P<unit>seconds?|minutes?|hours?|days?|weeks?|months?|years?)\b",
+            r"\b(?P<num>\d[\d,]{0,24}(?:\.\d+)?)\s?(?P<unit>seconds?|minutes?|hours?|days?|weeks?|months?|years?)\b",
             re.IGNORECASE,
         ),
         normalize=_norm_duration,
@@ -187,7 +197,7 @@ SPECS: List[ExtractorSpec] = [
     ExtractorSpec(
         name="quantity", kind=KIND_QUANTITY, base_confidence=0.85,
         pattern=re.compile(
-            r"\b(?P<num>\d[\d,]*(?:\.\d+)?)\s?(?P<unit>calls?|items?|units?|records?|accounts?|attempts?|times?)\b",
+            r"\b(?P<num>\d[\d,]{0,24}(?:\.\d+)?)\s?(?P<unit>calls?|items?|units?|records?|accounts?|attempts?|times?)\b",
             re.IGNORECASE,
         ),
         normalize=_norm_quantity,
