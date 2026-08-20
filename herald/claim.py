@@ -326,6 +326,14 @@ class CandidateClaim:
 
             spec = next((s for s in extract_module.SPECS if s.name == self.extractor), None)
             if spec is not None:
+                if spec.kind != self.kind:
+                    raise SealIntegrityError(
+                        f"{self.claim_id}: kind {self.kind!r} does not match the "
+                        f"{self.extractor!r} extractor's own declared kind {spec.kind!r} "
+                        "(HMAX-015: this catches a claim whose value/raw are internally "
+                        "consistent for its named extractor, but whose kind was changed to "
+                        "something a downstream consumer would parse differently)"
+                    )
                 match = spec.pattern.match(document.text, start)
                 expected = (
                     spec.normalize(match) if (match is not None and match.end() == end) else None
@@ -347,6 +355,18 @@ class CandidateClaim:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "CandidateClaim":
+        """Reconstruct a claim from its to_dict() output (or a JSON round-trip of it).
+
+        Verifies the seal before returning (HMAX-019): a payload whose
+        content_hash does not match its own other fields raises
+        SealIntegrityError here rather than silently handing back an
+        object that looks sealed but isn't. This is the one thing
+        to_dict()/from_dict() are for -- persisting and reloading a claim
+        across a boundary -- so the natural, provided round-trip path is
+        safe by default; it does not, and cannot, protect a caller who
+        reads the raw dict/JSON directly without going through this
+        method at all.
+        """
         known = {f for f in cls.__dataclass_fields__}  # type: ignore[attr-defined]
         data = {k: v for k, v in payload.items() if k in known}
         if "span" in data:
@@ -356,4 +376,6 @@ class CandidateClaim:
                 r if isinstance(r, ConfidenceReason) else ConfidenceReason(**r)
                 for r in data["reasons"]
             ]
-        return cls(**data)
+        reconstructed = cls(**data)
+        reconstructed.verify_seal()
+        return reconstructed

@@ -357,6 +357,41 @@ class Handoff:
             "export_mac": self.export_mac,
         }
 
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "Handoff":
+        """Reconstruct a Handoff from its to_dict() output (or a JSON round-trip of it).
+
+        Calls verify_export() on the payload before constructing anything
+        (HMAX-016): a payload whose export_mac does not match its own
+        document/herald/admitted/refused fields raises SealIntegrityError
+        here rather than silently handing back a Handoff that looks
+        genuine. export_mac was real and automatically attached from the
+        moment build() shipped; checking it was, until this method
+        existed, entirely opt-in and called by nothing. This is the
+        provided, natural path back from serialized form to a usable
+        object -- making it safe by default closes that gap for any
+        caller who uses it, the same way from_dict() on CandidateClaim
+        does for individual claims. It does not, and cannot, protect a
+        caller who reads admitted[0]["value"] out of the raw dict/JSON
+        directly without ever calling this method.
+
+        `bundles` and `summary` in the payload are ignored on the way
+        back in -- both are computed views on Handoff (a property and a
+        method, not stored fields), so there is nothing to reconstruct
+        them into.
+        """
+        verify_export(payload)
+        admitted = tuple(ClaimExport(**e) for e in payload.get("admitted", []))
+        refused = tuple(RefusalExport(**r) for r in payload.get("refused", []))
+        return cls(
+            document=payload["document"],
+            herald=payload["herald"],
+            admitted=admitted,
+            refused=refused,
+            prepared_at=payload.get("prepared_at", _utc_now()),
+            export_mac=payload.get("export_mac"),
+        )
+
     def render(self) -> str:
         """Plain-language account, for a person reviewing what was handed over."""
         lines = [

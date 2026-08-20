@@ -1307,21 +1307,36 @@ def test_hulk_forged_decision_naive_and_hash_matched_forgery_both_now_rejected()
         handoff_module.build([claim], [forged_sophisticated], doc)
 
 
-def test_no_handoff_deserialization_boundary():
-    """[REGISTRY] HULK 87. Handoff has to_dict() (see
-    test_to_dict_is_serializable_and_complete in Tests/test_handoff.py)
-    but no from_dict() or equivalent classmethod. A consumer that
-    persists a handoff and later reloads it has no supported
-    reconstruction path through the public API to call -- confirmed by
-    hasattr, not assumed from reading handoff.py.
+def test_handoff_deserialization_boundary_now_exists_and_verifies():
+    """[EXECUTING] HULK 87, CLOSED post HMAX-016 remediation (see
+    HMAX_REMEDIATION_ARCHITECTURE.md). Originally: Handoff had to_dict()
+    but no from_dict() or equivalent classmethod -- a consumer that
+    persisted a handoff and later reloaded it had no supported
+    reconstruction path through the public API to call.
+
+    Handoff.from_dict() now exists, and -- distinct from a bare
+    reconstruction classmethod -- calls verify_export() before
+    constructing anything, so a tampered payload raises rather than
+    silently reconstructing. Confirmed end to end: a genuine round-trip
+    succeeds; a tampered one (admitted value changed) raises
+    SealIntegrityError.
     """
-    assert not hasattr(handoff_module.Handoff, "from_dict")
-    pytest.skip(
-        "REGISTRY: Handoff exposes to_dict() but no from_dict() or "
-        "equivalent; there is no integration boundary to call for "
-        "'reconstruct a handoff previously received and check it still "
-        "matches.'"
-    )
+    assert hasattr(handoff_module.Handoff, "from_dict")
+
+    doc = SourceDocument(source_id="hulk-87", text="Paid $1,250.00 today.", standing=STANDING_RECORD)
+    claims = extract_module.extract(doc)
+    gate = ConfidenceGate(require_source=True)
+    decisions = gate.submit_all(claims, document=doc)
+    pkg = handoff_module.build(claims, decisions, doc)
+    exported = json.loads(json.dumps(pkg.to_dict()))
+
+    reconstructed = handoff_module.Handoff.from_dict(exported)
+    assert reconstructed.admitted[0].value == pkg.admitted[0].value
+
+    tampered = copy.deepcopy(exported)
+    tampered["admitted"][0]["value"] = {"amount": 1.0, "currency": "USD"}
+    with pytest.raises(SealIntegrityError, match="export_mac"):
+        handoff_module.Handoff.from_dict(tampered)
 
 
 # ---------------------------------------------------------------------------
@@ -4400,34 +4415,20 @@ def test_hmax_014_collision_detected_even_when_both_claims_are_individually_vali
         handoff_module.build([claim_a, claim_b], [dec_a, dec_b], doc)
 
 
-def test_hmax_015_q1_fix_never_cross_checks_kind_against_extractor():
-    """[EXECUTING] HMAX-015 (HMAX-7.0 post-remediation verification pass).
-    Fresh finding, not a re-run of an earlier test: the Q1 remediation's
-    verify_against() re-derives `value` from `raw` using the extractor
-    NAMED on the claim, and compares that to the claim's current value.
-    It never checks that the named extractor's own declared kind matches
-    `claim.kind`.
+def test_hmax_015_kind_extractor_mismatch_is_now_caught():
+    """[EXECUTING] HMAX-015, CLOSED (see HMAX_REMEDIATION_ARCHITECTURE.md).
+    Originally: the Q1 remediation's verify_against() re-derived `value`
+    from `raw` using the extractor NAMED on the claim, and compared that
+    to the claim's current value, but never checked that the named
+    extractor's own declared kind matched `claim.kind`. A claim with
+    kind="amount", extractor="quantity", and a genuinely quantity-shaped
+    value passed cleanly and reached ADMITTED_FOR_GOVERNANCE, exporting a
+    kind/value combination no amount-consumer's parsing code would expect.
 
-    Confirmed live: a claim with kind="amount", extractor="quantity", and
-    a genuinely quantity-shaped value ({"value": 40.0, "unit": "units"})
-    -- where raw/span honestly correspond to a real "quantity" match --
-    passes verify_against() cleanly, since re-deriving via the "quantity"
-    spec against that raw text correctly reproduces the exact value
-    already on the claim. Reaches ADMITTED_FOR_GOVERNANCE and exports
-    with kind="amount" carrying a value no amount-consumer's parsing code
-    would expect ({"value":..., "unit":...} instead of
-    {"amount":..., "currency":...}) -- real type-confusion surface for
-    anything downstream that branches on `kind` to decide how to
-    interpret `value`.
-
-    RALPH's challenge: is this a new primitive, or just HMAX-002/003
-    restated? Verdict: distinct. HMAX-002/003 are about value disagreeing
-    with what the SAME extractor would derive from raw. This is about
-    kind disagreeing with what the extractor's own SPECS.kind says it
-    produces -- a cross-field consistency check Q1's control never
-    attempted, because it was scoped to value-vs-raw, not kind-vs-
-    extractor. Recorded as a residual of the Q1 control, not a failure
-    of it to do what it was built to do.
+    verify_against() now checks spec.kind against self.kind before the
+    value re-derivation check, and raises SealIntegrityError on mismatch
+    -- the same exact construction that used to sail through now correctly
+    blocks at the gate.
     """
     text = "A separate note mentions 40 units."
     doc = SourceDocument(source_id="hmax-015", text=text, standing=STANDING_RECORD)
@@ -4446,43 +4447,39 @@ def test_hmax_015_q1_fix_never_cross_checks_kind_against_extractor():
     )
     claim.seal()
 
-    claim.verify_against(doc)  # does not raise -- the residual
+    with pytest.raises(SealIntegrityError, match="does not match the"):
+        claim.verify_against(doc)
 
     gate = gate_module.ConfidenceGate(require_source=True)
     decision = gate.submit(claim, document=doc)
-    assert decision.verdict == gate_module.VERDICT_ADMITTED
+    assert decision.verdict == gate_module.VERDICT_BLOCKED, (
+        "expected the kind/extractor mismatch to be caught -- if this "
+        "fails, the HMAX-015 fix may have regressed"
+    )
 
-    pkg = handoff_module.build([claim], [decision], doc)
-    assert pkg.admitted[0].kind == "amount"
-    assert pkg.admitted[0].value == {"value": 40.0, "unit": "units"}
 
+def test_hmax_016_partially_closed_by_handoff_from_dict():
+    """[EXECUTING] HMAX-016, PARTIALLY CLOSED (see
+    HMAX_REMEDIATION_ARCHITECTURE.md). Originally SEVERE: grepping
+    herald/*.py for "verify_export" turned up exactly one line -- its own
+    definition. export_mac was computed and attached automatically inside
+    handoff.build(), but checking it was entirely opt-in -- no production
+    code path called verify_export() on anything, reproducing Q2's own
+    primitive inside the fix meant to be independent of it.
 
-def test_hmax_016_verify_export_is_never_called_by_production_code():
-    """[EXECUTING] HMAX-016 (HMAX-7.0 post-remediation verification pass),
-    SEVERE. Fresh finding: grepping herald/*.py for "verify_export" turns
-    up exactly one line -- its own definition. export_mac IS computed and
-    attached automatically inside handoff.build() (real, automatic,
-    confirmed). But CHECKING it is entirely opt-in: no production code
-    path calls verify_export() on anything, ever.
-
-    This is, verbatim, the Q2 primitive ("opt-in, not mandatory
-    enforcement") -- the architectural weakness this entire campaign
-    spent multiple phases identifying and separating from every other
-    primitive -- reproduced inside the Q3 fix that was supposed to be
-    independent of it. A consumer doing the natural, expected thing
-    (parse the JSON, read admitted[0]["value"]) gets zero protection from
-    export_mac's existence unless they independently discover this
-    function and remember to call it themselves, entirely outside
-    HERALD's own pipeline -- the identical shape of gap Q2 was built to
-    close for Binding.verify(), now present in the mechanism Q3 built to
-    close a different primitive.
-
-    RALPH's challenge: is this actually a new primitive, or just Q2
-    again? Verdict: same primitive (opt-in enforcement), new instance --
-    not a new Q7. Recorded as a residual of the Q3 control specifically
-    because it undercuts Q3's practical value: export_mac provides no
-    real-world protection to a consumer who doesn't already know to look
-    for it, which is most of them.
+    read()/build()/to_dict() correctly and unsurprisingly still don't call
+    verify_export() -- those are the PRODUCING side (build() computes the
+    MAC, it has nothing yet to verify against). What changed: Handoff now
+    has a from_dict() classmethod that DOES call verify_export()
+    automatically before reconstructing anything, giving a consumer a
+    safe, provided path back from serialized form to a usable object. The
+    gap is still real for anyone who reads admitted[0]["value"] out of
+    raw JSON directly without ever calling Handoff.from_dict() -- that
+    part of the finding is unchanged and cannot be closed by code in this
+    module, since HERALD has no way to intercept what a consumer does
+    with bytes it no longer controls. See
+    test_handoff_deserialization_boundary_now_exists_and_verifies for the
+    new safe path working end to end.
     """
     import inspect
 
@@ -4494,12 +4491,11 @@ def test_hmax_016_verify_export_is_never_called_by_production_code():
     to_dict_src = inspect.getsource(handoff_module.Handoff.to_dict)
     assert "verify_export" not in to_dict_src
 
-    # Confirm the function exists and works when called directly, to show
-    # the mechanism is real and simply never invoked from the pipeline --
-    # the same shape of evidence HMAX-001/the original Binding finding used.
-    doc = SourceDocument(source_id="hmax-016", text="Paid $500.00 today.", standing=STANDING_RECORD)
-    pkg = handoff_module.read(doc)
-    handoff_module.verify_export(pkg.to_dict())  # works, but nothing calls it automatically
+    from_dict_src = inspect.getsource(handoff_module.Handoff.from_dict)
+    assert "verify_export" in from_dict_src, (
+        "expected Handoff.from_dict() to call verify_export() -- if this "
+        "fails, the HMAX-016 partial fix may have regressed"
+    )
 
 
 def test_hmax_017_q5_fix_has_no_diacritic_or_homoglyph_normalization():
@@ -4686,44 +4682,27 @@ def test_hmax_018b_explicit_confirmation_parameter_closes_the_race():
     assert a_decision["value_at_submit"] == {"amount": 111.0, "currency": "USD"}
 
 
-def test_hmax_019_claim_from_dict_reconstructs_without_verifying_the_seal():
-    """[EXECUTING] HMAX-019 (HMAX-8.0). Fourth sighting of the opt-in-
-    enforcement primitive (Q2's family), in code never previously
-    attacked this engagement: CandidateClaim.to_dict()/from_dict() are
-    never called anywhere in herald/*.py outside their own definitions
-    (confirmed by grep) -- a pure public API for a consumer choosing to
-    persist/reload a claim, not wired into extract()/gate.py/handoff.py.
+def test_hmax_019_claim_from_dict_now_verifies_the_seal():
+    """[EXECUTING] HMAX-019, CLOSED (see HMAX_REMEDIATION_ARCHITECTURE.md).
+    Originally: CandidateClaim.from_dict() reconstructed a claim via
+    cls(**data), which ran __post_init__'s checks but never called
+    verify_seal() -- a forged dict with value changed and content_hash
+    left at its original (now-stale) value reconstructed into an object
+    that looked fully sealed but wasn't, with no automatic check.
 
-    from_dict() reconstructs a CandidateClaim via cls(**data), which runs
-    __post_init__ (boundary/authority/provenance/confidence-range checks)
-    but never calls verify_seal(). A forged dict with value changed and
-    content_hash left at its original (now-stale) value reconstructs into
-    an object that looks fully sealed -- content_hash is present and
-    non-None -- but does not actually match its own current content.
-    verify_seal() correctly catches this WHEN CALLED; nothing calls it
-    automatically as part of from_dict().
-
-    RALPH's challenge: is this just Q1/Q2 restated? Verdict: same
-    architectural STYLE (a real check exists, isn't automatically
-    invoked) as Q2 and HMAX-016, but a fourth independent code path
-    (claim.py's own serialization, never touched by anything built or
-    tested in this campaign until now) -- worth recording as evidence
-    the pattern is pervasive across the codebase, not confined to the
-    two places (Binding, export_mac) already found.
+    from_dict() now calls verify_seal() before returning. The identical
+    forged payload that used to reconstruct silently now raises
+    SealIntegrityError from inside from_dict() itself. A genuine,
+    untampered round-trip still succeeds cleanly.
     """
     doc = SourceDocument(source_id="hmax-019", text="Paid $1,250.00 today.", standing=STANDING_RECORD)
     claim = [c for c in extract_module.extract(doc) if c.kind == "amount"][0]
     original = claim.to_dict()
 
+    genuine = CandidateClaim.from_dict(original)
+    assert genuine.value == claim.value
+
     forged = dict(original)
     forged["value"] = {"amount": 999999.0, "currency": "USD"}  # content_hash left stale
-    reconstructed = CandidateClaim.from_dict(forged)
-
-    assert reconstructed.value == {"amount": 999999.0, "currency": "USD"}
-    assert reconstructed.content_hash == original["content_hash"]
-    assert reconstructed.content_hash != reconstructed.compute_hash(), (
-        "expected the reconstructed object's stale content_hash to no "
-        "longer match its own current content"
-    )
-    with pytest.raises(SealIntegrityError):
-        reconstructed.verify_seal()  # catches it -- but only if called
+    with pytest.raises(SealIntegrityError, match="content changed after sealing"):
+        CandidateClaim.from_dict(forged)
