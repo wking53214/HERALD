@@ -2947,35 +2947,53 @@ def test_boundary_recognizes_the_baseline_forms_it_was_built_for():
     "adverse;action",
     "adverse|action",
     "adverse:action",
-    "adverseaction",
     "adverseAction",
     "adverse‐action",  # Unicode HYPHEN, U+2010 -- looks identical to "-" in most fonts
     "adverse–action",  # EN DASH, U+2013
     "adverse—action",  # EM DASH, U+2014
 ])
-def test_boundary_is_evaded_by_any_separator_outside_a_hardcoded_list_of_four(kind):
-    """[EXECUTING] SEVERE -- undermines CONSTITUTION.md section 1
-    directly, the rule the document itself calls the one that "may not
-    change without a deliberate, reviewed decision."
+def test_boundary_separator_evasion_is_now_closed_for_these_forms(kind):
+    """[EXECUTING] CLOSED post Q5-remediation (see
+    HMAX_REMEDIATION_ARCHITECTURE.md). Originally: _segments()
+    (herald/boundary.py) recognized only four ASCII separator characters
+    (. _ - /) plus generic whitespace -- every kind above meant the
+    identical thing a human reads as "adverse action," and every one was
+    accepted, undermining CONSTITUTION.md section 1 directly.
 
-    _segments() (herald/boundary.py) only recognizes exactly four ASCII
-    separator characters (. _ - /) plus generic whitespace (from
-    working.split()). Every kind above means the identical thing a human
-    reads as "adverse action" -- same words, same order -- and every one
-    of them is ACCEPTED. A CandidateClaim can be constructed with any of
-    these as its kind (confirmed in the next test), for a determination
-    CONSTITUTION.md explicitly forbids HERALD from ever emitting.
-
-    This is not "the forbidden list is incomplete" (an acknowledged,
-    accepted limitation the module's own docstring describes: it can only
-    catch names someone thought to add). This is the SAME name, already
-    on the list, evading the check that exists specifically to catch it.
+    _segments() now defines tokens positively (letters and digits,
+    Unicode-aware) plus a camelCase boundary split, rather than
+    enumerating separator characters -- so any run of non-token
+    characters between two words is a boundary, whatever it's made of.
+    All 8 forms parametrized here are now correctly caught. See
+    test_boundary_no_separator_evasion_remains_an_honest_residual for the
+    one case (no separator character AND no case signal at all) this
+    control does not, and structurally cannot, close.
     """
-    assert not is_governed_determination(kind), (
-        f"if this now returns True, the boundary check was hardened and "
-        f"this specific evasion ({kind!r}) is closed"
+    assert is_governed_determination(kind), (
+        f"expected {kind!r} to now be caught -- if this fails, the Q5 "
+        "remediation may have regressed"
     )
-    assert_permitted_kind(kind)  # must NOT raise -- this is the finding
+    with pytest.raises(BoundaryViolation):
+        assert_permitted_kind(kind)
+
+
+def test_boundary_no_separator_evasion_remains_an_honest_residual():
+    """[EXECUTING] Documented residual of the Q5 remediation (see
+    HMAX_REMEDIATION_ARCHITECTURE.md's Q5 section). "adverseaction" has
+    no separator character and no case signal (unlike "adverseAction",
+    now closed) -- nothing in the string distinguishes where one word
+    ends and the next begins, so tokenization alone cannot split it.
+    Closing this would require substring/fuzzy matching against the
+    forbidden set instead of tokenization, a materially larger and
+    different mechanism than this control -- deliberately not attempted
+    here, and said so directly rather than silently left for someone
+    else to discover.
+    """
+    assert not is_governed_determination("adverseaction"), (
+        "if this now returns True, someone closed the no-separator case "
+        "too -- update this test's docstring and this session's records"
+    )
+    assert_permitted_kind("adverseaction")  # must NOT raise -- the residual
 
 
 def test_boundary_evasion_reaches_actual_claim_construction_end_to_end():

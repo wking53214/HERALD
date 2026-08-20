@@ -43,6 +43,7 @@ point.
 
 from __future__ import annotations
 
+import re
 from typing import FrozenSet, Iterable, Set
 
 from .errors import BoundaryViolation
@@ -76,8 +77,20 @@ _GOVERNED_DETERMINATIONS: Set[str] = {
     "intent_determination",
 }
 
-# Segment separators used when decomposing a compound kind.
-_SEPARATORS = (".", "_", "-", "/")
+# What counts as PART OF a token: letters and digits, Unicode-aware.
+# Everything else -- not an enumerated allowlist of specific separator
+# characters -- is treated as a boundary. This deliberately includes "_"
+# alongside genuine punctuation/whitespace/dashes, since underscore is a
+# word character in \w and would otherwise silently stop splitting
+# "adverse_action" into two tokens (it still matches via the whole-string
+# check either way, but multi-word compounds embedded in a longer name
+# depend on real tokenization, not just the whole-string check).
+_SEPARATOR_RUN = re.compile(r"[\W_]+", re.UNICODE)
+
+# camelCase boundary: a lowercase letter or digit immediately followed by
+# an uppercase letter. Checked on the ORIGINAL string, before lowercasing
+# destroys the case signal this depends on.
+_CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 
 
 def governed_determinations() -> FrozenSet[str]:
@@ -105,13 +118,23 @@ def _segments(kind: str) -> Set[str]:
     "adverse_action_reason" yields the whole string plus the contiguous
     runs of its parts, letting a forbidden two-word determination match
     inside a longer engineered-looking name.
+
+    Tokenization is a positive definition of what belongs to a token
+    (letters and digits) rather than an enumerated list of what separates
+    one, plus a camelCase boundary split. This does NOT close every
+    separator-evasion shape: a kind with no separator character AND no
+    case signal at all ("adverseaction") still tokenizes as one word,
+    since nothing in the string distinguishes where one word ends and the
+    next begins. Closing that would require substring/fuzzy matching
+    against the forbidden set rather than tokenization, a materially
+    different and larger mechanism -- left as a known, documented
+    residual rather than folded into this fix.
     """
     normalized = kind.strip().lower()
     parts = [normalized]
-    working = normalized
-    for sep in _SEPARATORS:
-        working = working.replace(sep, " ")
-    tokens = [t for t in working.split() if t]
+    working = _CAMEL_BOUNDARY.sub(" ", kind.strip())
+    working = _SEPARATOR_RUN.sub(" ", working)
+    tokens = [t.lower() for t in working.split() if t]
     for start in range(len(tokens)):
         for end in range(start + 1, len(tokens) + 1):
             parts.append("_".join(tokens[start:end]))
