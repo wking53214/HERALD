@@ -409,6 +409,26 @@ def build(
             "must carry its own verdict out, including the refused ones"
         )
 
+    claim_ids = [c.claim_id for c in claims]
+    if len(set(claim_ids)) != len(claim_ids):
+        duplicates = sorted({cid for cid in claim_ids if claim_ids.count(cid) > 1})
+        raise HandoffError(
+            f"duplicate claim_id(s) in this batch: {duplicates} -- handoff.build() "
+            "cannot safely route a decision to a claim_id shared by more than one "
+            "claim in the same call. Two claims with the same claim_id cannot be "
+            "told apart by the lookup below, regardless of whether either one is "
+            "individually valid; split the batch or ensure claim_ids are unique "
+            "before calling build()"
+        )
+    decision_ids = [d.claim_id for d in decisions]
+    if len(set(decision_ids)) != len(decision_ids):
+        duplicates = sorted({cid for cid in decision_ids if decision_ids.count(cid) > 1})
+        raise HandoffError(
+            f"duplicate claim_id(s) among decisions: {duplicates} -- handoff.build() "
+            "cannot tell which decision authorizes which claim when more than one "
+            "decision shares a claim_id"
+        )
+
     by_id = {d.claim_id: d for d in decisions}
     admitted: List[ClaimExport] = []
     refused: List[RefusalExport] = []

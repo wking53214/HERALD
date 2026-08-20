@@ -1202,33 +1202,29 @@ def test_policy_drift_what_a_gate_decision_actually_binds_to():
 # ---------------------------------------------------------------------------
 
 def test_hulk_claim_id_collision_misroutes_decisions_in_handoff():
-    """[EXECUTING] HULK 18 (duplicate claim_id), 32 (duplicate decision),
-    33 (conflicting decisions) -- FIXED as a side effect of the
-    authorization-continuity fix, not by any change targeted at this
-    scenario specifically.
+    """[EXECUTING] HULK 18/32/33. Updated a second time, post
+    Q4-remediation (see HMAX_REMEDIATION_ARCHITECTURE.md). History:
+    originally an order-dependent silent misrouting (one order downgraded
+    an admit to a refusal; the other silently admitted a claim that
+    should have been refused). Round 1's authorization-continuity fix
+    closed the *silent admission* half as a side effect: since a decision
+    now binds to a specific content_hash rather than merely a claim_id,
+    a mismatched pairing was caught -- but only via a generic content-
+    hash-mismatch error surfacing from deep inside the per-claim loop,
+    not because anything recognized the actual root cause (two claims
+    sharing one identity).
 
-    claim_id is still a plain field with a default_factory, not an
-    enforced unique key -- that has NOT changed, and is not what this
-    fix addresses (see herald/gate.py's GateDecision docstring: claim_id
-    was never meant to be the trust boundary). handoff.build() still
-    indexes decisions by claim_id first
-    (`by_id = {d.claim_id: d for d in decisions}`), and if two different
-    claims share one, the dict comprehension still collapses to whichever
-    decision is listed last.
-
-    What changed: that lookup is no longer trusted on its own.
-    decision.verify_against(claim) runs immediately after the lookup and
-    checks the claim's content_hash against decision.authorized_content_hash
-    -- a real per-claim value now, not a hash-shaped label. Whichever
-    decision the collision hands to a given claim, it authorized a
-    *specific* $-value, not merely "this claim_id" -- so a mismatched
-    pairing is now caught regardless of which claim collided into which
-    decision, or in which order.
-
-    Previously this test demonstrated order-dependent silent
-    misrouting (order A downgraded an admit to a refusal; order B is the
-    dangerous one -- it silently admitted a claim that should have been
-    refused). Both orders below now raise HandoffError instead.
+    Q4 adds an explicit, up-front check: handoff.build() now counts
+    claim_ids (and separately, decision claim_ids) before doing anything
+    else, and raises immediately, by name, if either list has a
+    duplicate. This test's two build() calls still raise HandoffError --
+    but now for the NEW, correctly-diagnosed reason, confirmed by
+    matching the specific message, not merely the exception type.
+    claim_id is still not an enforced-unique field on CandidateClaim
+    itself (unchanged, and not what this control addresses -- see
+    herald/gate.py's GateDecision docstring: claim_id was never meant to
+    be the trust boundary) -- the fix is entirely inside build()'s own
+    input validation.
     """
     doc = SourceDocument(
         source_id="d", text="Paid $1,250.00 today. Rejected $999,999.00 later.",
@@ -1259,19 +1255,17 @@ def test_hulk_claim_id_collision_misroutes_decisions_in_handoff():
         authorized_content_hash=claim_bad.content_hash,
     )
 
-    # order A: [admit, refuse] -- decision_for_bad (listed last) wins the
-    # dict collapse; claim_good is checked against it first and mismatches
-    with pytest.raises(HandoffError):
+    # Both orders now raise for the identical, up-front reason -- the
+    # claim_id collision itself, named explicitly, before either decision
+    # or content_hash is ever consulted. Order no longer matters, which
+    # is itself the point: the old fix's correctness depended on which
+    # claim happened to be checked first against the collapsed decision.
+    with pytest.raises(HandoffError, match="duplicate claim_id"):
         handoff_module.build(
             [claim_good, claim_bad], [decision_for_good, decision_for_bad], doc
         )
 
-    # order B: [refuse, admit] -- decision_for_good (now listed last)
-    # wins; claim_good happens to match it, but claim_bad, checked next
-    # against the same decision, mismatches -- the whole build() call
-    # still raises rather than returning a package with claim_good's
-    # correct entry silently mixed into a corrupted one
-    with pytest.raises(HandoffError):
+    with pytest.raises(HandoffError, match="duplicate claim_id"):
         handoff_module.build(
             [claim_good, claim_bad], [decision_for_bad, decision_for_good], doc
         )
@@ -4363,3 +4357,53 @@ except SealIntegrityError:
         "expected the cross-process export to be rejected -- if this now "
         "says PASSED, the key may no longer be process-local; re-verify"
     )
+
+
+def test_hmax_014_collision_detected_even_when_both_claims_are_individually_valid():
+    """[EXECUTING] HMAX-014 (HMAX-6.0, Q4 remediation). Permanent
+    regression for the HMAX-4.0 Mission-1 counterexample that separated
+    Q4 from Q1: two claims, BOTH individually passing verify_seal() AND
+    verify_against(document), BOTH independently ADMITTED by the gate,
+    constructed with a shared claim_id from birth (not mutated post-hoc,
+    which would itself break a seal and contaminate the example -- see
+    the original counterexample's own self-correction, recorded in
+    HERALD_HMAX_FINDINGS_CATALOG.md).
+
+    This is the cleanest possible demonstration that the collision check
+    is doing real, independent work: neither claim has anything wrong
+    with it on its own. The only failure is the shared identity.
+    """
+    text = "The invoice states $50,000,000.00. A separate note mentions 40 units."
+    doc = SourceDocument(source_id="hmax-014", text=text, standing=STANDING_RECORD)
+    shared_id = "clm-shared-identity-0001"
+    amt_start = text.index("$50,000,000.00")
+    qty_start = text.index("40 units")
+
+    claim_a = CandidateClaim(
+        claim_id=shared_id, kind="amount", value={"amount": 50_000_000.0, "currency": "USD"},
+        raw="$50,000,000.00", span=(amt_start, amt_start + len("$50,000,000.00")),
+        source_id="hmax-014", source_hash=doc.content_hash, extractor="currency_amount",
+        base_confidence=0.95, provenance=PROV_EXTRACTED,
+    )
+    claim_a.seal()
+    claim_b = CandidateClaim(
+        claim_id=shared_id, kind="quantity", value={"value": 40.0, "unit": "units"},
+        raw="40 units", span=(qty_start, qty_start + len("40 units")),
+        source_id="hmax-014", source_hash=doc.content_hash, extractor="quantity",
+        base_confidence=0.85, provenance=PROV_EXTRACTED,
+    )
+    claim_b.seal()
+
+    claim_a.verify_seal()
+    claim_a.verify_against(doc)
+    claim_b.verify_seal()
+    claim_b.verify_against(doc)
+
+    gate = gate_module.ConfidenceGate(require_source=True)
+    dec_a = gate.submit(claim_a, document=doc)
+    dec_b = gate.submit(claim_b, document=doc)
+    assert dec_a.verdict == gate_module.VERDICT_ADMITTED
+    assert dec_b.verdict == gate_module.VERDICT_ADMITTED
+
+    with pytest.raises(HandoffError, match="duplicate claim_id"):
+        handoff_module.build([claim_a, claim_b], [dec_a, dec_b], doc)
