@@ -48,6 +48,18 @@ has no way to know five others were held back. That is the shrinking
 denominator problem relocated to the seam: the numbers look better
 precisely because the difficult items were removed from view. So refusals
 ride along with their reasons, and the summary counts them.
+
+AUTHORIZATION CONTINUITY
+--------------------------
+A GateDecision authorizes a specific claim STATE, not a claim_id. Before
+using a decision here, build() calls decision.verify_against(claim): the
+claim must still be exactly what the decision was issued for, checked
+against the content_hash the decision recorded at decision time, not
+merely against a claim_id match or the claim's own current seal (a
+claim mutated and resealed after its decision is internally consistent
+with itself, but not with what was authorized). A mismatch raises
+HandoffError rather than silently admitting or refusing stale content
+under someone else's authorization.
 """
 
 from __future__ import annotations
@@ -58,7 +70,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from . import binding
 from .claim import CandidateClaim
-from .errors import HeraldError
+from .errors import HeraldError, SealIntegrityError
 from .gate import VERDICT_ADMITTED, ConfidenceGate, GateDecision
 from .source import STANDING_UNKNOWN, SourceDocument
 
@@ -268,6 +280,13 @@ def build(
         decision = by_id.get(claim.claim_id)
         if decision is None:
             raise HandoffError(f"{claim.claim_id}: no gate decision on file")
+
+        try:
+            decision.verify_against(claim)
+        except SealIntegrityError as exc:
+            raise HandoffError(
+                f"{claim.claim_id}: cannot hand off -- {exc}"
+            ) from exc
 
         if decision.verdict == VERDICT_ADMITTED:
             admitted.append(ClaimExport(

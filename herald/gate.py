@@ -37,17 +37,115 @@ NO SILENT SKIPS
 Every claim submitted comes back with a verdict and a reason. Nothing is
 dropped from the count. A shrinking denominator is the easiest way to
 make a confidence problem disappear without fixing it.
+
+A DECISION IS AUTHENTICATED, NOT JUST HASH-BOUND
+--------------------------------------------------
+An earlier fix bound a GateDecision to the exact claim content it was
+issued for (authorized_content_hash), closing replay of a genuine
+decision against mutated content. That closed REPLAY. It did nothing for
+FORGERY: authorized_content_hash is computed by an unkeyed, public
+function (the same SHA-256 anyone can call), so anything that can read a
+claim's fields can compute the same hash a real gate would have recorded
+-- without a gate ever running. Adversarial testing confirmed this
+directly: a hand-built GateDecision, or a legitimate one with its verdict
+or reason edited in place, passed unmodified.
+
+So issuance is now authenticated with an HMAC-SHA256 over the fields
+that matter (claim_id, verdict, threshold, reason,
+authorized_content_hash), keyed with a secret generated once per process
+and never exposed through this module's public surface. verify_against()
+recomputes the expected MAC from the decision's own current fields and
+compares it, constant-time, to authorization_mac.
+
+WHY HMAC AND NOT ASYMMETRIC SIGNING
+--------------------------------------
+The issuer (ConfidenceGate.submit(), here) and the verifier
+(handoff.build(), calling GateDecision.verify_against()) are the same
+package running in the same process. Asymmetric signing buys a verifier
+that cannot forge; nothing here is ever in that position. It would also
+be this package's first external dependency (Python's stdlib has no
+asymmetric primitives). HMAC via stdlib hmac + secrets costs nothing
+this package doesn't already carry and proves exactly what is needed:
+this decision's fields were signed by something holding the process's
+issuer key.
+
+WHAT THIS DOES NOT PROVE
+--------------------------
+The issuer key is a private module attribute, not a language-enforced
+secret -- Python has no true module privacy. Code that imports
+herald.gate directly and reaches for _ISSUER_KEY, rather than using
+CandidateClaim/ConfidenceGate/GateDecision's public constructors, is not
+stopped by this. What IS closed is every attack reachable through this
+package's ordinary public API: constructing a GateDecision by hand,
+editing one after ConfidenceGate.submit() returned it, or copying one and
+changing a field. The key is also process-local, generated fresh at
+import time: a decision signed in one process does not verify in
+another. Nothing here persists a decision or a key across a restart, and
+nothing was asked to.
 """
 
 from __future__ import annotations
 
 import hashlib
+import hmac
+import secrets
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 from .claim import CandidateClaim, PROV_HUMAN_CONFIRMED, _canonical
 from .errors import SealIntegrityError
+
+# Process-local HMAC key. Generated once, at import time, from the OS
+# CSPRNG. Never exported (absent from herald/__init__.py and this
+# module's own public names) and never written anywhere -- there is no
+# persistence story here, deliberately: see the module docstring.
+_ISSUER_KEY: bytes = secrets.token_bytes(32)
+
+
+def _decision_mac_payload(
+    claim_id: str, verdict: str, threshold: float, reason: str,
+    authorized_content_hash: Optional[str],
+) -> Dict[str, Any]:
+    """The fields an authorization_mac actually covers.
+
+    Chosen from the demonstrated attacks, not by default: claim_id and
+    authorized_content_hash bind WHICH artifact and WHAT state; verdict
+    is the field an earlier round showed could be flipped in place with
+    no other change; threshold is the policy value actually applied,
+    binding this decision to the numeric policy that produced it; reason
+    is bound because it is the one field RefusalExport re-exports
+    verbatim, so a tampered reason was a live, demonstrated exploit, not
+    a hypothetical one. confidence, confirmed_by, and decided_at are
+    deliberately NOT covered: neither export dataclass in handoff.py
+    reads them from the decision, so tampering them has no exploitable
+    effect through this package's own handoff path today.
+    """
+    return {
+        "claim_id": claim_id,
+        "verdict": verdict,
+        "threshold": threshold,
+        "reason": reason,
+        "authorized_content_hash": authorized_content_hash,
+    }
+
+
+def _sign_decision(
+    claim_id: str, verdict: str, threshold: float, reason: str,
+    authorized_content_hash: Optional[str],
+) -> str:
+    """HMAC-SHA256 over the bound fields, keyed with the process issuer key.
+
+    The only privileged thing about this function is what calls it:
+    ConfidenceGate.submit(), below, at the moment it has already decided
+    a verdict. It is not exposed as a method on GateDecision -- a public
+    "sign yourself" method would hand any caller the same signing power
+    this function has, defeating the point of keying it at all.
+    """
+    payload = _canonical(_decision_mac_payload(
+        claim_id, verdict, threshold, reason, authorized_content_hash
+    ))
+    return hmac.new(_ISSUER_KEY, payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
 VERDICT_ADMITTED = "ADMITTED_FOR_GOVERNANCE"
 VERDICT_REFUSED = "REFUSED_PENDING_HUMAN"
@@ -112,7 +210,28 @@ class HumanConfirmation:
 
 @dataclass
 class GateDecision:
-    """One claim's outcome, with the reason attached."""
+    """One claim's outcome, with the reason attached.
+
+    authorized_content_hash -- the claim's content_hash at the exact
+    moment this decision was made. Lets a decision be checked against a
+    claim later, rather than trusted on claim_id alone: claim_id is a
+    plain field, not an enforced unique key.
+
+    authorization_mac -- HMAC-SHA256 over (claim_id, verdict, threshold,
+    reason, authorized_content_hash), computed by ConfidenceGate.submit()
+    with a process-local key nothing outside herald.gate has access to.
+    This is what authorized_content_hash alone could not provide: proof
+    that a real gate produced these specific field values, not just a
+    record of what they were. Neither field means anything without the
+    other -- authorized_content_hash without a matching authorization_mac
+    is a claim about state with no proof behind it; the reverse cannot
+    happen, since authorization_mac is computed over
+    authorized_content_hash itself.
+
+    None on either field means this decision cannot be verified and is
+    refused outright, not given the benefit of the doubt -- whether
+    because it predates these fields, or was constructed by hand.
+    """
 
     claim_id: str
     verdict: str
@@ -121,9 +240,67 @@ class GateDecision:
     reason: str
     confirmed_by: Optional[str] = None
     decided_at: str = field(default_factory=_utc_now)
+    authorized_content_hash: Optional[str] = None
+    authorization_mac: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
+
+    def verify_against(self, claim: CandidateClaim) -> None:
+        """Raise SealIntegrityError unless `claim` is in exactly the
+        state this decision was made against, AND this decision was
+        actually issued by a real gate.
+
+        Three checks, in this order:
+
+        1. authorization_mac -- recompute the expected MAC from this
+           decision's OWN current fields and compare it, constant-time,
+           to authorization_mac. This is checked first and is the
+           authenticity check: without the process issuer key, no field
+           combination on this object -- forged from scratch, or a
+           legitimate decision with any bound field edited afterward --
+           produces a matching MAC. A decision that fails this is not
+           trusted enough to even look at claim.content_hash below.
+
+        2. claim.verify_seal() -- is the claim internally consistent with
+           its own current fields right now? Catches a claim mutated and
+           never resealed. Does NOT catch a claim mutated and resealed --
+           a reseal makes the object consistent with its new content by
+           definition -- which is what check 3 is for.
+
+        3. claim.content_hash == self.authorized_content_hash -- does the
+           claim's now-confirmed-valid sealed state match what this
+           (now-confirmed-authentic) decision actually authorized?
+        """
+        if self.authorized_content_hash is None:
+            raise SealIntegrityError(
+                f"{self.claim_id}: this decision carries no "
+                "authorized_content_hash and cannot be verified against any "
+                "claim state; refused rather than trusted on claim_id alone"
+            )
+        expected_mac = _sign_decision(
+            self.claim_id, self.verdict, self.threshold, self.reason,
+            self.authorized_content_hash,
+        )
+        if self.authorization_mac is None or not hmac.compare_digest(
+            expected_mac, self.authorization_mac
+        ):
+            raise SealIntegrityError(
+                f"{self.claim_id}: authorization_mac is missing or does not "
+                "match this decision's own fields -- not provably issued by "
+                "a real gate, or altered since issuance; refused regardless "
+                "of what authorized_content_hash claims"
+            )
+        claim.verify_seal()
+        if claim.content_hash != self.authorized_content_hash:
+            raise SealIntegrityError(
+                f"{self.claim_id}: claim state does not match the state "
+                f"this decision authorized (authorized "
+                f"{self.authorized_content_hash[:12]}, current "
+                f"{claim.content_hash[:12]}). The claim changed after "
+                "authorization; submit it to the gate again for a fresh "
+                "decision."
+            )
 
 
 class ConfidenceGate:
@@ -178,34 +355,49 @@ class ConfidenceGate:
         try:
             claim.verify_seal()
         except SealIntegrityError as exc:
+            reason = f"integrity: {exc}"
             return GateDecision(
                 claim_id=claim.claim_id,
                 verdict=VERDICT_BLOCKED,
                 confidence=claim.confidence,
                 threshold=threshold,
-                reason=f"integrity: {exc}",
+                reason=reason,
+                authorized_content_hash=claim.content_hash,
+                authorization_mac=_sign_decision(
+                    claim.claim_id, VERDICT_BLOCKED, threshold, reason, claim.content_hash
+                ),
             )
 
         if document is not None:
             try:
                 claim.verify_against(document)
             except SealIntegrityError as exc:
+                reason = f"source: {exc}"
                 return GateDecision(
                     claim_id=claim.claim_id,
                     verdict=VERDICT_BLOCKED,
                     confidence=claim.confidence,
                     threshold=threshold,
-                    reason=f"source: {exc}",
+                    reason=reason,
+                    authorized_content_hash=claim.content_hash,
+                    authorization_mac=_sign_decision(
+                        claim.claim_id, VERDICT_BLOCKED, threshold, reason, claim.content_hash
+                    ),
                 )
         elif self.require_source:
+            reason = (
+                "source document not supplied and this gate requires it; "
+                "an unverifiable citation is refused rather than assumed good"
+            )
             return GateDecision(
                 claim_id=claim.claim_id,
                 verdict=VERDICT_BLOCKED,
                 confidence=claim.confidence,
                 threshold=threshold,
-                reason=(
-                    "source document not supplied and this gate requires it; "
-                    "an unverifiable citation is refused rather than assumed good"
+                reason=reason,
+                authorized_content_hash=claim.content_hash,
+                authorization_mac=_sign_decision(
+                    claim.claim_id, VERDICT_BLOCKED, threshold, reason, claim.content_hash
                 ),
             )
 
@@ -215,33 +407,48 @@ class ConfidenceGate:
             claim.provenance = PROV_HUMAN_CONFIRMED
             claim.value = confirmation.confirmed_value
             claim.seal()
+            reason = f"human confirmation on file: {confirmation.rationale}"
             return GateDecision(
                 claim_id=claim.claim_id,
                 verdict=VERDICT_ADMITTED,
                 confidence=claim.confidence,
                 threshold=threshold,
-                reason=f"human confirmation on file: {confirmation.rationale}",
+                reason=reason,
                 confirmed_by=confirmation.confirmed_by,
+                authorized_content_hash=claim.content_hash,
+                authorization_mac=_sign_decision(
+                    claim.claim_id, VERDICT_ADMITTED, threshold, reason, claim.content_hash
+                ),
             )
 
         if claim.confidence >= threshold:
+            reason = "confidence at or above threshold; still requires governance before use"
             return GateDecision(
                 claim_id=claim.claim_id,
                 verdict=VERDICT_ADMITTED,
                 confidence=claim.confidence,
                 threshold=threshold,
-                reason="confidence at or above threshold; still requires governance before use",
+                reason=reason,
+                authorized_content_hash=claim.content_hash,
+                authorization_mac=_sign_decision(
+                    claim.claim_id, VERDICT_ADMITTED, threshold, reason, claim.content_hash
+                ),
             )
 
         flagged = ", ".join(sorted(set(claim.opacity_flags))) or "none recorded"
+        reason = (
+            f"confidence {claim.confidence:.2f} below threshold {threshold:.2f} "
+            f"(opacity: {flagged}); requires named human confirmation"
+        )
         return GateDecision(
             claim_id=claim.claim_id,
             verdict=VERDICT_REFUSED,
             confidence=claim.confidence,
             threshold=threshold,
-            reason=(
-                f"confidence {claim.confidence:.2f} below threshold {threshold:.2f} "
-                f"(opacity: {flagged}); requires named human confirmation"
+            reason=reason,
+            authorized_content_hash=claim.content_hash,
+            authorization_mac=_sign_decision(
+                claim.claim_id, VERDICT_REFUSED, threshold, reason, claim.content_hash
             ),
         )
 
