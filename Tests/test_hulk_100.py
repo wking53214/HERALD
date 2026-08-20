@@ -318,20 +318,37 @@ def test_gate_regrades_a_resealed_claim_from_scratch():
 # ---------------------------------------------------------------------------
 
 def test_no_entry_point_enforces_binding_automatically():
-    """[REGISTRY] R1: extract(), ConfidenceGate.submit()/submit_all(), and
-    handoff.read()/build() take no `binding` argument and call
-    binding.verify() nowhere. There is no way to ask any real entry point
-    "refuse to run if the pin has drifted" -- Binding.verify() exists only
-    as a method a consumer must remember to call on its own, outside this
-    package entirely. Confirmed by inspecting the signatures directly
-    (herald/extract.py:extract, herald/gate.py:ConfidenceGate.submit,
-    herald/handoff.py:read/build) -- none accept a Binding or call verify.
+    """[EXECUTING] R1, PARTIALLY CLOSED post Q2-remediation (see
+    HMAX_REMEDIATION_ARCHITECTURE.md). Originally: extract(),
+    ConfidenceGate.submit()/submit_all(), and handoff.read()/build() took
+    no `binding` argument and called binding.verify() nowhere -- a
+    consumer had to remember to call it themselves, entirely outside this
+    package.
+
+    handoff.read()/build() -- the two functions that actually produce a
+    Handoff, and the ones binding.py's own docstring is concerned with --
+    now accept an optional `binding_pin` and enforce it when supplied
+    (confirmed by signature inspection here, and end to end in
+    test_binding_can_now_be_passed_to_read_and_build_and_is_enforced).
+
+    Still true, and correctly so, not a residual to close: extract() and
+    ConfidenceGate.submit()/submit_all() still take no binding argument.
+    A version/code-hash pin is a property of what leaves the package (a
+    Handoff), not of an individual extraction or gate decision in
+    isolation, so wiring it in earlier would not add a meaningful check --
+    it would just be the same check, run redundantly, further from the
+    point where its answer matters.
     """
-    pytest.skip(
-        "REGISTRY: no entry point in extract.py, gate.py, or handoff.py "
-        "accepts a Binding or invokes Binding.verify(); there is no "
-        "integration boundary to call in order to assert enforcement here."
-    )
+    import inspect
+
+    # extract() and the gate intentionally have no binding parameter --
+    # documented above, not asserted as a gap, since a pin is a property
+    # of the assembled Handoff, not of an individual extraction or
+    # decision in isolation.
+    assert "binding_pin" in inspect.signature(handoff_module.read).parameters
+    assert "binding_pin" in inspect.signature(handoff_module.build).parameters
+    assert "binding" not in inspect.signature(gate_module.ConfidenceGate.submit).parameters
+    assert "binding" not in inspect.signature(gate_module.ConfidenceGate.submit_all).parameters
 
 
 def test_no_external_authorization_ledger_for_claims_or_confirmations():
