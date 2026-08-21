@@ -35,6 +35,7 @@ from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Pattern, Tuple, Union
 
 from . import ambiguity
+from .boundary import assert_no_governed_kinds
 from .claim import CandidateClaim, PROV_EXTRACTED
 from .source import SourceDocument
 
@@ -208,6 +209,19 @@ SPECS: List[ExtractorSpec] = [
         normalize=_norm_reference,
     ),
 ]
+
+# Every extractor's declared kind, checked against the constitutional
+# boundary at IMPORT TIME, not left to be discovered whenever a document
+# first happens to trigger the offending extractor. CandidateClaim's own
+# __post_init__ already enforces this per-claim (boundary.py's real,
+# load-bearing check) -- this is a second, earlier tripwire on the same
+# rule, catching a future SPECS entry with a governed kind the moment
+# this module loads, before any text is ever processed. Uses
+# assert_no_governed_kinds, boundary.py's own batch form for exactly
+# this purpose -- previously defined but never actually wired in
+# anywhere (ghost_buster dead_code finding, confirmed by grep before
+# this fix).
+assert_no_governed_kinds(spec.kind for spec in SPECS)
 
 
 def _norm_amount_dispatch(m: re.Match):
