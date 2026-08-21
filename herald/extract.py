@@ -297,6 +297,7 @@ def extract(
                 base_confidence=spec.base_confidence,
                 extractor=spec.name,
                 source_hash=source_hash,
+                source_standing=document.standing,
                 segment=document.segment_label_for((match.start(), match.end())),
                 bundle_id=_bundle_for(match.start(), sentences),
             )

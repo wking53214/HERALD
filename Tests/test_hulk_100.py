@@ -1077,7 +1077,8 @@ def test_policy_drift_what_a_gate_decision_actually_binds_to():
     doc = SourceDocument(source_id="policy-doc", text=text, standing=STANDING_RECORD)
     claim = CandidateClaim(
         kind="statement", value="x", raw=text[:4], span=(0, 4), source_id="policy-doc",
-        source_hash=doc.content_hash, provenance=PROV_EXTRACTED, base_confidence=0.80,
+        source_hash=doc.content_hash, source_standing=doc.standing,
+        provenance=PROV_EXTRACTED, base_confidence=0.80,
         extractor="policy-test",
     ).seal()
     assert claim.confidence == 0.80
@@ -1834,12 +1835,12 @@ def test_round2_r3_substituted_claim_with_same_content_hash_different_object_is_
     ACCEPT -- and this is correct, not a bug. hashable_content() is built
     entirely from field values (kind, value, raw, span, source_id,
     provenance, authority, confidence, reasons, opacity_flags, extractor,
-    source_hash, segment, bundle_id); object identity and created_at are
-    not part of it. Two independently-constructed claims with identical
-    substantive fields ARE the same authorized state under this system's
-    own definition of "state", and accepting the second is exactly what
-    "current_claim_state == authorized_claim_state" should do -- the
-    invariant was never about Python object identity.
+    source_hash, source_standing, segment, bundle_id); object identity and
+    created_at are not part of it. Two independently-constructed claims
+    with identical substantive fields ARE the same authorized state under
+    this system's own definition of "state", and accepting the second is
+    exactly what "current_claim_state == authorized_claim_state" should
+    do -- the invariant was never about Python object identity.
     """
     doc, claim_a, decision_a = _round2_admitted_claim_and_decision("r3-sameobj")
     claim_b = CandidateClaim(
@@ -1847,7 +1848,8 @@ def test_round2_r3_substituted_claim_with_same_content_hash_different_object_is_
         source_id=claim_a.source_id, provenance=claim_a.provenance,
         base_confidence=claim_a.base_confidence, reasons=list(claim_a.reasons),
         opacity_flags=list(claim_a.opacity_flags), extractor=claim_a.extractor,
-        source_hash=claim_a.source_hash, segment=claim_a.segment, bundle_id=claim_a.bundle_id,
+        source_hash=claim_a.source_hash, source_standing=claim_a.source_standing,
+        segment=claim_a.segment, bundle_id=claim_a.bundle_id,
         claim_id=claim_a.claim_id,
     ).seal()
     assert claim_b is not claim_a
@@ -1914,7 +1916,8 @@ def test_round2_r5_policy_binding_status_unchanged_by_the_fix():
     doc = SourceDocument(source_id="r5-policy", text=text, standing=STANDING_RECORD)
     claim = CandidateClaim(
         kind="statement", value="x", raw=text[:4], span=(0, 4), source_id="r5-policy",
-        source_hash=doc.content_hash, provenance=PROV_EXTRACTED, base_confidence=0.80,
+        source_hash=doc.content_hash, source_standing=doc.standing,
+        provenance=PROV_EXTRACTED, base_confidence=0.80,
         extractor="policy-test",
     ).seal()
 
@@ -3051,44 +3054,44 @@ def _extract_gate_under_attestation(source_id="src-doc"):
 
 
 def test_document_standing_swap_with_byte_identical_text_is_undetected():
-    """[EXECUTING] SEVERE -- arguably the sharpest finding this session,
-    because nothing about it requires forging or mutating anything
-    upstream. Every step is completely legitimate: real extraction, real
-    gate decision, real MAC. The only thing that changes is which
-    SourceDocument OBJECT gets passed as build()'s third argument -- same
-    source_id, byte-identical text (confirmed via matching content_hash),
-    ONLY standing flipped from an interested party's own letter
-    (attestation) to a system-of-record document.
+    """[EXECUTING] SEVERE, CLOSED by HMAX-020 (HMAX-NEXT adversarial
+    pass). Originally the sharpest finding of its session, because
+    nothing about it required forging or mutating anything upstream --
+    real extraction, real gate decision, real MAC. Only the SourceDocument
+    OBJECT passed as build()'s third argument changed: same source_id,
+    byte-identical text (matching content_hash), ONLY standing flipped
+    from an interested party's own letter (attestation) to a
+    system-of-record document. handoff.build() used to read
+    `document.standing` directly off whatever object it was given, with
+    nothing checking that object against the claims at all.
 
-    handoff.build() (herald/handoff.py) reads `document.standing` and
-    `document.describe()` directly from whatever object it is given.
-    Nothing checks that object against claim.source_hash, claim.source_id,
-    or anything else. The resulting Handoff reports "record" for a claim
-    that was, in fact, extracted from an unverified assertion -- exactly
-    the collapse CONSTITUTION.md section 6 says a consumer must never be
-    given the means to make.
+    CandidateClaim now carries source_standing, bound into its own
+    hashable_content() at extraction time (herald/extract.py), and
+    verify_against() checks document.standing against it -- a check
+    content_hash structurally cannot perform, since byte-identical text
+    produces identical content_hash regardless of standing.
+    handoff.build() now calls claim.verify_against(document) itself
+    before exporting anything (see herald/handoff.py), so this exact
+    swap -- same text, different standing -- is now rejected outright.
     """
     doc_real, claims, decisions = _extract_gate_under_attestation("swap-identical")
     doc_swapped = SourceDocument(source_id="swap-identical", text=doc_real.text, standing=STANDING_RECORD)
     assert doc_real is not doc_swapped
     assert doc_real.content_hash == doc_swapped.content_hash  # byte-identical text
 
-    package = handoff_module.build(claims, decisions, doc_swapped)
-    assert package.document["standing"] == STANDING_RECORD, (
-        "SEVERE: the handoff reports 'record' standing for claims that "
-        "were genuinely extracted under 'attestation'"
-    )
-    for export in package.admitted:
-        assert export.standing == STANDING_RECORD
+    with pytest.raises(HandoffError, match="does not match this claim"):
+        handoff_module.build(claims, decisions, doc_swapped)
 
 
 def test_document_swap_to_a_fully_unrelated_document_is_also_undetected():
-    """[EXECUTING] SEVERE. Further than the identical-text case: the
-    document passed to build() need not resemble the real one at all --
-    different text, different content_hash, different source_id, even a
-    different medium. build() still accepts it and reports it as the
-    handoff's document identity, alongside claims that actually came from
-    something else entirely.
+    """[EXECUTING] SEVERE, CLOSED by HMAX-020. Further than the
+    identical-text case: the document passed to build() need not resemble
+    the real one at all -- different text, different content_hash,
+    different source_id, even a different medium. build() now calls
+    claim.verify_against(document) per claim before export, and this
+    swap fails on the source_id mismatch alone (the first of
+    verify_against's checks), before content_hash or standing are even
+    reached.
     """
     doc_real, claims, decisions = _extract_gate_under_attestation("swap-unrelated")
     doc_unrelated = SourceDocument(
@@ -3098,38 +3101,44 @@ def test_document_swap_to_a_fully_unrelated_document_is_also_undetected():
     assert doc_unrelated.content_hash != doc_real.content_hash
     assert doc_unrelated.source_id != doc_real.source_id
 
-    package = handoff_module.build(claims, decisions, doc_unrelated)
-    assert package.document["source_id"] == "totally-unrelated-doc"
-    assert package.document["content_hash"] == doc_unrelated.content_hash
-    admitted_source_ids = {e.source_id for e in package.admitted}
-    assert admitted_source_ids == {"swap-unrelated"}, (
-        "the admitted claims still carry the REAL source_id on their own "
-        "fields, but the handoff's top-level document block describes a "
-        "completely different document -- the two halves of the same "
-        "package disagree about what document this even is"
-    )
+    with pytest.raises(HandoffError, match="does not match this claim"):
+        handoff_module.build(claims, decisions, doc_unrelated)
 
 
 def test_claim_verify_against_would_not_catch_a_standing_only_swap():
-    """[EXECUTING] The deeper root-cause point, not just "build() forgot
-    a check". CandidateClaim.verify_against(document) already exists
-    (herald/claim.py) and IS capable of catching a document swap -- but
-    only a content swap. It checks source_hash, source_id, and the
-    span-to-text slice; none of those depend on standing at all. Called
-    directly here against doc_swapped (identical text, different
-    standing only), it does NOT raise.
+    """[EXECUTING] HISTORICAL, CLOSED by HMAX-020. The deeper root-cause
+    point behind the two tests above, as it stood before this fix:
+    CandidateClaim.verify_against (herald/claim.py) already caught a
+    content swap, but checked only source_hash, source_id, and the
+    span-to-text slice -- none of which depend on standing. Called
+    against doc_swapped (identical text, different standing only), it
+    used to NOT raise.
 
-    This means wiring claim.verify_against(document) into handoff.build()
-    -- the obvious-looking fix for the previous test -- would close
-    test_document_swap_to_a_fully_unrelated_document_is_also_undetected
-    but NOT test_document_standing_swap_with_byte_identical_text_is_undetected.
-    Standing is not bound to anything cryptographic anywhere in this
-    package; nothing currently sealed, hashed, or MAC'd ever includes it.
+    Now it does, for two independent reasons depending on how the claim
+    came to exist: a real, extract()-produced claim carries the standing
+    it was actually extracted under (source_standing), and a mismatch
+    against that specific value is reported as a standing change. A
+    hand-built claim that never went through extraction and never had a
+    standing bound to it at all (source_standing left at its None
+    default) is rejected too, for the more basic reason that None can
+    never legitimately equal a document's declared standing -- there is
+    no longer any claim, extracted or fabricated, that
+    verify_against(document) will accept without an explicit,
+    matching source_standing.
     """
     doc_real, claims, decisions = _extract_gate_under_attestation("verify-standing-only")
     doc_swapped = SourceDocument(source_id="verify-standing-only", text=doc_real.text, standing=STANDING_RECORD)
-    claim = claims[0]
-    claim.verify_against(doc_swapped)  # must NOT raise -- this is the point
+
+    with pytest.raises(SealIntegrityError, match="standing changed"):
+        claims[0].verify_against(doc_swapped)  # real claim: bound 'attestation', now 'record'
+
+    bare = CandidateClaim(
+        kind=claims[0].kind, value=claims[0].value, raw=claims[0].raw, span=claims[0].span,
+        source_id=claims[0].source_id, source_hash=claims[0].source_hash,
+        extractor=claims[0].extractor, base_confidence=claims[0].base_confidence,
+    ).seal()  # source_standing left at its None default -- never bound to any standing
+    with pytest.raises(SealIntegrityError, match="standing changed"):
+        bare.verify_against(doc_swapped)  # bound None, now 'record' -- also rejected
 
 
 def test_claim_verify_against_would_catch_a_fully_unrelated_document_swap():
@@ -3148,6 +3157,69 @@ def test_claim_verify_against_would_catch_a_fully_unrelated_document_swap():
     claim = claims[0]
     with pytest.raises(SealIntegrityError):
         claim.verify_against(doc_unrelated)
+
+
+def test_hmax_021_build_snapshots_the_document_once_closing_the_intra_call_toctou():
+    """[EXECUTING] HMAX-021 (HMAX-NEXT adversarial pass, "attack the fix"
+    on HMAX-020). handoff.build() now calls claim.verify_against(document)
+    per claim to close the standing-swap findings above -- but the first
+    version of that fix still read `document.standing` a SECOND time,
+    later in the same loop, to build each ClaimExport. SourceDocument is
+    a plain mutable dataclass, so between one claim's verify_against()
+    check and that later read, nothing stopped `document.standing` from
+    moving -- whether from another thread sharing the same object, or
+    from a callback/property access triggering re-entrant code. A check
+    that passes and an export that reflects a DIFFERENT state than what
+    was checked is the same class of bug the swap findings were about,
+    just relocated one level in rather than eliminated.
+
+    Deterministic reproduction: claim.verify_against is patched to sleep
+    after its real check succeeds (simulating a scheduler gap, not
+    relying on timing luck for the check itself), and a second thread
+    flips document.standing during that sleep, before build() reaches
+    the export step.
+
+    build() now takes a private value-copy of `document` at entry,
+    before any check or export reads it, so every read inside one
+    build() call -- checks and exports alike -- sees one fixed snapshot;
+    a mutation on the caller's original object during the call, from any
+    thread, cannot reach anything build() does with it.
+    """
+    import threading
+
+    doc = SourceDocument(source_id="hmax-021", text="Paid $1,250.00 today.", standing=STANDING_ATTESTATION)
+    claims = extract_module.extract(doc)
+    decisions = ConfidenceGate(require_source=True).submit_all(claims, document=doc)
+
+    real_verify = claims[0].verify_against
+    release = threading.Event()
+
+    def slow_verify(document):
+        real_verify(document)  # the real check, against the still-correct state
+        release.set()
+        # give the flipping thread a real window to land between the
+        # check succeeding and build()'s later export read
+        threading.Event().wait(timeout=0.05)
+
+    claims[0].verify_against = slow_verify
+
+    def flip():
+        release.wait(timeout=1.0)
+        doc.standing = STANDING_RECORD
+
+    flipper = threading.Thread(target=flip)
+    flipper.start()
+    package = handoff_module.build(claims, decisions, doc)
+    flipper.join()
+
+    assert package.admitted[0].standing == STANDING_ATTESTATION, (
+        "the exported standing must match what verify_against() actually checked, "
+        "not whatever the caller's live document object drifted to afterward"
+    )
+    assert package.document["standing"] == STANDING_ATTESTATION
+    assert doc.standing == STANDING_RECORD, (
+        "fixture sanity: the caller's own object really was mutated during the call"
+    )
 
 
 def test_handoff_read_the_documented_safe_path_is_not_vulnerable_to_this():
@@ -3292,20 +3364,24 @@ def test_calibration_empty_set_via_the_real_ci_call_is_still_correctly_blocking(
 # =============================================================================
 
 def test_bundle_id_is_a_bare_sentence_index_not_scoped_to_any_document():
-    """[EXECUTING] SEVERE. _bundle_for() (herald/extract.py) returns
-    "s1", "s2", ... -- a positional label computed purely from sentence
-    order within whatever text a single extract() call was given. It
-    carries no document identity, no content hash, nothing that ties it
-    to the specific text it was computed against.
+    """[EXECUTING] SEVERE, CLOSED by HMAX-020 as a side effect. _bundle_for()
+    (herald/extract.py) still returns "s1", "s2", ... -- a positional label
+    with no document identity of its own -- so the underlying labeling
+    scheme is unchanged. What changed is the path that used to turn this
+    into a real cross-document leak: batching two unrelated documents'
+    claims into one handoff.build() call.
 
     Two completely unrelated documents, each extracted separately, each
-    produce a first-sentence claim labeled "s1". If a consuming system
-    ever combines claims from more than one document into a single
-    handoff -- batching several documents' worth of claims before one
-    build() call, a plausible and undocumented-as-forbidden pattern --
-    Handoff.bundles groups all of them together under "s1" as if they
-    were written in the same sentence, regardless of which document any
-    of them actually came from.
+    produce a first-sentence claim labeled "s1" (fixture sanity below).
+    Previously, build() accepted whichever single `document` argument it
+    was given and stamped every admitted claim's `standing`/citation from
+    it regardless of which document a claim actually came from, so both
+    documents' "s1" claims were exported side by side as one bundle.
+    handoff.build() now calls claim.verify_against(document) per claim
+    (HMAX-020, see herald/handoff.py) -- doc-b's claims fail that check
+    against doc-a's document object on source_id alone, so the batched
+    call this finding depended on is rejected outright, before any
+    cross-document bundle can be assembled.
     """
     doc_a = SourceDocument(source_id="doc-a", text="Paid $1,250.00 on 2026-03-14.", standing=STANDING_RECORD)
     doc_b = SourceDocument(
@@ -3322,24 +3398,19 @@ def test_bundle_id_is_a_bare_sentence_index_not_scoped_to_any_document():
     gate = ConfidenceGate(require_source=True)
     dec_a = gate.submit_all(claims_a, document=doc_a)
     dec_b = gate.submit_all(claims_b, document=doc_b)
-    package = handoff_module.build(claims_a + claims_b, dec_a + dec_b, doc_a)
-
-    bundled_source_ids = {
-        e.source_id for e in package.admitted if e.bundle_id == "s1"
-    }
-    assert bundled_source_ids == {"doc-a", "doc-b"}, (
-        "SEVERE: claims from two unrelated documents were grouped into "
-        "one co-occurrence bundle, purely because both happened to be "
-        "the first sentence of whatever text they were each extracted from"
-    )
+    with pytest.raises(handoff_module.HandoffError, match="does not match this claim"):
+        handoff_module.build(claims_a + claims_b, dec_a + dec_b, doc_a)
 
 
 def test_bundle_of_returns_a_sibling_from_a_completely_different_document():
-    """[EXECUTING] The consumer-facing consequence of the finding above,
-    through the actual API a consuming project would call to reassemble
-    a fact: Handoff.bundle_of(claim_id). Requesting the siblings of
-    doc-a's $1,250 claim returns doc-b's unrelated $50,000 claim as a
-    candidate co-occurring fact.
+    """[EXECUTING] CLOSED by HMAX-020. Formerly the consumer-facing
+    consequence of the finding above, through the actual API a consuming
+    project would call to reassemble a fact: Handoff.bundle_of(claim_id).
+    Since the batched build() call above is now rejected outright, there
+    is no Handoff for a cross-document bundle_of() call to be made
+    against in the first place -- restated here directly against build()
+    itself so this specific consumer-facing path has its own coverage,
+    not just an inference from the test above.
     """
     doc_a = SourceDocument(source_id="doc-a", text="Paid $1,250.00 on 2026-03-14.", standing=STANDING_RECORD)
     doc_b = SourceDocument(
@@ -3351,15 +3422,8 @@ def test_bundle_of_returns_a_sibling_from_a_completely_different_document():
     gate = ConfidenceGate(require_source=True)
     dec_a = gate.submit_all(claims_a, document=doc_a)
     dec_b = gate.submit_all(claims_b, document=doc_b)
-    package = handoff_module.build(claims_a + claims_b, dec_a + dec_b, doc_a)
-
-    amount_a = [e for e in package.admitted if e.source_id == "doc-a" and e.kind == "amount"][0]
-    siblings = package.bundle_of(amount_a.claim_id)
-    sibling_source_ids = {s.source_id for s in siblings}
-    assert "doc-b" in sibling_source_ids, (
-        "bundle_of() returned a claim from an entirely different document "
-        "as a co-occurrence sibling of a claim it was never written near"
-    )
+    with pytest.raises(handoff_module.HandoffError, match="does not match this claim"):
+        handoff_module.build(claims_a + claims_b, dec_a + dec_b, doc_a)
 
 
 def test_bundle_id_collapses_an_entire_unpunctuated_document_into_one_group():
@@ -3848,10 +3912,21 @@ def test_hmax_gateway_default_path_admits_a_claim_with_no_real_document_at_all()
 
     Confirmed live: a CandidateClaim built entirely by hand (never passed
     through extract(), fabricated source_hash matching no real document)
-    reaches ADMITTED_FOR_GOVERNANCE with a fully valid HMAC, and flows
-    cleanly into a real Handoff with standing "record" -- alongside an
-    accompanying document whose actual text says nothing related to the
-    fabricated claim.
+    still reaches ADMITTED_FOR_GOVERNANCE at the gate with a fully valid
+    HMAC -- gate.submit()'s default require_source=False is unchanged and
+    remains its own, separately-documented residual (see the sibling
+    test immediately below).
+
+    HMAX-020, CLOSED at the handoff boundary: this admitted-but-never-
+    source-checked claim previously flowed straight through into a real
+    Handoff reporting standing "record" for a claim whose fabricated
+    source_hash never matched any real document (confirmed against the
+    baseline before this fix -- placeholder_doc's real content_hash and
+    fake_claim's "0"*64 source_hash trivially differ). handoff.build()
+    now calls claim.verify_against(document) itself regardless of what
+    happened at gate time, so a fabricated claim that slipped past a
+    permissive gate is still caught at the one place every claim must
+    pass through before leaving the package.
     """
     fake_claim = CandidateClaim(
         kind="amount",
@@ -3877,10 +3952,8 @@ def test_hmax_gateway_default_path_admits_a_claim_with_no_real_document_at_all()
         text="This document says nothing about fifty million dollars.",
         standing=STANDING_RECORD,
     )
-    pkg = handoff_module.build([fake_claim], [decision], placeholder_doc)
-    assert len(pkg.admitted) == 1
-    assert pkg.admitted[0].value == {"amount": 50_000_000.0, "currency": "USD"}
-    assert pkg.admitted[0].standing == "record"
+    with pytest.raises(handoff_module.HandoffError, match="does not match this claim"):
+        handoff_module.build([fake_claim], [decision], placeholder_doc)
 
 
 def test_hmax_gateway_require_source_true_correctly_blocks_the_naive_version():
@@ -3933,6 +4006,7 @@ def test_hmax_gateway_safe_path_now_verifies_value_against_raw_too():
         span=real_span,
         source_id="real-doc-hmax-1",
         source_hash=doc.content_hash,
+        source_standing=doc.standing,
         extractor="currency_amount",
         base_confidence=0.99,
         provenance=PROV_EXTRACTED,
@@ -4103,6 +4177,7 @@ decision = gate.submit(claim, document=doc)
 print(json.dumps({
     "claim_id": claim.claim_id, "kind": claim.kind, "value": claim.value, "raw": claim.raw,
     "span": list(claim.span), "source_id": claim.source_id, "source_hash": claim.source_hash,
+    "source_standing": claim.source_standing,
     "extractor": claim.extractor, "base_confidence": claim.base_confidence, "provenance": claim.provenance,
     "reasons": [dataclasses.asdict(r) for r in claim.reasons], "opacity_flags": sorted(claim.opacity_flags),
     "segment": claim.segment, "bundle_id": claim.bundle_id,
@@ -4124,6 +4199,7 @@ data = json.loads(sys.argv[1])
 claim = CandidateClaim(
     claim_id=data["claim_id"], kind=data["kind"], value=data["value"], raw=data["raw"],
     span=tuple(data["span"]), source_id=data["source_id"], source_hash=data["source_hash"],
+    source_standing=data["source_standing"],
     extractor=data["extractor"], base_confidence=data["base_confidence"], provenance=data["provenance"],
     reasons=[ConfidenceReason(**r) for r in data["reasons"]], opacity_flags=set(data["opacity_flags"]),
     segment=data["segment"], bundle_id=data["bundle_id"],
@@ -4388,15 +4464,15 @@ def test_hmax_014_collision_detected_even_when_both_claims_are_individually_vali
     claim_a = CandidateClaim(
         claim_id=shared_id, kind="amount", value={"amount": 50_000_000.0, "currency": "USD"},
         raw="$50,000,000.00", span=(amt_start, amt_start + len("$50,000,000.00")),
-        source_id="hmax-014", source_hash=doc.content_hash, extractor="currency_amount",
-        base_confidence=0.95, provenance=PROV_EXTRACTED,
+        source_id="hmax-014", source_hash=doc.content_hash, source_standing=doc.standing,
+        extractor="currency_amount", base_confidence=0.95, provenance=PROV_EXTRACTED,
     )
     claim_a.seal()
     claim_b = CandidateClaim(
         claim_id=shared_id, kind="quantity", value={"value": 40.0, "unit": "units"},
         raw="40 units", span=(qty_start, qty_start + len("40 units")),
-        source_id="hmax-014", source_hash=doc.content_hash, extractor="quantity",
-        base_confidence=0.85, provenance=PROV_EXTRACTED,
+        source_id="hmax-014", source_hash=doc.content_hash, source_standing=doc.standing,
+        extractor="quantity", base_confidence=0.85, provenance=PROV_EXTRACTED,
     )
     claim_b.seal()
 
@@ -4441,6 +4517,7 @@ def test_hmax_015_kind_extractor_mismatch_is_now_caught():
         span=(start, start + len("40 units")),
         source_id="hmax-015",
         source_hash=doc.content_hash,
+        source_standing=doc.standing,
         extractor="quantity",
         base_confidence=0.85,
         provenance=PROV_EXTRACTED,
@@ -4498,41 +4575,59 @@ def test_hmax_016_partially_closed_by_handoff_from_dict():
     )
 
 
-def test_hmax_017_q5_fix_has_no_diacritic_or_homoglyph_normalization():
-    """[EXECUTING] HMAX-017 (HMAX-7.0 post-remediation verification pass).
-    Fresh finding, distinct from the zero-width-character evasions Q5
-    already closes (U+200B, U+200C, U+2060, U+FEFF -- all confirmed
-    caught, since Python's Unicode-aware \\W correctly treats them as
-    non-word). "adverseáction" (accented a, U+00E1, instead of plain
-    ASCII a) is NOT caught: tokenization correctly produces the tokens
-    "adverse" and "áction" (or similar), but the exact-string
-    comparison against the forbidden set fails because the accented
-    variant is a different string than "action" byte-for-byte.
+def test_hmax_017_diacritic_and_fullwidth_homoglyphs_now_normalized():
+    """[EXECUTING] HMAX-017, CLOSED by HMAX-020 (HMAX-NEXT adversarial pass,
+    see boundary.py's _fold()). Originally recorded as a residual: Q5's
+    tokenization fix improved WHERE token boundaries are found but never
+    touched WHAT counts as the same word once found, so
+    "adverse_áction" (accented a) tokenized to "áction" -- a different
+    string, byte-for-byte, than the forbidden "action" -- and sailed
+    through the exact-string comparison.
 
-    This is not a tokenization-completeness gap (what Q5 actually closed)
-    -- it is a canonicalization gap: nothing in _segments() normalizes
-    Unicode variants (diacritics, and by the same mechanism, true
-    homoglyphs from other scripts) before comparing against
-    _GOVERNED_DETERMINATIONS. Q5's fix improved WHERE token boundaries
-    are found; it never touched WHAT counts as the same word once found.
+    Independent adversarial testing (HMAX-020) reproduced this and
+    additionally found the same gap covers fullwidth Latin ("ｅligibility")
+    and, more severely, a zero-width space injected INSIDE a single
+    forbidden word ("e​ligibility"): tokenization correctly treats
+    U+200B as a separator, but doing so *splits* "eligibility" into "e"
+    and "ligibility", neither of which matches the forbidden whole-word
+    entry -- the opposite effect from Q5's compound-phrase case, where
+    treating a separator as a boundary is what lets two adjacent tokens
+    re-join and match. This is confirmed to reach CandidateClaim
+    construction end-to-end, not just is_governed_determination() in
+    isolation.
 
-    RALPH's challenge: does this collapse into Q1's "no independent
-    correctness check" primitive? Verdict: related in spirit (both are
-    "the check trusts a literal string comparison with no normalization
-    step"), but mechanically distinct enough to record separately --
-    Q1 is about a VALUE's relationship to RAW TEXT; this is about a
-    KIND STRING's relationship to a FORBIDDEN-SET STRING. Different code,
-    different fix shape (Unicode NFKD normalization + accent stripping,
-    not value re-derivation).
+    _fold() closes all three with two passes run before tokenization:
+    stripping Unicode category Cf (the zero-width/format characters)
+    removes the invisible-injection vector, and NFKD decomposition with
+    combining marks dropped folds fullwidth and accented variants onto
+    their plain-ASCII base. This does NOT close cross-script homoglyphs
+    (Cyrillic "е" U+0435, Greek "α" U+03B1 -- no normalization form
+    relates them to Latin letters); that remains an explicit, documented
+    residual requiring a curated confusables table, tracked separately.
     """
     from herald.boundary import is_governed_determination, assert_permitted_kind
+    from herald.errors import BoundaryViolation
 
-    accented = "adverseáction".replace("áction", "_áction")  # "adverse_áction"
-    assert not is_governed_determination(accented), (
-        "if this now returns True, someone added Unicode normalization -- "
+    for kind in [
+        "adverse_áction",       # the original HMAX-017 finding
+        "ｅligibility",         # fullwidth Latin small letter e
+        "e​ligibility",        # zero-width space injected mid-word
+    ]:
+        assert is_governed_determination(kind), (
+            f"{kind!r}: HMAX-017/HMAX-020 regressed -- normalization was removed "
+            "or weakened"
+        )
+        with pytest.raises(BoundaryViolation):
+            assert_permitted_kind(kind)
+
+    # Documented residual, left open: cross-script homoglyphs are not
+    # ASCII-normalizable and are not caught by _fold().
+    cross_script = "еligibility"  # Cyrillic е (U+0435), not Latin e
+    assert not is_governed_determination(cross_script), (
+        "if this now returns True, someone added confusables-table matching -- "
         "update this test's docstring and this session's records"
     )
-    assert_permitted_kind(accented)  # must NOT raise -- the residual
+    assert_permitted_kind(cross_script)  # must NOT raise -- the residual
 
 
 def test_hmax_018_confirmation_race_on_the_default_dict_lookup_path():

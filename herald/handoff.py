@@ -438,6 +438,23 @@ def build(
     """
     if binding_pin is not None:
         binding_pin.verify()
+
+    # Snapshot the document ONCE, at entry, into a private copy this
+    # function alone holds a reference to. SourceDocument is a plain
+    # (non-frozen) dataclass; the caller keeps its own reference to
+    # whatever object it passed in and nothing stops it, or another
+    # thread sharing it, from mutating .standing between this function's
+    # own verify_against() checks below and its later reads of the same
+    # attribute for export. Rebinding `document` to a value-copy here,
+    # before anything reads or checks it, means every check and every
+    # export in this call sees the exact same state -- there is no gap
+    # left inside this function for that state to move during it.
+    document = SourceDocument(
+        source_id=document.source_id, text=document.text, medium=document.medium,
+        standing=document.standing, version=document.version,
+        retrieved_at=document.retrieved_at, segments=list(document.segments),
+    )
+
     if len(claims) != len(decisions):
         raise HandoffError(
             f"{len(claims)} claims but {len(decisions)} decisions -- every claim "
@@ -478,6 +495,29 @@ def build(
         except SealIntegrityError as exc:
             raise HandoffError(
                 f"{claim.claim_id}: cannot hand off -- {exc}"
+            ) from exc
+
+        # HMAX-020: re-verify against THIS call's document, not just trust
+        # it. decision.verify_against(claim) above proves the claim matches
+        # what the gate decided; it says nothing about whether `document`
+        # -- this call's third argument -- is the document that decision
+        # was actually made against. gate.submit() may have run against the
+        # real document (or against none at all, if require_source was
+        # off); nothing stops a caller from calling build() moments later
+        # with a different SourceDocument object of the same source_id,
+        # including one with byte-identical text and only `standing`
+        # changed (content_hash cannot see that swap; source_standing,
+        # bound into the claim's own seal at extraction, can). Confirmed
+        # by prior adversarial testing that this exact swap produced a
+        # Handoff reporting "record" standing for claims genuinely read
+        # under "attestation" -- the CONSTITUTION.md section 6 collapse a
+        # consumer must never be able to cause.
+        try:
+            claim.verify_against(document)
+        except SealIntegrityError as exc:
+            raise HandoffError(
+                f"{claim.claim_id}: cannot hand off -- document given to build() "
+                f"does not match this claim's own citation -- {exc}"
             ) from exc
 
         if decision.verdict == VERDICT_ADMITTED:

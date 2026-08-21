@@ -56,3 +56,28 @@ def test_there_is_no_unforbid():
 def test_empty_kind_rejected():
     with pytest.raises(ValueError):
         CandidateClaim(kind="   ", value=1, raw="x", span=(0, 1), source_id="s")
+
+
+# HMAX-020: fullwidth Latin, zero-width space, and combining-accent
+# lookalikes each defeated is_governed_determination() outright by
+# tokenizing to a code-point sequence different from the ASCII forbidden
+# entry, despite reading identically to a human. Confirmed to reach
+# CandidateClaim construction, not just the boundary check in isolation.
+@pytest.mark.parametrize("kind", [
+    "ｅligibility",             # fullwidth Latin small letter e
+    "ａdverse_action",          # fullwidth Latin small letter a
+    "e​ligibility",            # zero-width space mid-word
+    "éligibility",            # combining acute accent on e
+    "Ａdverse＿action",     # fullwidth 'A' + fullwidth low line separator
+])
+def test_unicode_lookalikes_of_forbidden_kinds_still_blocked(kind):
+    assert boundary.is_governed_determination(kind)
+    with pytest.raises(BoundaryViolation):
+        CandidateClaim(kind=kind, value=1, raw="x", span=(0, 1), source_id="s")
+
+
+def test_unicode_folding_does_not_reject_permitted_kinds():
+    """The fold must not overreach: plain ASCII kinds are unaffected."""
+    for kind in ["date", "amount", "percent", "duration", "reference"]:
+        claim = CandidateClaim(kind=kind, value=1, raw="x", span=(0, 1), source_id="s")
+        assert claim.kind == kind
