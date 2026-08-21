@@ -342,6 +342,37 @@ class ConfidenceGate:
         self._confirmations[confirmation.claim_id] = confirmation
         return confirmation
 
+    def _decide(
+        self,
+        verdict: str,
+        threshold: float,
+        reason: str,
+        claim: CandidateClaim,
+        confirmed_by: Optional[str] = None,
+    ) -> GateDecision:
+        """Build one GateDecision, MAC included, from the claim's own
+        current fields. Every branch of submit() below used to construct
+        this by hand -- six near-identical ~9-line blocks, one per
+        verdict path, each one a place a future change to what's signed
+        could be applied to five branches and missed on the sixth. One
+        real fix, not a style preference: ghost_buster's long_function
+        finding on submit() led here, confirming the same
+        authorization_mac=_sign_decision(...) pattern repeated six times
+        (grep-verified before this refactor, not assumed)."""
+        content_hash = claim.content_hash
+        return GateDecision(
+            claim_id=claim.claim_id,
+            verdict=verdict,
+            confidence=claim.confidence,
+            threshold=threshold,
+            reason=reason,
+            confirmed_by=confirmed_by,
+            authorized_content_hash=content_hash,
+            authorization_mac=_sign_decision(
+                claim.claim_id, verdict, threshold, reason, content_hash
+            ),
+        )
+
     def submit(
         self,
         claim: CandidateClaim,
@@ -380,51 +411,19 @@ class ConfidenceGate:
         try:
             claim.verify_seal()
         except SealIntegrityError as exc:
-            reason = f"integrity: {exc}"
-            return GateDecision(
-                claim_id=claim.claim_id,
-                verdict=VERDICT_BLOCKED,
-                confidence=claim.confidence,
-                threshold=threshold,
-                reason=reason,
-                authorized_content_hash=claim.content_hash,
-                authorization_mac=_sign_decision(
-                    claim.claim_id, VERDICT_BLOCKED, threshold, reason, claim.content_hash
-                ),
-            )
+            return self._decide(VERDICT_BLOCKED, threshold, f"integrity: {exc}", claim)
 
         if document is not None:
             try:
                 claim.verify_against(document)
             except SealIntegrityError as exc:
-                reason = f"source: {exc}"
-                return GateDecision(
-                    claim_id=claim.claim_id,
-                    verdict=VERDICT_BLOCKED,
-                    confidence=claim.confidence,
-                    threshold=threshold,
-                    reason=reason,
-                    authorized_content_hash=claim.content_hash,
-                    authorization_mac=_sign_decision(
-                        claim.claim_id, VERDICT_BLOCKED, threshold, reason, claim.content_hash
-                    ),
-                )
+                return self._decide(VERDICT_BLOCKED, threshold, f"source: {exc}", claim)
         elif self.require_source:
             reason = (
                 "source document not supplied and this gate requires it; "
                 "an unverifiable citation is refused rather than assumed good"
             )
-            return GateDecision(
-                claim_id=claim.claim_id,
-                verdict=VERDICT_BLOCKED,
-                confidence=claim.confidence,
-                threshold=threshold,
-                reason=reason,
-                authorized_content_hash=claim.content_hash,
-                authorization_mac=_sign_decision(
-                    claim.claim_id, VERDICT_BLOCKED, threshold, reason, claim.content_hash
-                ),
-            )
+            return self._decide(VERDICT_BLOCKED, threshold, reason, claim)
 
         if confirmation is None:
             confirmation = self._confirmations.get(claim.claim_id)
@@ -434,49 +433,21 @@ class ConfidenceGate:
             claim.value = confirmation.confirmed_value
             claim.seal()
             reason = f"human confirmation on file: {confirmation.rationale}"
-            return GateDecision(
-                claim_id=claim.claim_id,
-                verdict=VERDICT_ADMITTED,
-                confidence=claim.confidence,
-                threshold=threshold,
-                reason=reason,
+            return self._decide(
+                VERDICT_ADMITTED, threshold, reason, claim,
                 confirmed_by=confirmation.confirmed_by,
-                authorized_content_hash=claim.content_hash,
-                authorization_mac=_sign_decision(
-                    claim.claim_id, VERDICT_ADMITTED, threshold, reason, claim.content_hash
-                ),
             )
 
         if claim.confidence >= threshold:
             reason = "confidence at or above threshold; still requires governance before use"
-            return GateDecision(
-                claim_id=claim.claim_id,
-                verdict=VERDICT_ADMITTED,
-                confidence=claim.confidence,
-                threshold=threshold,
-                reason=reason,
-                authorized_content_hash=claim.content_hash,
-                authorization_mac=_sign_decision(
-                    claim.claim_id, VERDICT_ADMITTED, threshold, reason, claim.content_hash
-                ),
-            )
+            return self._decide(VERDICT_ADMITTED, threshold, reason, claim)
 
         flagged = ", ".join(sorted(set(claim.opacity_flags))) or "none recorded"
         reason = (
             f"confidence {claim.confidence:.2f} below threshold {threshold:.2f} "
             f"(opacity: {flagged}); requires named human confirmation"
         )
-        return GateDecision(
-            claim_id=claim.claim_id,
-            verdict=VERDICT_REFUSED,
-            confidence=claim.confidence,
-            threshold=threshold,
-            reason=reason,
-            authorized_content_hash=claim.content_hash,
-            authorization_mac=_sign_decision(
-                claim.claim_id, VERDICT_REFUSED, threshold, reason, claim.content_hash
-            ),
-        )
+        return self._decide(VERDICT_REFUSED, threshold, reason, claim)
 
     def submit_all(
         self, claims: Iterable[CandidateClaim], document=None
