@@ -197,7 +197,7 @@ Standard library only. No dependencies.
 
 ## Status
 
-Version 0.3.0. 303 tests passing, 25 skipped, ruff clean (0.15.22, the pinned version the
+Version 0.3.0. 312 tests passing, 25 skipped, ruff clean (0.15.22, the pinned version the
 rest of the stack gates on), bandit clean at `-ll`. No consuming project is
 wired in yet.
 

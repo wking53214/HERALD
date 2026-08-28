@@ -179,6 +179,22 @@ class HumanConfirmation:
     seal: Optional[str] = None
 
     def __post_init__(self):
+        self.validate()
+
+    def validate(self) -> None:
+        """The rules this confirmation must satisfy -- at construction AND
+        again when a gate consumes it.
+
+        Mirrors SourceDocument.validate() and CandidateClaim.validate().
+        verify() below answers "has this been edited since it was sealed";
+        this answers "is this a valid sign-off at all". The two are not the
+        same question, and a seal can be legitimately refreshed over a state
+        that was never a valid sign-off -- which is why consumption re-runs
+        this rather than trusting construction to have been the last word.
+
+        Nothing here is new: this is exactly what __post_init__ checked
+        before, moved so it can be called more than once.
+        """
         if not self.confirmed_by.strip():
             raise ValueError(f"{self.claim_id}: confirmer identity is required")
         if not self.rationale.strip():
@@ -428,6 +444,24 @@ class ConfidenceGate:
         if confirmation is None:
             confirmation = self._confirmations.get(claim.claim_id)
         if confirmation is not None:
+            # Two different questions, asked in this order. validate() asks
+            # "is this a valid sign-off at all" -- the rules __post_init__
+            # enforced when it was built, re-asked now because a
+            # confirmation is a mutable dataclass whose seal is publicly
+            # refreshable (and is refreshed for the caller by
+            # record_confirmation), so construction is not the last word on
+            # its legality. verify() below then asks the integrity question
+            # it always has: has this been edited since it was sealed.
+            #
+            # Wrapped so a failure leaves as a verdict rather than an
+            # escaping exception -- submit() returns a verdict for every
+            # claim, and this new call must not change that.
+            try:
+                confirmation.validate()
+            except ValueError as exc:
+                return self._decide(
+                    VERDICT_BLOCKED, threshold, f"confirmation: {exc}", claim
+                )
             confirmation.verify()
             claim.provenance = PROV_HUMAN_CONFIRMED
             claim.value = confirmation.confirmed_value
