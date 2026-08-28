@@ -131,6 +131,26 @@ class CandidateClaim:
     authority: str = AUTHORITY_ADVISORY
 
     def __post_init__(self):
+        self.validate()
+
+    def validate(self) -> None:
+        """The rules this claim must satisfy -- at construction AND again at
+        every trust boundary it crosses.
+
+        Mirrors SourceDocument.validate(), which is called both from its own
+        __post_init__ and again at extract() and at handoff.build()'s
+        snapshot. That repetition is the point: a rule checked only at
+        construction protects only construction. CandidateClaim is a mutable
+        dataclass whose seal is publicly recomputable, so between building a
+        claim and handing it off there is a window in which its kind,
+        authority or provenance can be changed and re-sealed, leaving an
+        object that is internally consistent and constitutionally illegal.
+        Re-running these same checks at the boundary closes that window
+        without adding a single new rule.
+
+        Nothing here is new. This is exactly the check set __post_init__
+        performed before, moved so it can be called more than once.
+        """
         # Deferred import: boundary imports nothing from claim, but keeping
         # the call here means every construction path is checked, including
         # ones written later by someone who did not read this file.

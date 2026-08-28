@@ -72,7 +72,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from . import binding
 from .claim import CandidateClaim, _canonical
-from .errors import HeraldError, SealIntegrityError
+from .errors import BoundaryViolation, HeraldError, SealIntegrityError
 from .gate import VERDICT_ADMITTED, ConfidenceGate, GateDecision, _ISSUER_KEY
 from .source import STANDING_UNKNOWN, SourceDocument
 
@@ -489,6 +489,25 @@ def build(
         decision = by_id.get(claim.claim_id)
         if decision is None:
             raise HandoffError(f"{claim.claim_id}: no gate decision on file")
+
+        # Is this claim legal at all, right now? Everything below answers
+        # "does this match what was authorized" -- an integrity question.
+        # This one is the semantic question, and it is asked here because
+        # CandidateClaim's rules were previously enforced only at
+        # construction: a claim built legally, mutated, and re-sealed
+        # arrives internally consistent and constitutionally illegal, and
+        # every check below would pass it. Re-running the claim's own
+        # validate() at the export boundary is the same discipline
+        # SourceDocument already gets (validate() at __post_init__, again
+        # at extract(), again via the snapshot above). No new rule is
+        # introduced -- only the number of times the existing ones run.
+        try:
+            claim.validate()
+        except (BoundaryViolation, ValueError) as exc:
+            raise HandoffError(
+                f"{claim.claim_id}: cannot hand off -- claim is not in a valid "
+                f"state at the export boundary -- {exc}"
+            ) from exc
 
         try:
             decision.verify_against(claim)
