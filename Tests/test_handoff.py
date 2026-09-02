@@ -3,6 +3,7 @@
 import pytest
 
 from herald import extract, gate, handoff
+from herald.errors import SealIntegrityError
 from herald.handoff import Handoff, HandoffError
 from herald.source import (
     STANDING_ATTESTATION, STANDING_RECORD, STANDING_UNKNOWN, SourceDocument,
@@ -172,6 +173,7 @@ def test_handoff_carries_both_build_and_document_identity():
     package = handoff_for()
     assert package.herald["version"] and package.herald["code_hash"]
     assert package.document["content_hash"] and package.document["source_id"]
+    assert package.export_mac_version == handoff.EXPORT_MAC_VERSION
 
 
 def test_document_identity_travels_without_the_payload():
@@ -183,7 +185,40 @@ def test_to_dict_is_serializable_and_complete():
     payload = handoff_for().to_dict()
     json.loads(json.dumps(payload))
     assert set(payload) >= {"document", "herald", "admitted", "refused",
-                            "bundles", "summary", "prepared_at"}
+                            "bundles", "summary", "prepared_at",
+                            "export_mac", "export_mac_version"}
+
+
+@pytest.mark.parametrize(
+    ("section", "field", "replacement"),
+    [
+        ("admitted", "kind", "date"),
+        ("admitted", "span", [99, 100]),
+        ("admitted", "reading", "HUMAN_CONFIRMED"),
+        ("admitted", "source_hash", "0" * 64),
+        ("admitted", "reasons", [{"code": "FORGED", "detail": "changed", "delta": -0.1}]),
+        ("refused", "kind", "date"),
+        ("refused", "span", [99, 100]),
+        ("refused", "opacity_flags", []),
+    ],
+)
+def test_export_mac_covers_all_exported_claim_fields(section, field, replacement):
+    exported = handoff_for().to_dict()
+    entries = exported[section]
+    if not entries:
+        pytest.skip(f"fixture has no {section} entries")
+    entries[0][field] = replacement
+
+    with pytest.raises(SealIntegrityError, match="export_mac"):
+        handoff.verify_export(exported)
+
+
+def test_export_mac_version_is_bound_and_unknown_versions_are_rejected():
+    exported = handoff_for().to_dict()
+    exported["export_mac_version"] = "2"
+
+    with pytest.raises(SealIntegrityError, match="export_mac_version"):
+        handoff.verify_export(exported)
 
 
 def test_exports_carry_the_reasons_behind_their_confidence():

@@ -81,67 +81,38 @@ class HandoffError(HeraldError):
     """Raised when a handoff cannot be assembled honestly."""
 
 
+EXPORT_MAC_VERSION = "1"
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
 def _export_mac_payload(
+    export_mac_version: str,
     document: Mapping[str, Any],
     herald: Mapping[str, Any],
     admitted: Sequence[Mapping[str, Any]],
     refused: Sequence[Mapping[str, Any]],
 ) -> Dict[str, Any]:
-    """The fields export_mac actually covers.
+    """Build the versioned, complete payload authenticated by export_mac.
 
-    Takes plain dict-shaped admitted/refused entries (the output of each
-    export's own to_dict()) rather than the dataclass instances, so this
-    same function verifies a live build() and a deserialized JSON blob
-    identically -- there is exactly one code path for "what does the MAC
-    cover," not two that could quietly drift apart.
-
-    document: source_id, standing, content_hash -- what the document-
-    standing-swap and document-forgery findings tampered. herald: version,
-    code_hash -- what the metadata-forgery finding tampered. admitted:
-    claim_id, value, raw, content_hash, standing, authority per entry --
-    what the value-tampering finding tampered, plus authority now that it
-    is exported at all. refused: claim_id, verdict, reason per entry --
-    mirrors what authorization_mac already covers on the underlying
-    decision, so a refusal can't be silently reclassified on the way out
-    either. prepared_at and the computed bundles/summary views are
-    deliberately NOT covered: they are either a timestamp (not security-
-    relevant, same reasoning as claim.py's created_at) or pure functions
-    of the fields already covered (covering them too would be redundant,
-    not additionally protective).
+    The complete mappings are copied rather than selecting a hand-maintained
+    subset. This prevents a newly added exported field from silently falling
+    outside the trust boundary. ``prepared_at`` remains outside the MAC as an
+    informational timestamp; bundles and summary are derived views.
     """
     return {
-        "document": {
-            "source_id": document.get("source_id"),
-            "standing": document.get("standing"),
-            "content_hash": document.get("content_hash"),
-        },
-        "herald": {
-            "version": herald.get("version"),
-            "code_hash": herald.get("code_hash"),
-        },
-        "admitted": [
-            {
-                "claim_id": e.get("claim_id"),
-                "value": e.get("value"),
-                "raw": e.get("raw"),
-                "content_hash": e.get("content_hash"),
-                "standing": e.get("standing"),
-                "authority": e.get("authority"),
-            }
-            for e in admitted
-        ],
-        "refused": [
-            {"claim_id": r.get("claim_id"), "verdict": r.get("verdict"), "reason": r.get("reason")}
-            for r in refused
-        ],
+        "export_mac_version": export_mac_version,
+        "document": dict(document),
+        "herald": dict(herald),
+        "admitted": [dict(entry) for entry in admitted],
+        "refused": [dict(entry) for entry in refused],
     }
 
 
 def _sign_export(
+    export_mac_version: str,
     document: Mapping[str, Any],
     herald: Mapping[str, Any],
     admitted: Sequence[Mapping[str, Any]],
@@ -154,7 +125,9 @@ def _sign_export(
     trust domain and the same documented process-local limitation, not a
     second, separately-managed secret with its own boundary to track.
     """
-    payload = _canonical(_export_mac_payload(document, herald, admitted, refused))
+    payload = _canonical(_export_mac_payload(
+        export_mac_version, document, herald, admitted, refused
+    ))
     return hmac.new(_ISSUER_KEY, payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
@@ -178,12 +151,18 @@ def verify_export(payload: Mapping[str, Any]) -> None:
     HMAX_REMEDIATION_ARCHITECTURE.md's Q3 section for the full reasoning.
     """
     claimed = payload.get("export_mac")
+    if payload.get("export_mac_version") != EXPORT_MAC_VERSION:
+        raise SealIntegrityError(
+            f"unsupported or missing export_mac_version "
+            f"{payload.get('export_mac_version')!r}"
+        )
     if not claimed:
         raise SealIntegrityError(
             "export has no export_mac -- not provably issued by a real "
             "handoff.build() call, or altered since issuance"
         )
     expected = _sign_export(
+        EXPORT_MAC_VERSION,
         payload.get("document") or {},
         payload.get("herald") or {},
         payload.get("admitted") or [],
@@ -294,6 +273,7 @@ class Handoff:
     refused: Tuple[RefusalExport, ...] = ()
     prepared_at: str = field(default_factory=_utc_now)
     export_mac: Optional[str] = None
+    export_mac_version: str = EXPORT_MAC_VERSION
 
     # -- co-occurrence -------------------------------------------------
 
@@ -355,6 +335,7 @@ class Handoff:
             "bundles": self.bundles,
             "summary": self.summary(),
             "export_mac": self.export_mac,
+            "export_mac_version": self.export_mac_version,
         }
 
     @classmethod
@@ -390,6 +371,7 @@ class Handoff:
             refused=refused,
             prepared_at=payload.get("prepared_at", _utc_now()),
             export_mac=payload.get("export_mac"),
+            export_mac_version=payload["export_mac_version"],
         )
 
     def render(self) -> str:
@@ -579,7 +561,9 @@ def build(
     herald_dict = {"version": binding.VERSION, "code_hash": binding.code_hash()}
     admitted_dicts = [e.to_dict() for e in admitted]
     refused_dicts = [r.to_dict() for r in refused]
-    export_mac = _sign_export(document_dict, herald_dict, admitted_dicts, refused_dicts)
+    export_mac = _sign_export(
+        EXPORT_MAC_VERSION, document_dict, herald_dict, admitted_dicts, refused_dicts
+    )
 
     return Handoff(
         document=document_dict,
@@ -587,6 +571,7 @@ def build(
         admitted=tuple(admitted),
         refused=tuple(refused),
         export_mac=export_mac,
+        export_mac_version=EXPORT_MAC_VERSION,
     )
 
 
