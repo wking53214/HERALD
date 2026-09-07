@@ -104,6 +104,7 @@ def test_summary_counts_refusals_without_calling_them_failures():
         "total": 2,
         "by_verdict": {VERDICT_ADMITTED: 1, VERDICT_REFUSED: 1},
         "admitted": 1, "refused": 1, "blocked": 0,
+        "source_unverified": 2,
     }
 
 

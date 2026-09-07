@@ -88,6 +88,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 import secrets
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
@@ -95,6 +96,8 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 from .claim import CandidateClaim, PROV_HUMAN_CONFIRMED, _canonical
 from .errors import SealIntegrityError
+
+logger = logging.getLogger("herald.gate")
 
 # Process-local HMAC key. Generated once, at import time, from the OS
 # CSPRNG. Never exported (absent from herald/__init__.py and this
@@ -105,7 +108,7 @@ _ISSUER_KEY: bytes = secrets.token_bytes(32)
 
 def _decision_mac_payload(
     claim_id: str, verdict: str, threshold: float, reason: str,
-    authorized_content_hash: Optional[str],
+    authorized_content_hash: Optional[str], source_verified: bool = False,
 ) -> Dict[str, Any]:
     """The fields an authorization_mac actually covers.
 
@@ -127,12 +130,15 @@ def _decision_mac_payload(
         "threshold": threshold,
         "reason": reason,
         "authorized_content_hash": authorized_content_hash,
+        # Bound so a decision made without its source cannot be edited into
+        # one that claims the citation was re-checked.
+        "source_verified": source_verified,
     }
 
 
 def _sign_decision(
     claim_id: str, verdict: str, threshold: float, reason: str,
-    authorized_content_hash: Optional[str],
+    authorized_content_hash: Optional[str], source_verified: bool = False,
 ) -> str:
     """HMAC-SHA256 over the bound fields, keyed with the process issuer key.
 
@@ -143,7 +149,7 @@ def _sign_decision(
     this function has, defeating the point of keying it at all.
     """
     payload = _canonical(_decision_mac_payload(
-        claim_id, verdict, threshold, reason, authorized_content_hash
+        claim_id, verdict, threshold, reason, authorized_content_hash, source_verified
     ))
     return hmac.new(_ISSUER_KEY, payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
@@ -258,6 +264,14 @@ class GateDecision:
     decided_at: str = field(default_factory=_utc_now)
     authorized_content_hash: Optional[str] = None
     authorization_mac: Optional[str] = None
+    # Whether the claim was re-checked against its source document when
+    # this decision was made. False means the gate confirmed only that the
+    # claim itself was unedited -- not that the text it cites still says
+    # what it said. Until this field existed, a decision made with the
+    # document and one made without it were identical, so an admitted
+    # claim whose source had since changed read as verified. Bound into
+    # authorization_mac, so it cannot be flipped after issuance.
+    source_verified: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -296,7 +310,7 @@ class GateDecision:
             )
         expected_mac = _sign_decision(
             self.claim_id, self.verdict, self.threshold, self.reason,
-            self.authorized_content_hash,
+            self.authorized_content_hash, self.source_verified,
         )
         if self.authorization_mac is None or not hmac.compare_digest(
             expected_mac, self.authorization_mac
@@ -365,6 +379,7 @@ class ConfidenceGate:
         reason: str,
         claim: CandidateClaim,
         confirmed_by: Optional[str] = None,
+        source_verified: bool = False,
     ) -> GateDecision:
         """Build one GateDecision, MAC included, from the claim's own
         current fields. Every branch of submit() below used to construct
@@ -384,8 +399,9 @@ class ConfidenceGate:
             reason=reason,
             confirmed_by=confirmed_by,
             authorized_content_hash=content_hash,
+            source_verified=source_verified,
             authorization_mac=_sign_decision(
-                claim.claim_id, verdict, threshold, reason, content_hash
+                claim.claim_id, verdict, threshold, reason, content_hash, source_verified
             ),
         )
 
@@ -429,17 +445,30 @@ class ConfidenceGate:
         except SealIntegrityError as exc:
             return self._decide(VERDICT_BLOCKED, threshold, f"integrity: {exc}", claim)
 
+        source_verified = False
         if document is not None:
             try:
                 claim.verify_against(document)
             except SealIntegrityError as exc:
                 return self._decide(VERDICT_BLOCKED, threshold, f"source: {exc}", claim)
+            source_verified = True
         elif self.require_source:
             reason = (
                 "source document not supplied and this gate requires it; "
                 "an unverifiable citation is refused rather than assumed good"
             )
             return self._decide(VERDICT_BLOCKED, threshold, reason, claim)
+        else:
+            # The default. Not refused, but no longer silent: measured
+            # before this warning existed, a claim whose source had since
+            # been edited was admitted with a decision identical to one
+            # verified against the document.
+            logger.warning(
+                f"{claim.claim_id}: no source document supplied -- the citation "
+                "was NOT re-checked and the decision is recorded with "
+                "source_verified=False. Pass document=, or construct the gate "
+                "with require_source=True to refuse instead."
+            )
 
         if confirmation is None:
             confirmation = self._confirmations.get(claim.claim_id)
@@ -460,7 +489,8 @@ class ConfidenceGate:
                 confirmation.validate()
             except ValueError as exc:
                 return self._decide(
-                    VERDICT_BLOCKED, threshold, f"confirmation: {exc}", claim
+                    VERDICT_BLOCKED, threshold, f"confirmation: {exc}", claim,
+                    source_verified=source_verified,
                 )
             confirmation.verify()
             claim.provenance = PROV_HUMAN_CONFIRMED
@@ -469,19 +499,23 @@ class ConfidenceGate:
             reason = f"human confirmation on file: {confirmation.rationale}"
             return self._decide(
                 VERDICT_ADMITTED, threshold, reason, claim,
-                confirmed_by=confirmation.confirmed_by,
+                confirmed_by=confirmation.confirmed_by, source_verified=source_verified,
             )
 
         if claim.confidence >= threshold:
             reason = "confidence at or above threshold; still requires governance before use"
-            return self._decide(VERDICT_ADMITTED, threshold, reason, claim)
+            return self._decide(
+                VERDICT_ADMITTED, threshold, reason, claim, source_verified=source_verified
+            )
 
         flagged = ", ".join(sorted(set(claim.opacity_flags))) or "none recorded"
         reason = (
             f"confidence {claim.confidence:.2f} below threshold {threshold:.2f} "
             f"(opacity: {flagged}); requires named human confirmation"
         )
-        return self._decide(VERDICT_REFUSED, threshold, reason, claim)
+        return self._decide(
+            VERDICT_REFUSED, threshold, reason, claim, source_verified=source_verified
+        )
 
     def submit_all(
         self, claims: Iterable[CandidateClaim], document=None
@@ -506,4 +540,7 @@ def summarize(decisions: Iterable[GateDecision]) -> Dict[str, Any]:
         "admitted": counts.get(VERDICT_ADMITTED, 0),
         "refused": counts.get(VERDICT_REFUSED, 0),
         "blocked": counts.get(VERDICT_BLOCKED, 0),
+        # Decisions made without the source document. A report where this
+        # is not zero admitted claims whose citations were never re-checked.
+        "source_unverified": sum(1 for d in decisions if not d.source_verified),
     }
