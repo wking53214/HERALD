@@ -14,7 +14,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.209681+00:00",
-    "id": "ghost-74ce81b27adf",
+    "id": "ghost-3ac48459c284",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -35,7 +35,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.209787+00:00",
-    "id": "ghost-fa828ec24270",
+    "id": "ghost-b6864de1d359",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -56,7 +56,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.210014+00:00",
-    "id": "ghost-bf9f6df3104a",
+    "id": "ghost-a9e5e73af2ac",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -77,7 +77,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.210056+00:00",
-    "id": "ghost-f5c3ecb9c1b7",
+    "id": "ghost-77cc535c47da",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -98,7 +98,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.233925+00:00",
-    "id": "ghost-352d9d493bb4",
+    "id": "ghost-3f722a60f0d0",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -119,7 +119,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.235831+00:00",
-    "id": "ghost-e7da03cc4453",
+    "id": "ghost-195b26032d2a",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -140,7 +140,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.240568+00:00",
-    "id": "ghost-b2fbda18bfa7",
+    "id": "ghost-aad147d3d3c2",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -161,7 +161,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.244560+00:00",
-    "id": "ghost-7285cf8f8d61",
+    "id": "ghost-2a90ecb9639e",
     "layer": "mechanical",
     "severity": "major",
     "status": "suppressed",
@@ -185,7 +185,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.331343+00:00",
-    "id": "ghost-e2b3fedc8c79",
+    "id": "ghost-f1a57eb0a7e5",
     "layer": "mechanical",
     "severity": "major",
     "status": "suppressed",
@@ -208,7 +208,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.331377+00:00",
-    "id": "ghost-82ff29520bed",
+    "id": "ghost-88abdac06109",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -231,7 +231,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.331390+00:00",
-    "id": "ghost-1a8e9aff14b4",
+    "id": "ghost-b60a8b5b3c26",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -254,7 +254,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.331400+00:00",
-    "id": "ghost-d5aa86149fe9",
+    "id": "ghost-d426f8abed01",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -277,7 +277,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.331411+00:00",
-    "id": "ghost-16c04c5fdbaa",
+    "id": "ghost-b4894a00e992",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -300,7 +300,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.331420+00:00",
-    "id": "ghost-94409eed4850",
+    "id": "ghost-65eb8b0c2c68",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -324,7 +324,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.331431+00:00",
-    "id": "ghost-aed449e76dac",
+    "id": "ghost-5a16cdc32dc9",
     "layer": "mechanical",
     "severity": "major",
     "status": "suppressed",
@@ -347,7 +347,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.331442+00:00",
-    "id": "ghost-dd0023d7588e",
+    "id": "ghost-98c222cf4922",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -370,7 +370,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.331458+00:00",
-    "id": "ghost-46d96e8c7142",
+    "id": "ghost-dd640eb58f1d",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -393,7 +393,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.331471+00:00",
-    "id": "ghost-2db60e0cc5fd",
+    "id": "ghost-bef3928be141",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -416,7 +416,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.331481+00:00",
-    "id": "ghost-d37d99dedcf5",
+    "id": "ghost-3b5bcd061832",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -439,7 +439,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.344764+00:00",
-    "id": "ghost-d310fb14c810",
+    "id": "ghost-bb72bf5a83fd",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -462,7 +462,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.348742+00:00",
-    "id": "ghost-7572e5941c1a",
+    "id": "ghost-0a60defaa583",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -485,7 +485,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.349327+00:00",
-    "id": "ghost-8d2f046d77ae",
+    "id": "ghost-d084bfdb9e66",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -508,7 +508,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.351605+00:00",
-    "id": "ghost-493704844761",
+    "id": "ghost-ba44a2e5a440",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -531,7 +531,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.351891+00:00",
-    "id": "ghost-b2e4978ee177",
+    "id": "ghost-e12d96340ecd",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -554,7 +554,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.355565+00:00",
-    "id": "ghost-0301d00a5ef4",
+    "id": "ghost-2764d679bb98",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -577,7 +577,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.355807+00:00",
-    "id": "ghost-34db2aefaaee",
+    "id": "ghost-0c1cde8ff770",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -600,7 +600,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.356947+00:00",
-    "id": "ghost-9af471a1234d",
+    "id": "ghost-7311097f78fb",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -623,7 +623,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.383770+00:00",
-    "id": "ghost-bb8f80ed2cdb",
+    "id": "ghost-5a50bf7e2df3",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -646,7 +646,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.383799+00:00",
-    "id": "ghost-4a673ddb63c6",
+    "id": "ghost-f634c01a48eb",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -669,7 +669,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.384617+00:00",
-    "id": "ghost-484d5755edb0",
+    "id": "ghost-b92c19f0d3e3",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -692,7 +692,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.389764+00:00",
-    "id": "ghost-2457a07615b6",
+    "id": "ghost-1adae5310620",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -715,7 +715,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.389795+00:00",
-    "id": "ghost-d9976b0a5197",
+    "id": "ghost-f4fafd2205ed",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -738,7 +738,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.390529+00:00",
-    "id": "ghost-2028583c01d5",
+    "id": "ghost-ac4eae9f8868",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -761,7 +761,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.390553+00:00",
-    "id": "ghost-282ef2ebd065",
+    "id": "ghost-08f1cecd3aa5",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -784,7 +784,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.390564+00:00",
-    "id": "ghost-a5af583b9513",
+    "id": "ghost-f7a8b790fcea",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -807,7 +807,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.391344+00:00",
-    "id": "ghost-5ed8f132f7a5",
+    "id": "ghost-00dde2108692",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -830,7 +830,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.391381+00:00",
-    "id": "ghost-4b8295171e29",
+    "id": "ghost-6ee13458fda4",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -853,7 +853,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.395647+00:00",
-    "id": "ghost-06cfdc386365",
+    "id": "ghost-10b5178cc247",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -876,7 +876,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.401736+00:00",
-    "id": "ghost-4d25ac330c0f",
+    "id": "ghost-6905256215bc",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -901,7 +901,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.403202+00:00",
-    "id": "ghost-561b40ea28b4",
+    "id": "ghost-66a24710d813",
     "layer": "mechanical",
     "severity": "major",
     "status": "suppressed",
@@ -924,7 +924,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.403217+00:00",
-    "id": "ghost-fdf134332157",
+    "id": "ghost-b1bc60e137e9",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -948,7 +948,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.404136+00:00",
-    "id": "ghost-1cbf18272e25",
+    "id": "ghost-b75257cca02c",
     "layer": "mechanical",
     "severity": "major",
     "status": "suppressed",
@@ -971,7 +971,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.407751+00:00",
-    "id": "ghost-40d26975986f",
+    "id": "ghost-caf88eb6be16",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -994,7 +994,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.407766+00:00",
-    "id": "ghost-604a0d6a5c7f",
+    "id": "ghost-de4484152dfa",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -1019,7 +1019,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.408201+00:00",
-    "id": "ghost-d2db2b6cc2e9",
+    "id": "ghost-a3bf4f88fb40",
     "layer": "mechanical",
     "severity": "major",
     "status": "suppressed",
@@ -1043,7 +1043,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.408593+00:00",
-    "id": "ghost-31e4c7dffc4d",
+    "id": "ghost-f01b5be08f45",
     "layer": "mechanical",
     "severity": "major",
     "status": "suppressed",
@@ -1066,7 +1066,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.408783+00:00",
-    "id": "ghost-f0bb017be87b",
+    "id": "ghost-d0b06abb7c31",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -1089,7 +1089,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.408995+00:00",
-    "id": "ghost-293c8dcb4b17",
+    "id": "ghost-c1af02843f16",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -1112,7 +1112,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.410529+00:00",
-    "id": "ghost-87d930477d7c",
+    "id": "ghost-11a9afc70268",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -1135,7 +1135,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.411040+00:00",
-    "id": "ghost-5eeea329a746",
+    "id": "ghost-788994489ee9",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -1158,7 +1158,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.414741+00:00",
-    "id": "ghost-0c8664ae003c",
+    "id": "ghost-469d2c008ba2",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -1181,7 +1181,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.445941+00:00",
-    "id": "ghost-4b58142df8bd",
+    "id": "ghost-423c98409b1a",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -1204,7 +1204,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.446347+00:00",
-    "id": "ghost-8eb76c3b52da",
+    "id": "ghost-61648322d0aa",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -1227,7 +1227,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.446937+00:00",
-    "id": "ghost-d9481e7488ff",
+    "id": "ghost-3bf3fc644889",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -1250,7 +1250,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.446950+00:00",
-    "id": "ghost-1f8daee9bfa0",
+    "id": "ghost-79039c15a923",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -1273,7 +1273,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.452942+00:00",
-    "id": "ghost-63c725105df3",
+    "id": "ghost-5c5afecbee45",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -1296,7 +1296,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.452965+00:00",
-    "id": "ghost-aab412519ba8",
+    "id": "ghost-650123dd5a9d",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -1319,7 +1319,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.457445+00:00",
-    "id": "ghost-69a3aca6af67",
+    "id": "ghost-36420be10ec2",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -1342,7 +1342,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.466737+00:00",
-    "id": "ghost-cdfd8b40b197",
+    "id": "ghost-13a779efd519",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -1365,7 +1365,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.468701+00:00",
-    "id": "ghost-4a356c781fa6",
+    "id": "ghost-c0bf8528f5a2",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -1389,7 +1389,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.468719+00:00",
-    "id": "ghost-f83ceec033e9",
+    "id": "ghost-174a029bcec4",
     "layer": "mechanical",
     "severity": "major",
     "status": "suppressed",
@@ -1412,7 +1412,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.476636+00:00",
-    "id": "ghost-437a6941cc23",
+    "id": "ghost-3732e525ba96",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -1435,7 +1435,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.476661+00:00",
-    "id": "ghost-b8a315d7bdb1",
+    "id": "ghost-fec7bcc7ff73",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -1458,7 +1458,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.476671+00:00",
-    "id": "ghost-a5c465126ae6",
+    "id": "ghost-c60cbc8052e3",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -1482,7 +1482,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.476681+00:00",
-    "id": "ghost-12a5f36e9f16",
+    "id": "ghost-1150740d931c",
     "layer": "mechanical",
     "severity": "major",
     "status": "suppressed",
@@ -1505,7 +1505,7 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.478044+00:00",
-    "id": "ghost-ef1ec4c9627c",
+    "id": "ghost-cf0b6e5c57c8",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
@@ -1528,10 +1528,357 @@
       "snippet": null
     },
     "first_seen": "2026-09-03T03:41:10.484252+00:00",
-    "id": "ghost-4d801bca80d8",
+    "id": "ghost-4c31f30ccc49",
     "layer": "mechanical",
     "severity": "minor",
     "status": "suppressed",
     "summary": "'validate' repeats the same single statement 2 times (lines 134-134, 153-153): same shape, names/literals differ"
+  },
+  {
+    "category": "dead_code",
+    "confidence": null,
+    "detail": "No ast.Name, ast.Attribute, or string-subscript-key node anywhere in the scanned files resolves to this identifier. Scope limit: getattr-by-string and decorator-based registration are still not traced, so this can false-positive on names only reached that way -- confirm before deleting.",
+    "detector": "dead_code",
+    "disposition": null,
+    "disposition_note": "",
+    "evidence": {
+      "file": "/home/wking53214/HERALD/herald/consequence_governance_experiment.py",
+      "line_end": null,
+      "line_start": null,
+      "related_files": [],
+      "snippet": null
+    },
+    "first_seen": "2026-09-08T03:43:46.772659+00:00",
+    "id": "ghost-0bafed2b5cbe",
+    "layer": "mechanical",
+    "severity": "minor",
+    "status": "suppressed",
+    "summary": "'summarize_scenarios' is defined but never referenced anywhere in the scanned set"
+  },
+  {
+    "category": "complexity",
+    "confidence": null,
+    "detail": "Line-count proxy for the 'Long Method' smell, not true cyclomatic complexity -- a long function that's mostly a flat sequence of simple statements is a weaker signal than a short function with deep branching. Treat as a prompt to look, not a verdict.",
+    "detector": "long_function",
+    "disposition": null,
+    "disposition_note": "",
+    "evidence": {
+      "file": "/home/wking53214/HERALD/herald/consequence_governance_experiment.py",
+      "line_end": 269,
+      "line_start": 90,
+      "related_files": [],
+      "snippet": null
+    },
+    "first_seen": "2026-09-08T03:43:46.872781+00:00",
+    "id": "ghost-27a08b509273",
+    "layer": "mechanical",
+    "severity": "major",
+    "status": "suppressed",
+    "summary": "'assess' spans 179 lines (threshold 80)"
+  },
+  {
+    "category": "complexity",
+    "confidence": null,
+    "detail": "Line-count proxy for the 'Long Method' smell, not true cyclomatic complexity -- a long function that's mostly a flat sequence of simple statements is a weaker signal than a short function with deep branching. Treat as a prompt to look, not a verdict.",
+    "detector": "long_function",
+    "disposition": null,
+    "disposition_note": "",
+    "evidence": {
+      "file": "/home/wking53214/HERALD/herald/handoff.py",
+      "line_end": 575,
+      "line_start": 402,
+      "related_files": [],
+      "snippet": null
+    },
+    "first_seen": "2026-09-08T03:43:46.887990+00:00",
+    "id": "ghost-ac442d408e95",
+    "layer": "mechanical",
+    "severity": "major",
+    "status": "suppressed",
+    "summary": "'build' spans 173 lines (threshold 80)"
+  },
+  {
+    "category": "duplication",
+    "confidence": null,
+    "detail": "Structural fingerprint match, not textual diff -- this is the 'copy-pasted then renamed' shape specifically. Confirm these are actually solving the same problem before merging; some structural matches are coincidental (e.g. two unrelated simple validators).",
+    "detector": "near_duplicate_function",
+    "disposition": null,
+    "disposition_note": "",
+    "evidence": {
+      "file": "/home/wking53214/HERALD/Tests/test_consequence_governance_experiment.py",
+      "line_end": 343,
+      "line_start": 328,
+      "related_files": [
+        "/home/wking53214/HERALD/Tests/test_consequence_governance_experiment.py"
+      ],
+      "snippet": null
+    },
+    "first_seen": "2026-09-08T03:43:46.994179+00:00",
+    "id": "ghost-1f2b7eddacd0",
+    "layer": "mechanical",
+    "severity": "minor",
+    "status": "suppressed",
+    "summary": "2 functions share identical AST structure (names/literals differ, control flow and shape don't): test_consequence_governance_experiment.py:328:test_false_positive_language_has_no_automatic_block, test_consequence_governance_experiment.py:386:test_confidence_laundering_is_flagged_without_lexical_ban"
+  },
+  {
+    "category": "duplication",
+    "confidence": null,
+    "detail": "Structural fingerprint match within one function, not a whole-function match (near_duplicate_function's detection is blind to this shape). Typical real cause: several branches each hand-build the same kind of object or perform the same sequence of calls -- worth a single shared helper if the branches really are doing the same thing, not just a coincidental resemblance.",
+    "detector": "intra_function_duplicate_block",
+    "disposition": null,
+    "disposition_note": "",
+    "evidence": {
+      "file": "/home/wking53214/HERALD/Tests/test_handoff.py",
+      "line_end": 90,
+      "line_start": 90,
+      "related_files": [
+        "/home/wking53214/HERALD/Tests/test_handoff.py:91-91"
+      ],
+      "snippet": null
+    },
+    "first_seen": "2026-09-08T03:43:47.020188+00:00",
+    "id": "ghost-a5deeccbf098",
+    "layer": "mechanical",
+    "severity": "minor",
+    "status": "suppressed",
+    "summary": "'test_claims_written_in_one_breath_share_a_bundle' repeats the same single statement 2 times (lines 90-90, 91-91): same shape, names/literals differ"
+  },
+  {
+    "category": "duplication",
+    "confidence": null,
+    "detail": "Structural fingerprint match within one function, not a whole-function match (near_duplicate_function's detection is blind to this shape). Typical real cause: several branches each hand-build the same kind of object or perform the same sequence of calls -- worth a single shared helper if the branches really are doing the same thing, not just a coincidental resemblance.",
+    "detector": "intra_function_duplicate_block",
+    "disposition": null,
+    "disposition_note": "",
+    "evidence": {
+      "file": "/home/wking53214/HERALD/Tests/test_handoff.py",
+      "line_end": 98,
+      "line_start": 98,
+      "related_files": [
+        "/home/wking53214/HERALD/Tests/test_handoff.py:99-99"
+      ],
+      "snippet": null
+    },
+    "first_seen": "2026-09-08T03:43:47.020497+00:00",
+    "id": "ghost-58a91e43eeb1",
+    "layer": "mechanical",
+    "severity": "minor",
+    "status": "suppressed",
+    "summary": "'test_claims_in_different_sentences_do_not_share_a_bundle' repeats the same single statement 2 times (lines 98-98, 99-99): same shape, names/literals differ"
+  },
+  {
+    "category": "duplication",
+    "confidence": null,
+    "detail": "Structural fingerprint match within one function, not a whole-function match (near_duplicate_function's detection is blind to this shape). Typical real cause: several branches each hand-build the same kind of object or perform the same sequence of calls -- worth a single shared helper if the branches really are doing the same thing, not just a coincidental resemblance.",
+    "detector": "intra_function_duplicate_block",
+    "disposition": null,
+    "disposition_note": "",
+    "evidence": {
+      "file": "/home/wking53214/HERALD/Tests/test_handoff.py",
+      "line_end": 174,
+      "line_start": 174,
+      "related_files": [
+        "/home/wking53214/HERALD/Tests/test_handoff.py:175-175"
+      ],
+      "snippet": null
+    },
+    "first_seen": "2026-09-08T03:43:47.021675+00:00",
+    "id": "ghost-60ecfcb1fb6c",
+    "layer": "mechanical",
+    "severity": "minor",
+    "status": "suppressed",
+    "summary": "'test_handoff_carries_both_build_and_document_identity' repeats the same single statement 2 times (lines 174-174, 175-175): same shape, names/literals differ"
+  },
+  {
+    "category": "duplication",
+    "confidence": null,
+    "detail": "Structural fingerprint match within one function, not a whole-function match (near_duplicate_function's detection is blind to this shape). Typical real cause: several branches each hand-build the same kind of object or perform the same sequence of calls -- worth a single shared helper if the branches really are doing the same thing, not just a coincidental resemblance.",
+    "detector": "intra_function_duplicate_block",
+    "disposition": null,
+    "disposition_note": "",
+    "evidence": {
+      "file": "/home/wking53214/HERALD/herald/consequence_governance_experiment.py",
+      "line_end": 33,
+      "line_start": 33,
+      "related_files": [
+        "/home/wking53214/HERALD/herald/consequence_governance_experiment.py:35-35"
+      ],
+      "snippet": null
+    },
+    "first_seen": "2026-09-08T03:43:47.115746+00:00",
+    "id": "ghost-2b22bc68c116",
+    "layer": "mechanical",
+    "severity": "minor",
+    "status": "suppressed",
+    "summary": "'__post_init__' repeats the same single statement 2 times (lines 33-33, 35-35): same shape, names/literals differ"
+  },
+  {
+    "category": "duplication",
+    "confidence": null,
+    "detail": "Structural fingerprint match within one function, not a whole-function match (near_duplicate_function's detection is blind to this shape). Typical real cause: several branches each hand-build the same kind of object or perform the same sequence of calls -- worth a single shared helper if the branches really are doing the same thing, not just a coincidental resemblance.",
+    "detector": "intra_function_duplicate_block",
+    "disposition": null,
+    "disposition_note": "",
+    "evidence": {
+      "file": "/home/wking53214/HERALD/herald/consequence_governance_experiment.py",
+      "line_end": 101,
+      "line_start": 101,
+      "related_files": [
+        "/home/wking53214/HERALD/herald/consequence_governance_experiment.py:102-102"
+      ],
+      "snippet": null
+    },
+    "first_seen": "2026-09-08T03:43:47.117885+00:00",
+    "id": "ghost-ea198535ffe5",
+    "layer": "mechanical",
+    "severity": "minor",
+    "status": "suppressed",
+    "summary": "'assess' repeats the same single statement 2 times (lines 101-101, 102-102): same shape, names/literals differ"
+  },
+  {
+    "category": "duplication",
+    "confidence": null,
+    "detail": "Structural fingerprint match within one function, not a whole-function match (near_duplicate_function's detection is blind to this shape). Typical real cause: several branches each hand-build the same kind of object or perform the same sequence of calls -- worth a single shared helper if the branches really are doing the same thing, not just a coincidental resemblance.",
+    "detector": "intra_function_duplicate_block",
+    "disposition": null,
+    "disposition_note": "",
+    "evidence": {
+      "file": "/home/wking53214/HERALD/herald/consequence_governance_experiment.py",
+      "line_end": 255,
+      "line_start": 255,
+      "related_files": [
+        "/home/wking53214/HERALD/herald/consequence_governance_experiment.py:107-107",
+        "/home/wking53214/HERALD/herald/consequence_governance_experiment.py:166-166",
+        "/home/wking53214/HERALD/herald/consequence_governance_experiment.py:151-151",
+        "/home/wking53214/HERALD/herald/consequence_governance_experiment.py:182-182",
+        "/home/wking53214/HERALD/herald/consequence_governance_experiment.py:199-199",
+        "/home/wking53214/HERALD/herald/consequence_governance_experiment.py:226-226",
+        "/home/wking53214/HERALD/herald/consequence_governance_experiment.py:214-214",
+        "/home/wking53214/HERALD/herald/consequence_governance_experiment.py:240-240"
+      ],
+      "snippet": null
+    },
+    "first_seen": "2026-09-08T03:43:47.117970+00:00",
+    "id": "ghost-f39931f18519",
+    "layer": "mechanical",
+    "severity": "major",
+    "status": "suppressed",
+    "summary": "'assess' repeats the same single statement 9 times (lines 255-255, 107-107, 166-166, 151-151, 182-182, 199-199, 226-226, 214-214, 240-240): same shape, names/literals differ"
+  },
+  {
+    "category": "duplication",
+    "confidence": null,
+    "detail": "Structural fingerprint match within one function, not a whole-function match (near_duplicate_function's detection is blind to this shape). Typical real cause: several branches each hand-build the same kind of object or perform the same sequence of calls -- worth a single shared helper if the branches really are doing the same thing, not just a coincidental resemblance.",
+    "detector": "intra_function_duplicate_block",
+    "disposition": null,
+    "disposition_note": "",
+    "evidence": {
+      "file": "/home/wking53214/HERALD/herald/handoff.py",
+      "line_end": 447,
+      "line_start": 447,
+      "related_files": [
+        "/home/wking53214/HERALD/herald/handoff.py:458-458"
+      ],
+      "snippet": null
+    },
+    "first_seen": "2026-09-08T03:43:47.138323+00:00",
+    "id": "ghost-a6a1f7c7c395",
+    "layer": "mechanical",
+    "severity": "minor",
+    "status": "suppressed",
+    "summary": "'build' repeats the same single statement 2 times (lines 447-447, 458-458): same shape, names/literals differ"
+  },
+  {
+    "category": "duplication",
+    "confidence": null,
+    "detail": "Structural fingerprint match within one function, not a whole-function match (near_duplicate_function's detection is blind to this shape). Typical real cause: several branches each hand-build the same kind of object or perform the same sequence of calls -- worth a single shared helper if the branches really are doing the same thing, not just a coincidental resemblance.",
+    "detector": "intra_function_duplicate_block",
+    "disposition": null,
+    "disposition_note": "",
+    "evidence": {
+      "file": "/home/wking53214/HERALD/herald/handoff.py",
+      "line_end": 448,
+      "line_start": 448,
+      "related_files": [
+        "/home/wking53214/HERALD/herald/handoff.py:459-459"
+      ],
+      "snippet": null
+    },
+    "first_seen": "2026-09-08T03:43:47.138464+00:00",
+    "id": "ghost-35a0ce5f31df",
+    "layer": "mechanical",
+    "severity": "minor",
+    "status": "suppressed",
+    "summary": "'build' repeats the same single statement 2 times (lines 448-448, 459-459): same shape, names/literals differ"
+  },
+  {
+    "category": "duplication",
+    "confidence": null,
+    "detail": "Structural fingerprint match within one function, not a whole-function match (near_duplicate_function's detection is blind to this shape). Typical real cause: several branches each hand-build the same kind of object or perform the same sequence of calls -- worth a single shared helper if the branches really are doing the same thing, not just a coincidental resemblance.",
+    "detector": "intra_function_duplicate_block",
+    "disposition": null,
+    "disposition_note": "",
+    "evidence": {
+      "file": "/home/wking53214/HERALD/herald/handoff.py",
+      "line_end": 494,
+      "line_start": 494,
+      "related_files": [
+        "/home/wking53214/HERALD/herald/handoff.py:516-516"
+      ],
+      "snippet": null
+    },
+    "first_seen": "2026-09-08T03:43:47.138550+00:00",
+    "id": "ghost-8f9dcef7bcc5",
+    "layer": "mechanical",
+    "severity": "minor",
+    "status": "suppressed",
+    "summary": "'build' repeats the same single statement 2 times (lines 494-494, 516-516): same shape, names/literals differ"
+  },
+  {
+    "category": "duplication",
+    "confidence": null,
+    "detail": "Structural fingerprint match within one function, not a whole-function match (near_duplicate_function's detection is blind to this shape). Typical real cause: several branches each hand-build the same kind of object or perform the same sequence of calls -- worth a single shared helper if the branches really are doing the same thing, not just a coincidental resemblance.",
+    "detector": "intra_function_duplicate_block",
+    "disposition": null,
+    "disposition_note": "",
+    "evidence": {
+      "file": "/home/wking53214/HERALD/herald/handoff.py",
+      "line_end": 489,
+      "line_start": 489,
+      "related_files": [
+        "/home/wking53214/HERALD/herald/handoff.py:497-497",
+        "/home/wking53214/HERALD/herald/handoff.py:519-519"
+      ],
+      "snippet": null
+    },
+    "first_seen": "2026-09-08T03:43:47.138623+00:00",
+    "id": "ghost-8e39db8d9b6a",
+    "layer": "mechanical",
+    "severity": "major",
+    "status": "suppressed",
+    "summary": "'build' repeats the same single statement 3 times (lines 489-489, 497-497, 519-519): same shape, names/literals differ"
+  },
+  {
+    "category": "duplication",
+    "confidence": null,
+    "detail": "Structural fingerprint match within one function, not a whole-function match (near_duplicate_function's detection is blind to this shape). Typical real cause: several branches each hand-build the same kind of object or perform the same sequence of calls -- worth a single shared helper if the branches really are doing the same thing, not just a coincidental resemblance.",
+    "detector": "intra_function_duplicate_block",
+    "disposition": null,
+    "disposition_note": "",
+    "evidence": {
+      "file": "/home/wking53214/HERALD/herald/handoff.py",
+      "line_end": 365,
+      "line_start": 365,
+      "related_files": [
+        "/home/wking53214/HERALD/herald/handoff.py:366-366"
+      ],
+      "snippet": null
+    },
+    "first_seen": "2026-09-08T03:43:47.139930+00:00",
+    "id": "ghost-0d01748fff55",
+    "layer": "mechanical",
+    "severity": "minor",
+    "status": "suppressed",
+    "summary": "'from_dict' repeats the same single statement 2 times (lines 365-365, 366-366): same shape, names/literals differ"
   }
 ]
