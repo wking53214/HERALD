@@ -15,6 +15,12 @@ dependencies = []
 [project.optional-dependencies]
 dev = ["pytest>=8"]
 
+[tool.setuptools.packages.find]
+# Flat layout with two top-level directories (herald/ and Tests/). Without
+# this, setuptools refuses to guess and `pip install -e .` fails with
+# "Multiple top-level packages discovered" (measured 2026-09-07).
+include = ["herald*"]
+
 [tool.pytest.ini_options]
 testpaths = ["Tests"]
 
