@@ -1880,5 +1880,95 @@
     "severity": "minor",
     "status": "suppressed",
     "summary": "'from_dict' repeats the same single statement 2 times (lines 365-365, 366-366): same shape, names/literals differ"
+  },
+  {
+    "category": "complexity",
+    "confidence": null,
+    "detail": "Line-count proxy for the 'Long Method' smell, not true cyclomatic complexity -- a long function that's mostly a flat sequence of simple statements is a weaker signal than a short function with deep branching. Treat as a prompt to look, not a verdict.",
+    "detector": "long_function",
+    "disposition": null,
+    "disposition_note": "",
+    "evidence": {
+      "file": "/home/wking53214/HERALD/herald/gate.py",
+      "line_end": 518,
+      "line_start": 408,
+      "related_files": [],
+      "snippet": null
+    },
+    "first_seen": "2026-09-08T03:47:13.171949+00:00",
+    "id": "ghost-f31f291308fa",
+    "layer": "mechanical",
+    "severity": "minor",
+    "status": "suppressed",
+    "summary": "'submit' spans 110 lines (threshold 80)"
+  },
+  {
+    "category": "duplication",
+    "confidence": null,
+    "detail": "Structural fingerprint match within one function, not a whole-function match (near_duplicate_function's detection is blind to this shape). Typical real cause: several branches each hand-build the same kind of object or perform the same sequence of calls -- worth a single shared helper if the branches really are doing the same thing, not just a coincidental resemblance.",
+    "detector": "intra_function_duplicate_block",
+    "disposition": null,
+    "disposition_note": "",
+    "evidence": {
+      "file": "/home/wking53214/HERALD/herald/gate.py",
+      "line_end": 204,
+      "line_start": 204,
+      "related_files": [
+        "/home/wking53214/HERALD/herald/gate.py:206-206"
+      ],
+      "snippet": null
+    },
+    "first_seen": "2026-09-08T03:47:13.463941+00:00",
+    "id": "ghost-9edae17a26ce",
+    "layer": "mechanical",
+    "severity": "minor",
+    "status": "suppressed",
+    "summary": "'validate' repeats the same single statement 2 times (lines 204-204, 206-206): same shape, names/literals differ"
+  },
+  {
+    "category": "duplication",
+    "confidence": null,
+    "detail": "Structural fingerprint match within one function, not a whole-function match (near_duplicate_function's detection is blind to this shape). Typical real cause: several branches each hand-build the same kind of object or perform the same sequence of calls -- worth a single shared helper if the branches really are doing the same thing, not just a coincidental resemblance.",
+    "detector": "intra_function_duplicate_block",
+    "disposition": null,
+    "disposition_note": "",
+    "evidence": {
+      "file": "/home/wking53214/HERALD/herald/gate.py",
+      "line_end": 516,
+      "line_start": 516,
+      "related_files": [
+        "/home/wking53214/HERALD/herald/gate.py:507-507"
+      ],
+      "snippet": null
+    },
+    "first_seen": "2026-09-08T03:47:13.466299+00:00",
+    "id": "ghost-a4c4ced1c532",
+    "layer": "mechanical",
+    "severity": "minor",
+    "status": "suppressed",
+    "summary": "'submit' repeats the same single statement 2 times (lines 516-516, 507-507): same shape, names/literals differ"
+  },
+  {
+    "category": "duplication",
+    "confidence": null,
+    "detail": "Structural fingerprint match within one function, not a whole-function match (near_duplicate_function's detection is blind to this shape). Typical real cause: several branches each hand-build the same kind of object or perform the same sequence of calls -- worth a single shared helper if the branches really are doing the same thing, not just a coincidental resemblance.",
+    "detector": "intra_function_duplicate_block",
+    "disposition": null,
+    "disposition_note": "",
+    "evidence": {
+      "file": "/home/wking53214/HERALD/herald/gate.py",
+      "line_end": 446,
+      "line_start": 446,
+      "related_files": [
+        "/home/wking53214/HERALD/herald/gate.py:453-453"
+      ],
+      "snippet": null
+    },
+    "first_seen": "2026-09-08T03:47:13.466399+00:00",
+    "id": "ghost-a4dc6388d051",
+    "layer": "mechanical",
+    "severity": "minor",
+    "status": "suppressed",
+    "summary": "'submit' repeats the same single statement 2 times (lines 446-446, 453-453): same shape, names/literals differ"
   }
 ]
