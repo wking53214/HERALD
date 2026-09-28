@@ -1,5 +1,14 @@
 # HERALD
 
+**Role in the governed action stack:** NATURAL-LANGUAGE INGESTION — free text → candidate claims only. **Does not decide.** Authority frozen at `ADVISORY`. Consumers: domain gates / [sentinel_os](https://github.com/wking53214/sentinel_os) / policy layers. Hub: [observe-perceive](https://github.com/wking53214/observe-perceive).
+
+```text
+Live path: Admission → OBSERVE/Keys → Locks → PERCEIVE → Decision → Conservation → Execution → Custody
+HERALD feeds claims into that path; it is not a decision or authorization stage.
+```
+
+---
+
 **The natural language interpretation layer.**
 
 A herald carries a message. A herald does not decide what the message means,
