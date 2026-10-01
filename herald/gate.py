@@ -3,7 +3,7 @@ gate.py -- where a low-confidence claim stops.
 
 WHY A LABEL IS NOT ENOUGH
 --------------------------
-This package's predecessor problem is already documented in this stack:
+This package's predecessor problem comes from an earlier private system:
 a call-routing heuristic ran in production for weeks, correctly stamped
 ESTIMATED the whole time, and nobody acted on the stamp until an outside
 reviewer read the code. A confidence tag that downstream systems are
@@ -386,7 +386,7 @@ class ConfidenceGate:
         this by hand -- six near-identical ~9-line blocks, one per
         verdict path, each one a place a future change to what's signed
         could be applied to five branches and missed on the sixth. One
-        real fix, not a style preference: ghost_buster's long_function
+        real fix, not a style preference: a static-analysis long_function
         finding on submit() led here, confirming the same
         authorization_mac=_sign_decision(...) pattern repeated six times
         (grep-verified before this refactor, not assumed)."""

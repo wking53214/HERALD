@@ -19,7 +19,7 @@ can be re-checked against a document. Mismatch is loud.
 
 THE INGESTION CONTRACT
 -----------------------
-The same posture the ivr_events contract already takes: an explicit
+The same posture an earlier private contract already takes: an explicit
 shape, validated on the way in, refused loudly when malformed. Never
 coerced, never defaulted, never quietly accepted. A broken integration
 should surface as one.

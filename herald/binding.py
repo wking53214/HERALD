@@ -68,7 +68,7 @@ def file_hashes() -> Dict[str, str]:
 class Binding:
     """One consumer's pin to a specific HERALD build.
 
-    consumer     -- which project is pinning, e.g. "sentinel_os".
+    consumer     -- which project is pinning, e.g. "my_project".
     version      -- the HERALD version that project validated against.
     pinned_hash  -- the code hash it validated against. None means the
                     consumer pinned the version only, which is weaker and

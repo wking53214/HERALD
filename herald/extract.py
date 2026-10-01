@@ -219,7 +219,7 @@ SPECS: List[ExtractorSpec] = [
 # this module loads, before any text is ever processed. Uses
 # assert_no_governed_kinds, boundary.py's own batch form for exactly
 # this purpose -- previously defined but never actually wired in
-# anywhere (ghost_buster dead_code finding, confirmed by grep before
+# anywhere (static-analysis dead_code finding, confirmed by grep before
 # this fix).
 assert_no_governed_kinds(spec.kind for spec in SPECS)
 
