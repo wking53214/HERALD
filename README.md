@@ -4,7 +4,7 @@ Evidence-preserving **natural-language → checkable claims** layer: extract, bi
 
 ## 1. Pipeline Position & Role
 
-**INTEGRITY / INTERPRETATION inlet.** Upstream of TIE-like packages and CCC recurrence. Wired optionally via observe-perceive `herald_governance_adapter.py`. Does not authorize action (`routing_not_execution` doctrine shared with TIE).
+**INTEGRITY / INTERPRETATION inlet.** Upstream of TIE-like packages. Wired optionally via an adapter in a separate private repository. Does not authorize action (`routing_not_execution` doctrine shared with TIE).
 
 ## 2. Full System Scope & Architectural Depth
 
@@ -20,7 +20,7 @@ Pipeline: source → extract candidate claims → bind spans → gate on confide
 
 ## 4. Brutally Honest Current Status & Gaps
 
-Commercial: **FEATURE unless paired with a domain.** Extraction quality depends on golden-set calibration (`herald/calibration.py`, `golden_set.py`) — not a general-language proof. Adapter in observe-perceive is optional and skippable. Consequence-governance experiment is research, not a shipped control plane.
+Commercial: **FEATURE unless paired with a domain.** Extraction quality depends on golden-set calibration (`herald/calibration.py`, `golden_set.py`) - not a general-language proof. The adapter is optional and skippable. Consequence-governance experiment is research, not a shipped control plane.
 
 ## 5. Core Invariants & Guarantees
 
@@ -33,8 +33,7 @@ See `herald/claim.py`, `handoff.py`. Handoff is data, not an RPC to execution.
 ## 7. Stack Integration Topology
 
 ```text
-documents → HERALD → claims+spans → (TIE package | CCC | adapter)
-observe-perceive herald_governance_adapter (opt)
+documents → HERALD → claims+spans → (TIE package | optional adapter)
 ```
 
 Apache-2.0.
