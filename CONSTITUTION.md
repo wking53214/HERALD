@@ -129,8 +129,8 @@ reassemble them.
 
 ## 7. Containment
 
-Consuming projects pin to an exact HERALD version **and code hash**. Same
-discipline as a cassette code-hash bump. A fix does not propagate silently;
+Consuming projects pin to an exact HERALD version **and code hash**.
+A fix does not propagate silently;
 upgrading is an explicit act with a diff attached.
 
 **Why.** A shared interpretation layer means a shared blast radius. Pinning
