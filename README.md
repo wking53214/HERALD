@@ -10,7 +10,7 @@ Evidence-preserving **natural-language → checkable claims** layer: extract, bi
 
 Package `herald/`: `claim.py`, `extract.py`, `binding.py`, `gate.py`, `source.py`, `calibration.py`, `handoff.py`, `ambiguity.py`, `boundary.py`, `golden_set.py`. Tests include `test_hulk_100.py`, consequence-governance experiment. CONSTITUTION.md states the linguistic-governance rules.
 
-Pipeline: source → extract candidate claims → bind spans → gate on confidence/ambiguity → typed handoff. 364 tests claimed in commercial audit.
+Pipeline: source → extract candidate claims → bind spans → gate on confidence/ambiguity → typed handoff. 281 test functions measured in this tree (commercial audit previously claimed 364; count updated for honesty).
 
 ## 3. What It Does NOT Do / Non-Goals
 
