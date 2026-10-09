@@ -82,6 +82,7 @@ class HandoffError(HeraldError):
 
 
 EXPORT_MAC_VERSION = "1"
+NO_FLAG_RECORDED = "NO_FLAG_RECORDED"
 
 
 def _utc_now() -> str:
@@ -314,11 +315,40 @@ class Handoff:
         """
         return self.document.get("standing", STANDING_UNKNOWN) == STANDING_UNKNOWN
 
+    @property
+    def refused_by_verdict(self) -> Dict[str, int]:
+        """Refusals counted by verdict. Always adds up to len(refused).
+
+        Keeps an ordinary low-confidence refusal (held for a named human)
+        apart from an integrity block, which mean very different things.
+        """
+        counts: Dict[str, int] = {}
+        for refusal in self.refused:
+            counts[refusal.verdict] = counts.get(refusal.verdict, 0) + 1
+        return dict(sorted(counts.items()))
+
+    @property
+    def refused_by_opacity_flag(self) -> Dict[str, int]:
+        """Refusals counted by opacity flag. These counts OVERLAP.
+
+        A refusal carrying two flags is counted under both, so the values
+        can add up to more than len(refused). A refusal with no flag is
+        counted under NO_FLAG_RECORDED. The free-text reason is not
+        grouped: it embeds per-claim numbers, so no two read the same.
+        """
+        counts: Dict[str, int] = {}
+        for refusal in self.refused:
+            for flag in refusal.opacity_flags or [NO_FLAG_RECORDED]:
+                counts[flag] = counts.get(flag, 0) + 1
+        return dict(sorted(counts.items()))
+
     def summary(self) -> Dict[str, Any]:
         return {
             "source_id": self.document.get("source_id"),
             "admitted": len(self.admitted),
             "refused": len(self.refused),
+            "refused_by_verdict": self.refused_by_verdict,
+            "refused_by_opacity_flag": self.refused_by_opacity_flag,
             "total": len(self.admitted) + len(self.refused),
             "bundles": len(self.bundles),
             "standing": self.document.get("standing"),
@@ -388,6 +418,11 @@ class Handoff:
             lines.append(
                 "  NOTE: document standing was never declared. This handoff cannot "
                 "tell you whether these values are records or assertions."
+            )
+        if self.refused:
+            lines.append(f"  refused by verdict: {self.refused_by_verdict}")
+            lines.append(
+                f"  refused by opacity flag (overlapping): {self.refused_by_opacity_flag}"
             )
         for export in self.admitted:
             lines.append(
