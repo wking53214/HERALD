@@ -234,3 +234,54 @@ def test_read_defaults_to_the_stricter_gate():
     assert isinstance(package, Handoff)
     for export in package.admitted:
         assert export.source_hash is not None
+
+
+# -- refusals by reason ---------------------------------------------------
+
+def test_summary_breaks_refusals_down_by_verdict_and_sums_to_refused():
+    package = handoff_for()
+    summary = package.summary()
+    assert package.refused, "fixture must produce at least one refusal"
+    assert sum(summary["refused_by_verdict"].values()) == summary["refused"]
+    assert summary["refused_by_verdict"] == {gate.VERDICT_REFUSED: len(package.refused)}
+
+
+def test_summary_counts_refusals_per_opacity_flag_and_says_they_overlap():
+    package = handoff_for()
+    by_flag = package.summary()["refused_by_opacity_flag"]
+    expected = {}
+    for refusal in package.refused:
+        for flag in refusal.opacity_flags or [handoff.NO_FLAG_RECORDED]:
+            expected[flag] = expected.get(flag, 0) + 1
+    assert by_flag == dict(sorted(expected.items()))
+    assert "MODAL" in by_flag
+
+
+def test_flag_counts_may_exceed_refused_when_a_claim_has_several_flags():
+    text = ("A reasonable fee of $500 may be assessed unless the waiver applies. "
+            "About 40 days may pass, roughly $75 if approved.")
+    package = handoff.read(doc(text=text))
+    summary = package.summary()
+    assert sum(summary["refused_by_opacity_flag"].values()) > summary["refused"]
+    assert sum(summary["refused_by_verdict"].values()) == summary["refused"]
+
+
+def test_no_refusals_means_empty_breakdowns_and_no_render_line():
+    package = handoff.read(doc(text="The borrower paid $1,250.00 on 2026-03-14."))
+    assert not package.refused
+    summary = package.summary()
+    assert summary["refused_by_verdict"] == {} and summary["refused_by_opacity_flag"] == {}
+    assert "refused by" not in package.render()
+
+
+def test_render_shows_the_breakdown_when_there_are_refusals():
+    rendered = handoff_for().render()
+    assert "refused by verdict:" in rendered
+    assert "refused by opacity flag (overlapping):" in rendered
+
+
+def test_breakdowns_are_derived_views_outside_the_export_mac():
+    payload = handoff_for().to_dict()
+    handoff.verify_export(payload)
+    payload["summary"]["refused_by_verdict"] = {"TAMPERED": 99}
+    handoff.verify_export(payload)
