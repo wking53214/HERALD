@@ -124,3 +124,42 @@ def test_sentences_split_on_terminal_punctuation_and_newlines():
     from herald.ambiguity import sentence_spans
     assert len(sentence_spans("One thing. Two things! Three?")) == 3
     assert len(sentence_spans("Line one\nLine two")) == 2
+
+
+# -- matches an extractor could not read are reported, not silently dropped ----
+
+def test_unreadable_date_is_reported_not_silently_dropped():
+    """Measured before: "Due 2026-13-45 and 13/45/2026" returned no claims,
+    the same as a document with no dates in it."""
+    text = "Due 2026-13-45 and 13/45/2026"
+    claims, dropped = extract.extract_with_report(text, "t")
+    assert claims == []
+    assert {(d.extractor, d.raw) for d in dropped} == {
+        ("iso_date", "2026-13-45"),
+        ("us_date", "13/45/2026"),
+    }
+    assert all(d.kind == KIND_DATE and text[d.span[0]:d.span[1]] == d.raw for d in dropped)
+
+
+def test_extract_with_report_claims_equal_extract():
+    text = "Received 2026-03-14, then 2026-13-45; fee $1,250 and 5%."
+    claims, _ = extract.extract_with_report(text, "t")
+    assert [c.content_hash for c in claims] == [c.content_hash for c in extract.extract(text, "t")]
+
+
+def test_nothing_dropped_when_every_match_reads():
+    assert extract.extract_with_report("Received on 2026-03-14.", "t")[1] == []
+
+
+def test_dropped_matches_are_in_document_order():
+    _, dropped = extract.extract_with_report("2026-13-45 then 2026-14-01", "t")
+    assert [d.span[0] for d in dropped] == sorted(d.span[0] for d in dropped)
+    assert len(dropped) == 2
+
+
+def test_a_dropped_match_is_not_a_claim():
+    """It carries no value, confidence, seal or hash, so it cannot be admitted
+    by the gate or counted as evidence."""
+    _, dropped = extract.extract_with_report("Due 2026-13-45", "t")
+    d = dropped[0]
+    assert not hasattr(d, "confidence") and not hasattr(d, "seal")
