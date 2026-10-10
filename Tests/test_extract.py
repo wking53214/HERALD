@@ -144,7 +144,9 @@ def test_unreadable_date_is_reported_not_silently_dropped():
 def test_extract_with_report_claims_equal_extract():
     text = "Received 2026-03-14, then 2026-13-45; fee $1,250 and 5%."
     claims, _ = extract.extract_with_report(text, "t")
-    assert [c.content_hash for c in claims] == [c.content_hash for c in extract.extract(text, "t")]
+    assert [(c.kind, c.value, c.span, c.confidence) for c in claims] == [
+        (c.kind, c.value, c.span, c.confidence) for c in extract.extract(text, "t")
+    ]
 
 
 def test_nothing_dropped_when_every_match_reads():
