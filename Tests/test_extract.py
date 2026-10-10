@@ -165,3 +165,31 @@ def test_a_dropped_match_is_not_a_claim():
     _, dropped = extract.extract_with_report("Due 2026-13-45", "t")
     d = dropped[0]
     assert not hasattr(d, "confidence") and not hasattr(d, "seal")
+
+
+# -- calendar validity ---------------------------------------------------------
+
+@pytest.mark.parametrize("text,value", [
+    ("Closed 2024-02-29.", "2024-02-29"),          # leap day exists
+    ("Closed 2000-02-29.", "2000-02-29"),          # divisible by 400
+    ("Closed 2026-04-30.", "2026-04-30"),
+    ("Closed 2026-12-31.", "2026-12-31"),
+    ("Closed 02/29/2024.", "2024-02-29"),
+    ("Closed February 29, 2024 on time.", "2024-02-29"),
+])
+def test_real_dates_are_still_extracted(text, value):
+    assert first(text, KIND_DATE).value == value
+
+
+@pytest.mark.parametrize("text", [
+    "Closed 1900-02-29.",                          # divisible by 100, not 400
+    "Closed 02/30/2026.",
+    "Closed 04/31/2026.",
+    "Closed February 30, 2026 on time.",
+    "Closed 2026-00-10.",
+    "Closed 0000-01-01.",
+])
+def test_impossible_dates_in_every_format_are_refused_and_reported(text):
+    claims, dropped = extract.extract_with_report(text, "t")
+    assert not [c for c in claims if c.kind == KIND_DATE]
+    assert dropped and all(d.kind == KIND_DATE for d in dropped)

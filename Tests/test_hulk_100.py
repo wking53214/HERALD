@@ -2475,30 +2475,21 @@ def test_round3_crypto_4_copy_mac_from_a_change_policy_identity_is_rejected():
 # excuse.
 # =============================================================================
 
-def test_nl_iso_date_admits_calendar_impossible_dates_at_near_certain_confidence():
-    """[EXECUTING] SEVERE. iso_date is the single highest-base-confidence
-    extractor in the whole package (0.98) precisely because an ISO-format
-    date is supposed to be near-certain. _norm_iso_date (herald/extract.py)
-    checks only `1 <= month <= 12 and 1 <= day <= 31` -- never validates
-    day against the actual month, and never accounts for leap years.
-    Confirmed via the real ConfidenceGate below: this is not a
-    theoretical gap, it reaches ADMITTED_FOR_GOVERNANCE.
+def test_nl_iso_date_no_longer_admits_calendar_impossible_dates():
+    """[FIXED] Was SEVERE. iso_date is the single highest-base-confidence
+    extractor in the whole package (0.98), and _norm_iso_date checked only
+    `1 <= month <= 12 and 1 <= day <= 31`, so 2026-02-30 reached
+    ADMITTED_FOR_GOVERNANCE at near-certain confidence. This test used to
+    assert that it did.
 
-    This is not a contested reading. Every one of these dates is
-    objectively impossible on the Gregorian calendar; there is no domain
-    in which Feb 30 exists.
+    Every impossible date is now refused by the normalizer, so no claim is
+    made, and the match is reported by extract_with_report instead of
+    vanishing. There is no domain in which Feb 30 exists.
     """
     doc = SourceDocument(source_id="nl-baddate", text="The audit was completed on 2026-02-30.", standing=STANDING_RECORD)
-    claims = [c for c in extract_module.extract(doc) if c.kind == KIND_DATE]
-    assert claims and claims[0].value == "2026-02-30"
-    assert claims[0].confidence >= 0.95
-    assert not claims[0].opacity_flags
-
-    decision = ConfidenceGate(require_source=True).submit(claims[0], document=doc)
-    assert decision.verdict == VERDICT_ADMITTED, (
-        "SEVERE: an impossible calendar date (2026-02-30) was admitted "
-        "for governance at near-certain confidence"
-    )
+    claims, dropped = extract_module.extract_with_report(doc)
+    assert not [c for c in claims if c.kind == KIND_DATE]
+    assert [(d.kind, d.raw) for d in dropped] == [(KIND_DATE, "2026-02-30")]
 
 
 @pytest.mark.parametrize("text,broken_date", [
@@ -2508,15 +2499,12 @@ def test_nl_iso_date_admits_calendar_impossible_dates_at_near_certain_confidence
     ("Records closed 2026-06-31.", "2026-06-31"),                # June has 30 days
     ("Renewal due 2026-09-31.", "2026-09-31"),                   # September has 30 days
 ])
-def test_nl_iso_date_calendar_validity_gap_by_case(text, broken_date):
-    """[EXECUTING] Same gap as above, exercised across the actual calendar
-    rules that are missing: 30-day months and non-leap-year February --
-    not just one cherry-picked example.
-    """
-    c = [x for x in extract_module.extract(text, source_id="t") if x.kind == KIND_DATE][0]
-    assert c.value == broken_date
-    assert c.confidence >= 0.95
-    assert not c.opacity_flags
+def test_nl_iso_date_calendar_validity_by_case(text, broken_date):
+    """[FIXED] Same gap as above, across the calendar rules that were
+    missing: 30-day months and non-leap-year February."""
+    claims, dropped = extract_module.extract_with_report(text, source_id="t")
+    assert not [c for c in claims if c.kind == KIND_DATE]
+    assert broken_date in [d.raw for d in dropped]
 
 
 def test_nl_european_decimal_format_is_misparsed_and_reaches_admitted():
@@ -2641,10 +2629,12 @@ def test_nl_hedge_beyond_the_default_window_in_the_same_sentence_is_not_applied(
 def test_nl_calibration_framework_cannot_catch_confidently_wrong_unhedged_extractions():
     """[EXECUTING] THE META-FINDING. Uses HERALD's own acceptance
     machinery (herald.calibration.score_case), not an independent
-    assertion, to show its blind spot directly: both the European-format
-    amount and the impossible-date findings above are, correctly, judged
-    "not ambiguous" by a human calibrator -- neither sentence hedges
-    anything. score_case()'s only two failure modes are FALSE_CONFIDENCE
+    assertion, to show its blind spot directly: the European-format amount
+    finding above is, correctly, judged "not ambiguous" by a human
+    calibrator -- the sentence hedges nothing. (A second case, the
+    impossible date 2026-02-30, was removed here when the extractor was
+    fixed to refuse it; the blind spot it showed is unchanged and is
+    still shown by the amount case.) score_case()'s only two failure modes are FALSE_CONFIDENCE
     (ambiguous text scored high) and OVER_CAUTION (clear text scored
     low). Clear text that is simply MISREAD, scored high, matches
     neither -- it is graded PASS.
@@ -2652,20 +2642,15 @@ def test_nl_calibration_framework_cannot_catch_confidently_wrong_unhedged_extrac
     This is not calling calibration.py buggy on its own terms; it is
     doing exactly what CONSTITUTION.md section 8 says it should ("graded
     on whether it is honest about its own uncertainty, not on whether its
-    reading... is right"). The finding is that this leaves precisely the
-    two SEVERE cases above -- both objective, uncontested errors, not
-    contested readings -- with no test category that could ever have
-    caught them, structurally, not by omission from the current golden
-    set.
+    reading... is right"). The finding is that this leaves objective,
+    uncontested errors -- not contested readings -- with no test category
+    that could ever catch them, structurally, not by omission from the
+    current golden set.
     """
     cases = [
         GoldenCase(
             "meta-nl-euro-1", "The invoice totaled 1.234,56 EUR for the shipment.",
             False, KIND_AMOUNT, "plainly stated European-format figure; not hedged",
-        ),
-        GoldenCase(
-            "meta-nl-date-1", "The audit was completed on 2026-02-30.",
-            False, KIND_DATE, "plainly stated ISO-looking date; not hedged",
         ),
     ]
     for case in cases:
