@@ -30,6 +30,7 @@ it. Nothing here ever adds confidence back.
 
 from __future__ import annotations
 
+import calendar
 import re
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Pattern, Tuple, Union
@@ -88,9 +89,20 @@ class DroppedMatch:
     reason: str = "matched the pattern but the value could not be normalized"
 
 
+def _real_date(year: int, month: int, day: int) -> bool:
+    """Whether this day exists on the Gregorian calendar.
+
+    Checking only 1-31 admitted 2026-02-30 and 2025-02-29 as near-certain
+    dates. No domain has a February 30, so this is not a contested reading.
+    """
+    if year < 1 or not 1 <= month <= 12:
+        return False
+    return 1 <= day <= calendar.monthrange(year, month)[1]
+
+
 def _norm_iso_date(m: re.Match) -> Optional[str]:
     year, month, day = int(m.group("y")), int(m.group("m")), int(m.group("d"))
-    if not (1 <= month <= 12 and 1 <= day <= 31):
+    if not _real_date(year, month, day):
         return None
     return f"{year:04d}-{month:02d}-{day:02d}"
 
@@ -100,7 +112,7 @@ def _norm_us_date(m: re.Match) -> Optional[str]:
     year = int(m.group("y"))
     if year < 100:
         year += 2000 if year < 70 else 1900
-    if not (1 <= month <= 12 and 1 <= day <= 31):
+    if not _real_date(year, month, day):
         return None
     return f"{year:04d}-{month:02d}-{day:02d}"
 
@@ -110,7 +122,7 @@ def _norm_textual_date(m: re.Match) -> Optional[str]:
     if month is None:
         return None
     day, year = int(m.group("d")), int(m.group("y"))
-    if not 1 <= day <= 31:
+    if not _real_date(year, month, day):
         return None
     return f"{year:04d}-{month:02d}-{day:02d}"
 
