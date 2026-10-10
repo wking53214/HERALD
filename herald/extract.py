@@ -67,6 +67,27 @@ class ExtractorSpec:
     normalize: Callable[[re.Match], Optional[object]]
 
 
+@dataclass(frozen=True)
+class DroppedMatch:
+    """A piece of text a pattern matched but the extractor could not turn into
+    a value, so no claim was made.
+
+    Before this existed the match was discarded without a trace: "Due
+    2026-13-45" returned no claims, indistinguishable from a document with no
+    date in it. A reader who is not told something was seen and set aside
+    reads the silence as "nothing there".
+
+    This is not a claim and is never sealed, hashed or admitted. It records
+    only that the text matched, where, and which extractor gave up.
+    """
+
+    extractor: str
+    kind: str
+    raw: str
+    span: Tuple[int, int]
+    reason: str = "matched the pattern but the value could not be normalized"
+
+
 def _norm_iso_date(m: re.Match) -> Optional[str]:
     year, month, day = int(m.group("y")), int(m.group("m")), int(m.group("d"))
     if not (1 <= month <= 12 and 1 <= day <= 31):
@@ -252,6 +273,9 @@ def extract(
 ) -> List[CandidateClaim]:
     """Run every extractor over a document and return sealed candidate claims.
 
+    Matches an extractor could not normalize are not reported here. Use
+    ``extract_with_report`` to get them as well.
+
     Accepts a SourceDocument, or a plain string plus a source_id for the
     simple case. Either way the document is validated on the way in and
     every claim is bound to its content hash: there is no path through
@@ -260,6 +284,22 @@ def extract(
     Overlapping matches from different extractors are all returned. Nothing
     here decides which of two competing readings is right; that is a
     judgment, and judgments leave this package.
+    """
+    return extract_with_report(source, source_id, specs, window)[0]
+
+
+def extract_with_report(
+    source: Union[SourceDocument, str],
+    source_id: Optional[str] = None,
+    specs: Optional[List[ExtractorSpec]] = None,
+    window: int = 60,
+) -> Tuple[List[CandidateClaim], List[DroppedMatch]]:
+    """Same as ``extract``, and also returns what was matched but dropped.
+
+    The claims are exactly what ``extract`` returns. The second list holds
+    every match whose normalizer returned None, in document order, so a
+    caller can tell "no date in the text" from "a date-shaped string the
+    extractor could not read".
     """
     if isinstance(source, str):
         if not source_id:
@@ -282,10 +322,17 @@ def extract(
     # unrelated ones that arrive with no way to reassemble them.
     sentences = ambiguity.sentence_spans(text)
     claims: List[CandidateClaim] = []
+    dropped: List[DroppedMatch] = []
     for spec in specs or SPECS:
         for match in spec.pattern.finditer(text):
             value = spec.normalize(match)
             if value is None:
+                dropped.append(DroppedMatch(
+                    extractor=spec.name,
+                    kind=spec.kind,
+                    raw=match.group(0),
+                    span=(match.start(), match.end()),
+                ))
                 continue
             claim = CandidateClaim(
                 kind=spec.kind,
@@ -303,4 +350,7 @@ def extract(
             )
             ambiguity.apply_to_claim(claim, flags, window=window, text=text)
             claims.append(claim.seal())
-    return sorted(claims, key=lambda c: (c.span[0], c.extractor))
+    return (
+        sorted(claims, key=lambda c: (c.span[0], c.extractor)),
+        sorted(dropped, key=lambda d: (d.span[0], d.extractor)),
+    )
