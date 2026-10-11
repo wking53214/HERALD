@@ -26,6 +26,8 @@ Commercial: **FEATURE unless paired with a domain.** Extraction quality depends 
 
 Source binding required for a claim to pass the gate. Ambiguity is first-class (`ambiguity.py`). Fail-closed gate: unbound/low-confidence claims do not become handoff payloads.
 
+**Optional CNS connector.** `herald/cns_connector.py` expresses the gate's decisions as CNS gate results: admitted claims become PASS, refused claims become RETRY (a named human can confirm and resubmit), and blocked or unverifiable decisions become TERMINAL_BREACH. HERALD imports nothing from CNS unless this module is used. Install with `pip install 'herald[cns]'`.
+
 ## 6. Inputs, Outputs & Type Contracts
 
 See `herald/claim.py`, `handoff.py`. Handoff is data, not an RPC to execution.
