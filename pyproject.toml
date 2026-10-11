@@ -16,9 +16,9 @@ dependencies = []
 dev = ["pytest>=8"]
 # Optional: lets HERALD's confidence-gate verdicts be expressed as CNS gate
 # results (herald/cns_connector.py). HERALD imports nothing from CNS unless
-# that module is used. Pinned to the commit of CNS tag v1.4.0.
+# that module is used. Pinned to the commit of CNS tag v1.5.1.
 cns = [
-    "cns @ git+https://github.com/wking53214/cns.git@3b465dbcc1a6a4ab6f1040f93d44483196abd737",
+    "cns @ git+https://github.com/wking53214/cns.git@da9ab8c8c47097b38ad9792dec23fed45d31ae3f",
 ]
 
 [tool.setuptools.packages.find]
