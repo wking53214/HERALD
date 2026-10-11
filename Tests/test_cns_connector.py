@@ -1,11 +1,10 @@
 """The CNS connector translates HERALD's decisions without changing them.
 
 These tests need the optional ``cns`` extra: ``pip install 'herald[cns]'``.
+Without it, ``Tests/test_cns_absent.py`` runs instead (see ``conftest.py``).
 """
 
 import pytest
-
-pytest.importorskip("cns.gate")
 
 from cns.gate import GateChain, GateOutcome, GatePosition  # noqa: E402
 

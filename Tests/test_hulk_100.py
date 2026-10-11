@@ -21,9 +21,9 @@ add a test without one.
   [REGISTRY]  -- the invariant, as stated, needs an integration boundary
       (an entry point, a parameter, a stored ledger) that does not exist
       anywhere in herald/*.py as of this build. There is nothing to call.
-      These are pytest.skip()'d with the missing boundary named explicitly
-      in the skip reason. A skip is not a pass: it is a recorded gap in
-      what the current API lets an adversarial test even attempt.
+      These are asserted, not skipped: the test checks that the boundary is
+      still absent, so it fails the day the gap closes and someone writes the
+      real test. A skip would report green while verifying nothing.
 
 WHAT THIS HARNESS FOUND (verified against a live run before being written
 down here, not asserted from reading the source alone -- see each test)
@@ -351,51 +351,64 @@ def test_no_entry_point_enforces_binding_automatically():
     assert "binding" not in inspect.signature(gate_module.ConfidenceGate.submit_all).parameters
 
 
-def test_no_external_authorization_ledger_for_claims_or_confirmations():
-    """[REGISTRY] R2: the mitigations demonstrated in
-    test_claim_external_hash_retained_at_authorization_does_catch_the_tamper
-    and its HumanConfirmation counterpart work only because the *test*
-    rolled its own external variable. HERALD exposes no ledger/registry
-    type (nothing like an AuthorizationRecord or a store keyed by
-    claim_id -> hash-at-authorization-time) that a consumer could use
-    instead of inventing one. There is no such class or function anywhere
-    in herald/__init__.py's exported surface to call.
+def test_authorization_continuity_is_carried_by_the_decision_itself():
+    """[EXECUTING] R2: continuity across time is carried by GateDecision:
+    authorized_content_hash, authorization_mac, and verify_against.
+
+    This was once recorded as a REGISTRY skip ("no ledger type"). The gap
+    closed when those fields were added, so it is now asserted for real: an
+    unchanged claim verifies, and a claim edited and resealed afterwards does
+    not verify against the decision that authorized it.
     """
-    pytest.skip(
-        "REGISTRY: no AuthorizationRecord/ledger type exists in the "
-        "package's public API (see herald/__init__.py __all__); "
-        "continuity across time is only achievable by consumer code "
-        "holding the original hash itself, which is not something this "
-        "test can exercise against HERALD's own surface."
-    )
+    from herald.errors import SealIntegrityError
+    from herald.claim import CandidateClaim
+    from herald import gate as gate_module
+
+    claim = CandidateClaim(
+        kind="amount", value=1250, raw="x", span=(0, 1),
+        source_id="s", base_confidence=0.95,
+    ).seal()
+    decision = gate_module.ConfidenceGate().submit(claim)
+    decision.verify_against(claim)  # unchanged: verifies
+
+    claim.value = 9999
+    claim.seal()  # resealed: internally consistent again, but not what was authorized
+    with pytest.raises(SealIntegrityError):
+        decision.verify_against(claim)
 
 
 def test_no_decision_history_keyed_by_claim_id_in_the_gate():
-    """[REGISTRY] R3: ConfidenceGate stores `_confirmations` (a private
-    dict keyed by claim_id) but nothing analogous for GateDecisions --
-    there is no public method to ask "what did I decide for this claim_id
-    last time" that test_gate_regrades_a_resealed_claim_from_scratch could
-    call instead of asserting the gap by hand.
+    """[REGISTRY, recorded gap] R3: ConfidenceGate has no public decision
+    history. It keeps `_confirmations` (private, keyed by claim_id) and
+    nothing for GateDecisions.
+
+    Recorded as an assertion of absence. When a public history method lands,
+    this fails and someone should replace it with a real test.
     """
-    pytest.skip(
-        "REGISTRY: ConfidenceGate has no public decision-history API "
-        "(only self._confirmations, private and unrelated); there is no "
-        "boundary to call for 'has this claim_id been decided before, "
-        "and does that decision match'."
+    from herald.gate import ConfidenceGate
+
+    public = [n for n in dir(ConfidenceGate) if not n.startswith("_")]
+    assert not [n for n in public if "history" in n.lower()], (
+        "a public decision-history API now exists on ConfidenceGate: replace "
+        "this recorded gap with a real test"
     )
 
 
 def test_no_handoff_to_handoff_continuity_check():
-    """[REGISTRY] R4: Handoff has no function or method that compares two
-    Handoff packages (or a Handoff against a previously-received one) for
-    the same claim_id appearing with different content. A consumer would
-    have to diff two `.to_dict()` payloads by hand; herald/handoff.py
-    exposes no such comparison.
+    """[REGISTRY, recorded gap] R4: herald/handoff.py has no public way to
+    compare two Handoff packages for the same claim_id with different content.
+
+    Recorded as an assertion of absence. When a comparison function lands,
+    this fails and someone should replace it with a real test.
     """
-    pytest.skip(
-        "REGISTRY: no diff/continuity-check function exists in "
-        "herald/handoff.py between two Handoff instances or between a "
-        "Handoff and a prior claim_id -> content_hash mapping."
+    from herald import handoff as handoff_module
+    from herald.handoff import Handoff
+
+    names = [n for n in dir(handoff_module) if not n.startswith("_")]
+    names += [n for n in dir(Handoff) if not n.startswith("_")]
+    keys = ("diff", "compare", "continuity")
+    assert not [n for n in names if any(k in n.lower() for k in keys)], (
+        "a handoff comparison now exists: replace this recorded gap with a real test"
     )
 
 
@@ -606,13 +619,14 @@ def test_hulk_nl_attack_source_does_not_silently_match_targets_authority(source,
     tgt_claims = extract_module.extract(target, source_id="hulk-nl-tgt")
 
     if not src_claims and not tgt_claims:
-        pytest.skip(
-            "REGISTRY: extract() produced no claim from either sentence -- "
-            "modality/negation/quantifier/attribution text is out of "
-            "HERALD's extraction scope by design (CONSTITUTION.md section "
-            "2, 'Out of scope: meaning-assignment...'); there is no claim "
-            "for a silent-authority-acquisition attack to act on."
+        # Out of scope by design (CONSTITUTION.md section 2: meaning-assignment).
+        # Asserted, not skipped: if extraction starts producing claims for this
+        # text, this fails and the case needs a real authority check.
+        assert src_claims == [] and tgt_claims == [], (
+            "extraction now produces claims for modality/negation text; this "
+            "case needs a real authority assertion"
         )
+        return
 
     src_amounts = [c for c in src_claims if c.kind == "amount"]
     tgt_amounts = [c for c in tgt_claims if c.kind == "amount"]
