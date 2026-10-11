@@ -73,7 +73,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 from . import binding
 from .claim import CandidateClaim, _canonical
 from .errors import BoundaryViolation, HeraldError, SealIntegrityError
-from .gate import VERDICT_ADMITTED, ConfidenceGate, GateDecision, _ISSUER_KEY
+from .gate import KEY_ID, VERDICT_ADMITTED, ConfidenceGate, GateDecision, _ISSUER_KEY
 from .source import STANDING_UNKNOWN, SourceDocument
 
 
@@ -81,7 +81,10 @@ class HandoffError(HeraldError):
     """Raised when a handoff cannot be assembled honestly."""
 
 
-EXPORT_MAC_VERSION = "1"
+#: Current export format. Version 2 binds the key ID into export_mac.
+EXPORT_MAC_VERSION = "2"
+#: LEGACY, VERIFY-ONLY. Version 1 exports carry no key ID. Still checkable, never produced.
+LEGACY_EXPORT_MAC_VERSION = "1"
 NO_FLAG_RECORDED = "NO_FLAG_RECORDED"
 
 
@@ -95,6 +98,7 @@ def _export_mac_payload(
     herald: Mapping[str, Any],
     admitted: Sequence[Mapping[str, Any]],
     refused: Sequence[Mapping[str, Any]],
+    key_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Build the versioned, complete payload authenticated by export_mac.
 
@@ -103,13 +107,16 @@ def _export_mac_payload(
     outside the trust boundary. ``prepared_at`` remains outside the MAC as an
     informational timestamp; bundles and summary are derived views.
     """
-    return {
+    payload: Dict[str, Any] = {
         "export_mac_version": export_mac_version,
         "document": dict(document),
         "herald": dict(herald),
         "admitted": [dict(entry) for entry in admitted],
         "refused": [dict(entry) for entry in refused],
     }
+    if key_id is not None:
+        payload["key_id"] = key_id
+    return payload
 
 
 def _sign_export(
@@ -118,6 +125,7 @@ def _sign_export(
     herald: Mapping[str, Any],
     admitted: Sequence[Mapping[str, Any]],
     refused: Sequence[Mapping[str, Any]],
+    key_id: Optional[str] = None,
 ) -> str:
     """HMAC-SHA256 over the export payload.
 
@@ -127,7 +135,7 @@ def _sign_export(
     second, separately-managed secret with its own boundary to track.
     """
     payload = _canonical(_export_mac_payload(
-        export_mac_version, document, herald, admitted, refused
+        export_mac_version, document, herald, admitted, refused, key_id
     ))
     return hmac.new(_ISSUER_KEY, payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
@@ -152,22 +160,32 @@ def verify_export(payload: Mapping[str, Any]) -> None:
     HMAX_REMEDIATION_ARCHITECTURE.md's Q3 section for the full reasoning.
     """
     claimed = payload.get("export_mac")
-    if payload.get("export_mac_version") != EXPORT_MAC_VERSION:
+    version = payload.get("export_mac_version")
+    if version not in (EXPORT_MAC_VERSION, LEGACY_EXPORT_MAC_VERSION):
         raise SealIntegrityError(
-            f"unsupported or missing export_mac_version "
-            f"{payload.get('export_mac_version')!r}"
+            f"unsupported or missing export_mac_version {version!r}"
         )
     if not claimed:
         raise SealIntegrityError(
             "export has no export_mac -- not provably issued by a real "
             "handoff.build() call, or altered since issuance"
         )
+    if version == EXPORT_MAC_VERSION:
+        key_id = payload.get("key_id")
+        if key_id != KEY_ID:
+            raise SealIntegrityError(
+                f"export was signed with key {key_id!r}; this process holds {KEY_ID!r}"
+            )
+    else:
+        # LEGACY, VERIFY-ONLY: version 1 predates key IDs and has none to check.
+        key_id = None
     expected = _sign_export(
-        EXPORT_MAC_VERSION,
+        version,
         payload.get("document") or {},
         payload.get("herald") or {},
         payload.get("admitted") or [],
         payload.get("refused") or [],
+        key_id,
     )
     if not hmac.compare_digest(expected, claimed):
         raise SealIntegrityError(
@@ -275,6 +293,7 @@ class Handoff:
     prepared_at: str = field(default_factory=_utc_now)
     export_mac: Optional[str] = None
     export_mac_version: str = EXPORT_MAC_VERSION
+    key_id: Optional[str] = KEY_ID
 
     # -- co-occurrence -------------------------------------------------
 
@@ -366,6 +385,7 @@ class Handoff:
             "summary": self.summary(),
             "export_mac": self.export_mac,
             "export_mac_version": self.export_mac_version,
+            "key_id": self.key_id,
         }
 
     @classmethod
@@ -402,6 +422,7 @@ class Handoff:
             prepared_at=payload.get("prepared_at", _utc_now()),
             export_mac=payload.get("export_mac"),
             export_mac_version=payload["export_mac_version"],
+            key_id=payload.get("key_id"),
         )
 
     def render(self) -> str:
@@ -597,7 +618,7 @@ def build(
     admitted_dicts = [e.to_dict() for e in admitted]
     refused_dicts = [r.to_dict() for r in refused]
     export_mac = _sign_export(
-        EXPORT_MAC_VERSION, document_dict, herald_dict, admitted_dicts, refused_dicts
+        EXPORT_MAC_VERSION, document_dict, herald_dict, admitted_dicts, refused_dicts, KEY_ID
     )
 
     return Handoff(
@@ -607,6 +628,7 @@ def build(
         refused=tuple(refused),
         export_mac=export_mac,
         export_mac_version=EXPORT_MAC_VERSION,
+        key_id=KEY_ID,
     )
 
 

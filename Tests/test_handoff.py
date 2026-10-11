@@ -214,7 +214,7 @@ def test_export_mac_covers_all_exported_claim_fields(section, field, replacement
 
 def test_export_mac_version_is_bound_and_unknown_versions_are_rejected():
     exported = handoff_for().to_dict()
-    exported["export_mac_version"] = "2"
+    exported["export_mac_version"] = "99"
 
     with pytest.raises(SealIntegrityError, match="export_mac_version"):
         handoff.verify_export(exported)
@@ -284,3 +284,40 @@ def test_breakdowns_are_derived_views_outside_the_export_mac():
     handoff.verify_export(payload)
     payload["summary"]["refused_by_verdict"] = {"TAMPERED": 99}
     handoff.verify_export(payload)
+
+
+# -- key IDs on decisions and exports ---------------------------------------
+
+
+def test_export_v2_carries_the_key_id():
+    exported = handoff_for().to_dict()
+    assert exported["export_mac_version"] == "2"
+    assert exported["key_id"] == gate.KEY_ID
+    handoff.verify_export(exported)
+
+
+def test_relabelled_export_key_id_is_refused():
+    exported = handoff_for().to_dict()
+    exported["key_id"] = "key-forged00000"
+    with pytest.raises(SealIntegrityError, match="signed with key"):
+        handoff.verify_export(exported)
+
+
+def test_legacy_version_1_export_still_verifies():
+    """LEGACY, VERIFY-ONLY: version 1 exports predate key IDs and must stay checkable."""
+    exported = handoff_for().to_dict()
+    exported["export_mac_version"] = "1"
+    exported.pop("key_id", None)
+    exported["export_mac"] = handoff._sign_export(
+        "1", exported["document"], exported["herald"],
+        exported["admitted"], exported["refused"],
+    )
+    handoff.verify_export(exported)
+
+
+def test_key_id_is_bound_into_the_decision_mac():
+    from herald.gate import _sign_decision
+
+    base = _sign_decision("c1", "ADMITTED_FOR_GOVERNANCE", 0.8, "r", "h", False, gate.KEY_ID)
+    other = _sign_decision("c1", "ADMITTED_FOR_GOVERNANCE", 0.8, "r", "h", False, "key-other0000")
+    assert base != other
