@@ -106,10 +106,16 @@ logger = logging.getLogger("herald.gate")
 # persistence story here, deliberately: see the module docstring.
 _ISSUER_KEY: bytes = secrets.token_bytes(32)
 
+# Public identifier for _ISSUER_KEY: a short hash of it, never the key itself.
+# Bound into every authorization_mac and every export, so a record names the
+# key that signed it.
+KEY_ID: str = "key-" + hashlib.sha256(b"herald-key-id|" + _ISSUER_KEY).hexdigest()[:12]
+
 
 def _decision_mac_payload(
     claim_id: str, verdict: str, threshold: float, reason: str,
     authorized_content_hash: Optional[str], source_verified: bool = False,
+    key_id: str = KEY_ID,
 ) -> Dict[str, Any]:
     """The fields an authorization_mac actually covers.
 
@@ -134,12 +140,15 @@ def _decision_mac_payload(
         # Bound so a decision made without its source cannot be edited into
         # one that claims the citation was re-checked.
         "source_verified": source_verified,
+        # Bound so a decision cannot be relabelled as signed under another key.
+        "key_id": key_id,
     }
 
 
 def _sign_decision(
     claim_id: str, verdict: str, threshold: float, reason: str,
     authorized_content_hash: Optional[str], source_verified: bool = False,
+    key_id: str = KEY_ID,
 ) -> str:
     """HMAC-SHA256 over the bound fields, keyed with the process issuer key.
 
@@ -150,7 +159,8 @@ def _sign_decision(
     this function has, defeating the point of keying it at all.
     """
     payload = _canonical(_decision_mac_payload(
-        claim_id, verdict, threshold, reason, authorized_content_hash, source_verified
+        claim_id, verdict, threshold, reason, authorized_content_hash, source_verified,
+        key_id,
     ))
     return hmac.new(_ISSUER_KEY, payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
@@ -273,6 +283,9 @@ class GateDecision:
     # claim whose source had since changed read as verified. Bound into
     # authorization_mac, so it cannot be flipped after issuance.
     source_verified: bool = False
+    # The key that issued authorization_mac. Bound into the MAC, so it cannot be
+    # changed after issuance without the MAC failing.
+    key_id: str = KEY_ID
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -311,7 +324,7 @@ class GateDecision:
             )
         expected_mac = _sign_decision(
             self.claim_id, self.verdict, self.threshold, self.reason,
-            self.authorized_content_hash, self.source_verified,
+            self.authorized_content_hash, self.source_verified, self.key_id,
         )
         if self.authorization_mac is None or not hmac.compare_digest(
             expected_mac, self.authorization_mac
@@ -404,8 +417,10 @@ class ConfidenceGate:
             confirmed_by=confirmed_by,
             authorized_content_hash=content_hash,
             source_verified=source_verified,
+            key_id=KEY_ID,
             authorization_mac=_sign_decision(
-                claim.claim_id, verdict, threshold, reason, content_hash, source_verified
+                claim.claim_id, verdict, threshold, reason, content_hash, source_verified,
+                KEY_ID,
             ),
         )
 
