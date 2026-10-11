@@ -235,3 +235,42 @@ def test_source_argument_must_be_a_source_document():
     claim, decision = _admitted_claim_from(doc)
     with pytest.raises(TypeError):
         _to_cns(decision, claim, source="inv-1")
+
+
+# -- The governed path: both ends, linked, with no way to skip lineage -------
+
+from herald.cns_connector import GovernedRun, run_governed  # noqa: E402
+
+
+def test_governed_run_judges_every_claim_against_its_own_source():
+    doc = SourceDocument(source_id="inv-1", text=LINEAGE_TEXT, standing="record")
+    run = run_governed(doc)
+    assert isinstance(run, GovernedRun)
+    assert run.extracted()
+    assert run.source_result.outcome is GateOutcome.PASS
+    assert run.verdicts, "expected at least one claim from the lineage text"
+    for claim, result in run.verdicts:
+        assert result.position is GatePosition.OMEGA
+        assert lineage_problem(claim, doc) == ""
+
+
+def test_governed_run_does_not_extract_a_source_that_waits_at_alpha():
+    doc = SourceDocument(source_id="inv-1", text=LINEAGE_TEXT, standing=STANDING_UNKNOWN)
+    run = run_governed(doc)
+    assert not run.extracted()
+    assert run.source_result.outcome is GateOutcome.RETRY
+    assert run.verdicts == ()
+
+
+def test_governed_run_does_not_extract_a_malformed_source():
+    doc = SourceDocument(source_id="inv-1", text=LINEAGE_TEXT, standing="record")
+    doc.text = "   "
+    run = run_governed(doc)
+    assert not run.extracted()
+    assert run.source_result.outcome is GateOutcome.TERMINAL_BREACH
+    assert run.verdicts == ()
+
+
+def test_governed_run_rejects_non_documents():
+    with pytest.raises(TypeError):
+        run_governed("raw text")

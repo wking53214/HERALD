@@ -73,6 +73,7 @@ from __future__ import annotations
 
 import importlib
 from types import ModuleType
+from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 from .claim import CandidateClaim
@@ -84,6 +85,7 @@ from .gate import (
     ConfidenceGate,
     GateDecision,
 )
+from .extract import extract
 from .source import STANDING_UNKNOWN, IngestionError, SourceDocument
 
 __all__ = [
@@ -94,6 +96,8 @@ __all__ = [
     "cns_available",
     "cns_chain",
     "full_chain",
+    "GovernedRun",
+    "run_governed",
     "source_digest",
     "source_to_cns_result",
     "submit_to_cns",
@@ -444,3 +448,49 @@ def full_chain(confidence_gate: Optional[ConfidenceGate] = None) -> Any:
         alpha=(HeraldSourceGate(),),
         omega=(HeraldConfidenceGate(confidence_gate),),
     )
+
+
+@dataclass(frozen=True)
+class GovernedRun:
+    """One document's full pass through both ends.
+
+    source_result -- the ALPHA verdict on the document.
+    verdicts      -- ``(claim, result)`` pairs for the claims extracted from it,
+                     each judged at OMEGA against that same document. Empty
+                     unless the source verdict was ``PASS``: a document that
+                     fails or waits at ALPHA is never extracted.
+    """
+
+    source_result: Any
+    verdicts: tuple
+
+    def extracted(self) -> bool:
+        """Whether extraction ran, which happens only on a source ``PASS``."""
+        return self.source_result.outcome is _cns_gate().GateOutcome.PASS
+
+
+def run_governed(
+    document: SourceDocument,
+    *,
+    confidence_gate: Optional[ConfidenceGate] = None,
+) -> GovernedRun:
+    """Judge a document at ALPHA, extract only if it passes, and judge every claim at OMEGA.
+
+    This is the path that keeps the two ends linked. Each claim is judged against
+    the same document that the source gate judged, so the lineage check always
+    runs and cannot be skipped by the caller.
+    """
+    cns_gate = _cns_gate()
+    if not isinstance(document, SourceDocument):
+        raise TypeError(f"run_governed takes a SourceDocument; got {type(document).__name__}")
+    gate = confidence_gate if confidence_gate is not None else ConfidenceGate()
+
+    source_result = source_to_cns_result(document)
+    if source_result.outcome is not cns_gate.GateOutcome.PASS:
+        return GovernedRun(source_result=source_result, verdicts=())
+
+    verdicts = []
+    for claim in extract(document):
+        result = submit_to_cns(gate, claim, document=document, source=document)
+        verdicts.append((claim, result))
+    return GovernedRun(source_result=source_result, verdicts=tuple(verdicts))
