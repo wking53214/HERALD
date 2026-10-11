@@ -42,6 +42,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from .errors import HeraldError
+from .positions import POSITION_ALPHA
 
 # What a document IS, epistemically. Bounded on purpose, because a consumer
 # has to branch on it and an open vocabulary cannot be branched on.
@@ -264,3 +265,51 @@ def segments_by_marker(
             )
         pieces = [Segment(label, p.start, p.end) for label, p in zip(labels, pieces)]
     return pieces
+
+
+# -- The source check (ALPHA end) -----------------------------------------
+#
+# Judged before extraction runs on the text. HERALD owns this check; the CNS
+# connector only translates its result.
+
+
+SOURCE_ACCEPTED = "SOURCE_ACCEPTED"
+SOURCE_STANDING_UNDECLARED = "SOURCE_STANDING_UNDECLARED"
+SOURCE_MALFORMED = "SOURCE_MALFORMED"
+
+
+@dataclass(frozen=True)
+class SourceCheck:
+    """The result of checking one document before extraction.
+
+    verdict  -- one of SOURCE_ACCEPTED, SOURCE_STANDING_UNDECLARED, SOURCE_MALFORMED.
+    reason   -- for the audit record and for the delta a resubmission needs.
+    position -- which end of the decision this check belongs to (always ALPHA).
+    """
+
+    verdict: str
+    reason: str
+    position: str = POSITION_ALPHA
+
+
+def check_source(document: "SourceDocument") -> SourceCheck:
+    """Judge a document before extraction.
+
+    Malformed input is SOURCE_MALFORMED. A document whose standing is not
+    declared is SOURCE_STANDING_UNDECLARED: HERALD treats an unknown standing as
+    not a safe default. Anything else is SOURCE_ACCEPTED.
+    """
+    if not isinstance(document, SourceDocument):
+        raise TypeError(f"check_source judges a SourceDocument; got {type(document).__name__}")
+    try:
+        document.validate()
+    except IngestionError as exc:
+        return SourceCheck(SOURCE_MALFORMED, f"malformed source: {exc}")
+    if document.standing == STANDING_UNKNOWN:
+        return SourceCheck(
+            SOURCE_STANDING_UNDECLARED,
+            "standing not declared; declare it (record, attestation, or derived) and resubmit",
+        )
+    return SourceCheck(
+        SOURCE_ACCEPTED, f"well-formed source, standing declared as {document.standing}"
+    )

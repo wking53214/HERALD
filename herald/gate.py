@@ -96,6 +96,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 from .claim import CandidateClaim, PROV_HUMAN_CONFIRMED, _canonical
 from .errors import SealIntegrityError
+from .positions import POSITION_OMEGA
 
 logger = logging.getLogger("herald.gate")
 
@@ -341,6 +342,9 @@ class ConfidenceGate:
                   with the same reasoning it would use to set a drift
                   tolerance: from evidence, per zone, not one global guess.
     """
+
+    #: The confidence gate judges the claim HERALD produced, so it sits at OMEGA.
+    position = POSITION_OMEGA
 
     def __init__(
         self,

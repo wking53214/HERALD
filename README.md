@@ -26,6 +26,19 @@ Commercial: **FEATURE unless paired with a domain.** Extraction quality depends 
 
 Source binding required for a claim to pass the gate. Ambiguity is first-class (`ambiguity.py`). Fail-closed gate: unbound/low-confidence claims do not become handoff payloads.
 
+**Optional CNS connector.** `herald/cns_connector.py` expresses HERALD's gates as CNS gate results, at both ends. The source gate (ALPHA) judges a document before extraction: malformed input is TERMINAL_BREACH, undeclared standing is RETRY, and anything else is PASS. The confidence gate (OMEGA) judges each claim: admitted claims become PASS, refused claims become RETRY (a named human can confirm and resubmit), and blocked or unverifiable decisions become TERMINAL_BREACH. Pass the judged source to the confidence gate and a claim not extracted from that exact source (same id, text hash, and standing) becomes TERMINAL_BREACH, so the two ends are linked. HERALD imports nothing from CNS unless this module is used. Install with `pip install 'herald[cns]'`.
+
+**Design principles (CNS spirit).** HERALD's own logic follows the principles of the CNS contract, with HERALD's names kept:
+
+- **Declared ends.** Each check states where it sits: ALPHA before work runs (`herald/source.py`, `check_source`), OMEGA on the output (`ConfidenceGate.position`). Position is part of the gate, not a note about where it is called.
+- **Verdicts bound to what they judged.** A decision is bound to its claim's content hash, and a claim is bound to its source by id, text hash, and standing (`herald/lineage.py`).
+- **Waiting is not terminal.** A refused claim (`REFUSED_PENDING_HUMAN`) can come back after a human confirms it. A blocked claim (`BLOCKED_INTEGRITY`) cannot.
+- **Fail closed.** A decision that does not verify is never trusted, including a refusal.
+- **Admitted is not approved.** `ADMITTED_FOR_GOVERNANCE` means only that the claim moves to the governance layer.
+- **Logic stays here.** HERALD owns its checks. The CNS connector only translates their results.
+
+The decision MAC is tamper-evidence within one process, not tamper-proofing. The CNS digest is tamper-evidence across processes.
+
 ## 6. Inputs, Outputs & Type Contracts
 
 See `herald/claim.py`, `handoff.py`. Handoff is data, not an RPC to execution.

@@ -205,8 +205,7 @@ def test_to_dict_is_serializable_and_complete():
 def test_export_mac_covers_all_exported_claim_fields(section, field, replacement):
     exported = handoff_for().to_dict()
     entries = exported[section]
-    if not entries:
-        pytest.skip(f"fixture has no {section} entries")
+    assert entries, f"fixture has no {section} entries, so this check would verify nothing"
     entries[0][field] = replacement
 
     with pytest.raises(SealIntegrityError, match="export_mac"):
