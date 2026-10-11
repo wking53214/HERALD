@@ -151,6 +151,9 @@ def _content(claim: CandidateClaim) -> dict[str, Any]:
         "kind": "herald_claim",
         "claim_id": str(claim.claim_id),
         "content_hash": claim.content_hash,
+        "source_id": claim.source_id,
+        "source_hash": claim.source_hash,
+        "source_standing": claim.source_standing,
     }
 
 
@@ -179,16 +182,37 @@ def _require_subject(subject: str) -> None:
         )
 
 
+def lineage_problem(claim: CandidateClaim, source: SourceDocument) -> str:
+    """Why ``claim`` was not extracted from ``source``, or ``""`` if it was.
+
+    A claim carries the source id, text hash, and standing it was read from.
+    It matches the judged document only if all three are equal.
+    """
+    if claim.source_id != source.source_id:
+        return f"source_id {claim.source_id!r} is not {source.source_id!r}"
+    if claim.source_hash != source.content_hash:
+        return "claim was read from different text than the judged source"
+    if claim.source_standing != source.standing:
+        return (
+            f"claim standing {claim.source_standing!r} is not the judged "
+            f"standing {source.standing!r}"
+        )
+    return ""
+
+
 def to_cns_result(
     decision: GateDecision,
     claim: CandidateClaim,
     *,
     subject: str = DEFAULT_SUBJECT,
+    source: Optional[SourceDocument] = None,
 ) -> Any:
     """Translate HERALD's decision on ``claim`` into a ``cns.gate.GateResult``.
 
     ``decision`` must be the one HERALD issued for ``claim``. The position is
-    ``OMEGA``. See the module docstring for the mapping.
+    ``OMEGA``. If ``source`` is given, the verdict is also a ``TERMINAL_BREACH``
+    unless the claim was extracted from that exact source. See the module
+    docstring for the mapping.
     """
     cns_gate = _cns_gate()
     _require_subject(subject)
@@ -209,9 +233,20 @@ def to_cns_result(
         verified = False
         problem = str(exc)
 
+    lineage = ""
+    if source is not None:
+        if not isinstance(source, SourceDocument):
+            raise TypeError(
+                f"source must be the SourceDocument judged; got {type(source).__name__}"
+            )
+        lineage = lineage_problem(claim, source)
+
     if not verified:
         outcome = cns_gate.GateOutcome.TERMINAL_BREACH
         reason = f"decision does not verify against its claim: {problem}"
+    elif lineage:
+        outcome = cns_gate.GateOutcome.TERMINAL_BREACH
+        reason = f"claim was not extracted from the judged source: {lineage}"
     elif decision.verdict == VERDICT_ADMITTED:
         outcome = cns_gate.GateOutcome.PASS
         reason = f"admitted for governance, not approved: {decision.reason}"
@@ -249,6 +284,7 @@ def submit_to_cns(
     document: Any = None,
     confirmation: Any = None,
     subject: str = DEFAULT_SUBJECT,
+    source: Optional[SourceDocument] = None,
 ) -> Any:
     """Run ``ConfidenceGate.submit`` and return its decision as a CNS verdict.
 
@@ -258,7 +294,7 @@ def submit_to_cns(
     """
     _cns_gate()
     decision = gate.submit(claim, document=document, confirmation=confirmation)
-    return to_cns_result(decision, claim, subject=subject)
+    return to_cns_result(decision, claim, subject=subject, source=source)
 
 
 class HeraldConfidenceGate:

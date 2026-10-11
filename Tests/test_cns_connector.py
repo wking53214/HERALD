@@ -167,3 +167,71 @@ def test_source_gate_object_checks_documents():
     assert gate.check(source_with("attestation")).outcome is GateOutcome.PASS
     with pytest.raises(TypeError):
         gate.check("raw text, not a SourceDocument")
+
+
+# -- Lineage: a claim's verdict must come from the judged source ------------
+
+from herald.cns_connector import lineage_problem, to_cns_result as _to_cns  # noqa: E402
+from herald.extract import extract  # noqa: E402
+
+LINEAGE_TEXT = "The invoice total is 1250 dollars and it is due 2026-11-01."
+
+
+def _admitted_claim_from(doc):
+    gate = ConfidenceGate()
+    for claim in extract(doc):
+        decision = gate.submit(claim, document=doc)
+        if decision.verdict == VERDICT_ADMITTED:
+            return claim, decision
+    raise AssertionError("expected extraction to yield at least one admitted claim")
+
+
+def test_claim_from_the_judged_source_passes_lineage():
+    doc = SourceDocument(source_id="inv-1", text=LINEAGE_TEXT, standing="record")
+    claim, decision = _admitted_claim_from(doc)
+    result = _to_cns(decision, claim, source=doc)
+    assert result.outcome is GateOutcome.PASS
+    assert lineage_problem(claim, doc) == ""
+
+
+def test_claim_read_from_different_text_is_breach():
+    judged = SourceDocument(source_id="inv-1", text=LINEAGE_TEXT, standing="record")
+    other = SourceDocument(
+        source_id="inv-1", text="The invoice total is 9999 dollars and it is due 2026-11-01.",
+        standing="record",
+    )
+    claim, decision = _admitted_claim_from(other)
+    result = _to_cns(decision, claim, source=judged)
+    assert result.outcome is GateOutcome.TERMINAL_BREACH
+    assert "different text" in result.reason
+
+
+def test_claim_from_a_different_source_id_is_breach():
+    judged = SourceDocument(source_id="inv-1", text=LINEAGE_TEXT, standing="record")
+    elsewhere = SourceDocument(source_id="inv-2", text=LINEAGE_TEXT, standing="record")
+    claim, decision = _admitted_claim_from(elsewhere)
+    result = _to_cns(decision, claim, source=judged)
+    assert result.outcome is GateOutcome.TERMINAL_BREACH
+    assert "source_id" in result.reason
+
+
+def test_claim_with_a_different_standing_is_breach():
+    judged = SourceDocument(source_id="inv-1", text=LINEAGE_TEXT, standing="record")
+    relabelled = SourceDocument(source_id="inv-1", text=LINEAGE_TEXT, standing="attestation")
+    claim, decision = _admitted_claim_from(relabelled)
+    result = _to_cns(decision, claim, source=judged)
+    assert result.outcome is GateOutcome.TERMINAL_BREACH
+    assert "standing" in result.reason
+
+
+def test_without_a_source_the_verdict_is_unchanged():
+    doc = SourceDocument(source_id="inv-1", text=LINEAGE_TEXT, standing="record")
+    claim, decision = _admitted_claim_from(doc)
+    assert _to_cns(decision, claim).outcome is GateOutcome.PASS
+
+
+def test_source_argument_must_be_a_source_document():
+    doc = SourceDocument(source_id="inv-1", text=LINEAGE_TEXT, standing="record")
+    claim, decision = _admitted_claim_from(doc)
+    with pytest.raises(TypeError):
+        _to_cns(decision, claim, source="inv-1")
