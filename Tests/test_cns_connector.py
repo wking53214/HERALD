@@ -108,3 +108,62 @@ def test_gate_object_checks_candidates():
     assert gate.check(claim_with(0.95)).outcome is GateOutcome.PASS
     with pytest.raises(TypeError):
         gate.check("not a claim")
+
+
+# -- ALPHA end: the source gate ---------------------------------------------
+
+from herald.cns_connector import (  # noqa: E402
+    HeraldSourceGate,
+    full_chain,
+    source_digest,
+    source_to_cns_result,
+)
+from herald.source import SourceDocument, STANDING_UNKNOWN  # noqa: E402
+
+
+def source_with(standing="record", text="Invoice total is 1250 dollars."):
+    return SourceDocument(source_id="doc-1", text=text, standing=standing)
+
+
+def test_declared_source_is_pass_at_alpha_and_bound():
+    doc = source_with("record")
+    result = source_to_cns_result(doc)
+    assert result.outcome is GateOutcome.PASS
+    assert result.position is GatePosition.ALPHA
+    assert result.gate == "herald_source"
+    assert result.binds("herald_source", source_digest(doc))
+
+
+def test_undeclared_standing_is_retry_not_pass():
+    result = source_to_cns_result(source_with(STANDING_UNKNOWN))
+    assert result.outcome is GateOutcome.RETRY
+    assert "standing not declared" in result.reason
+
+
+def test_malformed_source_is_terminal_breach():
+    doc = source_with("record")
+    doc.text = "   "  # edited after construction, past the constructor's check
+    result = source_to_cns_result(doc)
+    assert result.outcome is GateOutcome.TERMINAL_BREACH
+    assert "malformed source" in result.reason
+
+
+def test_source_verdict_does_not_bind_to_an_edited_source():
+    doc = source_with("record")
+    result = source_to_cns_result(doc)
+    doc.text = "Invoice total is 9999 dollars."
+    assert not result.binds("herald_source", source_digest(doc))
+
+
+def test_full_chain_has_both_ends_and_is_complete():
+    chain = full_chain()
+    assert chain.complete()
+    assert chain.misplaced() == ()
+
+
+def test_source_gate_object_checks_documents():
+    gate = HeraldSourceGate()
+    assert gate.position is GatePosition.ALPHA
+    assert gate.check(source_with("attestation")).outcome is GateOutcome.PASS
+    with pytest.raises(TypeError):
+        gate.check("raw text, not a SourceDocument")

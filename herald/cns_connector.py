@@ -14,8 +14,22 @@ HERALD keeps its own verdict: :meth:`ConfidenceGate.submit` returns a
 decision into a ``cns.gate.GateResult`` without changing it, so a consumer that
 speaks CNS can resolve HERALD's verdict alongside gates from other repositories.
 
-The gate sits at the OMEGA end. It judges the candidate claim HERALD produced,
-before a claim leaves HERALD for the consuming project's governance layer.
+The connector has two ends:
+
+* **ALPHA, the source gate** (:class:`HeraldSourceGate`). It judges the
+  ``SourceDocument`` before extraction runs on it. A malformed document is
+  ``TERMINAL_BREACH``. A document whose standing is not declared (``unknown``)
+  is ``RETRY``: declare it and resubmit. HERALD's own docs say an unknown
+  standing is "deliberately not a safe default", so this gate is stricter than
+  the extraction step, which still runs on unknown-standing text today. That is
+  a policy choice, flagged in the pull request.
+* **OMEGA, the confidence gate** (:class:`HeraldConfidenceGate`). It judges the
+  candidate claim HERALD produced, before a claim leaves HERALD for the
+  consuming project's governance layer.
+
+:func:`full_chain` puts both ends in one ``GateChain``. Nothing here checks that
+the claims came from the source the source gate judged; the consumer must make
+that link.
 
 The mapping, and why
 --------------------
@@ -70,13 +84,18 @@ from .gate import (
     ConfidenceGate,
     GateDecision,
 )
+from .source import STANDING_UNKNOWN, IngestionError, SourceDocument
 
 __all__ = [
     "HeraldConfidenceGate",
+    "HeraldSourceGate",
     "CnsNotInstalled",
     "claim_digest",
     "cns_available",
     "cns_chain",
+    "full_chain",
+    "source_digest",
+    "source_to_cns_result",
     "submit_to_cns",
     "to_cns_result",
 ]
@@ -85,8 +104,12 @@ INSTALL_HINT = "pip install 'herald[cns]'"
 
 #: The ``gate`` field of a verdict.
 GATE_NAME = "herald_confidence"
+#: The ``gate`` field of a source verdict (ALPHA end).
+SOURCE_GATE_NAME = "herald_source"
 #: What ``subject`` is set to when the caller does not name the judged content.
 DEFAULT_SUBJECT = "herald_claim"
+#: The default ``subject`` label for a source verdict.
+DEFAULT_SOURCE_SUBJECT = "herald_source"
 
 
 class CnsNotInstalled(ImportError):
@@ -279,3 +302,109 @@ def cns_chain(gate: Optional[ConfidenceGate] = None) -> Any:
     """
     cns_gate = _cns_gate()
     return cns_gate.GateChain(omega=(HeraldConfidenceGate(gate),))
+
+
+def _source_content(document: SourceDocument) -> dict[str, Any]:
+    """The judged content of a source: identity, sealed text hash, and standing."""
+    return {
+        "kind": "herald_source",
+        "source_id": document.source_id,
+        "content_hash": document.content_hash,
+        "standing": document.standing,
+    }
+
+
+def source_digest(document: SourceDocument) -> str:
+    """The digest a bound source verdict on ``document`` carries.
+
+    Raises for a document CNS cannot digest (a verdict on one is unbound).
+    """
+    return _cns_gate().subject_digest(_source_content(document))
+
+
+def source_to_cns_result(
+    document: SourceDocument,
+    *,
+    subject: str = DEFAULT_SOURCE_SUBJECT,
+) -> Any:
+    """Judge a ``SourceDocument`` before extraction, as a ``cns.gate.GateResult``.
+
+    The position is ``ALPHA``. A document that fails HERALD's own validation is
+    ``TERMINAL_BREACH``. A document with an undeclared standing is ``RETRY``. Any
+    other well-formed document with a declared standing is ``PASS``.
+    """
+    cns_gate = _cns_gate()
+    _require_subject(subject)
+    if not isinstance(document, SourceDocument):
+        raise TypeError(f"the source gate judges a SourceDocument; got {type(document).__name__}")
+
+    try:
+        document.validate()
+    except IngestionError as exc:
+        outcome = cns_gate.GateOutcome.TERMINAL_BREACH
+        reason = f"malformed source: {exc}"
+    else:
+        if document.standing == STANDING_UNKNOWN:
+            outcome = cns_gate.GateOutcome.RETRY
+            reason = (
+                "standing not declared; declare it (record, attestation, or derived) "
+                "and resubmit"
+            )
+        else:
+            outcome = cns_gate.GateOutcome.PASS
+            reason = f"well-formed source, standing declared as {document.standing}"
+
+    digest, problem = _bind(cns_gate, lambda: _source_content(document))
+    if not digest:
+        outcome = cns_gate.GateOutcome.TERMINAL_BREACH
+        reason = (
+            f"unbound, the judged content cannot be digested canonically ({problem}); "
+            f"{reason}"
+        )
+    return cns_gate.GateResult(
+        gate=SOURCE_GATE_NAME,
+        position=cns_gate.GatePosition.ALPHA,
+        outcome=outcome,
+        reason=reason,
+        subject=subject,
+        subject_digest=digest,
+    )
+
+
+class HeraldSourceGate:
+    """HERALD's source check as a ``cns.gate.Gate`` at the ALPHA end.
+
+    ``check`` runs :func:`source_to_cns_result` on a :class:`~herald.source.SourceDocument`.
+    It reads the document and writes nothing.
+    """
+
+    name = SOURCE_GATE_NAME
+
+    def __init__(self, *, subject: str = DEFAULT_SOURCE_SUBJECT) -> None:
+        _cns_gate()  # fail here, at construction, not on first use
+        _require_subject(subject)
+        self._subject = subject
+
+    @property
+    def position(self) -> Any:
+        return _cns_gate().GatePosition.ALPHA
+
+    def check(self, candidate: object) -> Any:
+        if not isinstance(candidate, SourceDocument):
+            raise TypeError(
+                f"the source gate judges a SourceDocument; got {type(candidate).__name__}"
+            )
+        return source_to_cns_result(candidate, subject=self._subject)
+
+
+def full_chain(confidence_gate: Optional[ConfidenceGate] = None) -> Any:
+    """A ``cns.gate.GateChain`` with the source gate in ``alpha`` and the confidence gate in ``omega``.
+
+    ``complete()`` is ``True``. Both ends are present, but nothing here checks
+    that the claims were extracted from the source the ALPHA gate judged.
+    """
+    cns_gate = _cns_gate()
+    return cns_gate.GateChain(
+        alpha=(HeraldSourceGate(),),
+        omega=(HeraldConfidenceGate(confidence_gate),),
+    )
