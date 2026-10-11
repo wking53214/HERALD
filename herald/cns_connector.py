@@ -86,7 +86,14 @@ from .gate import (
     GateDecision,
 )
 from .extract import extract
-from .source import STANDING_UNKNOWN, IngestionError, SourceDocument
+from .lineage import lineage_problem
+from .source import (
+    SOURCE_ACCEPTED,
+    SOURCE_MALFORMED,
+    SOURCE_STANDING_UNDECLARED,
+    SourceDocument,
+    check_source,
+)
 
 __all__ = [
     "HeraldConfidenceGate",
@@ -184,24 +191,6 @@ def _require_subject(subject: str) -> None:
         raise ValueError(
             "subject must be a non-empty label; an unlabelled verdict binds to nothing"
         )
-
-
-def lineage_problem(claim: CandidateClaim, source: SourceDocument) -> str:
-    """Why ``claim`` was not extracted from ``source``, or ``""`` if it was.
-
-    A claim carries the source id, text hash, and standing it was read from.
-    It matches the judged document only if all three are equal.
-    """
-    if claim.source_id != source.source_id:
-        return f"source_id {claim.source_id!r} is not {source.source_id!r}"
-    if claim.source_hash != source.content_hash:
-        return "claim was read from different text than the judged source"
-    if claim.source_standing != source.standing:
-        return (
-            f"claim standing {claim.source_standing!r} is not the judged "
-            f"standing {source.standing!r}"
-        )
-    return ""
 
 
 def to_cns_result(
@@ -375,24 +364,14 @@ def source_to_cns_result(
     """
     cns_gate = _cns_gate()
     _require_subject(subject)
-    if not isinstance(document, SourceDocument):
-        raise TypeError(f"the source gate judges a SourceDocument; got {type(document).__name__}")
-
-    try:
-        document.validate()
-    except IngestionError as exc:
+    check = check_source(document)
+    if check.verdict == SOURCE_MALFORMED:
         outcome = cns_gate.GateOutcome.TERMINAL_BREACH
-        reason = f"malformed source: {exc}"
+    elif check.verdict == SOURCE_STANDING_UNDECLARED:
+        outcome = cns_gate.GateOutcome.RETRY
     else:
-        if document.standing == STANDING_UNKNOWN:
-            outcome = cns_gate.GateOutcome.RETRY
-            reason = (
-                "standing not declared; declare it (record, attestation, or derived) "
-                "and resubmit"
-            )
-        else:
-            outcome = cns_gate.GateOutcome.PASS
-            reason = f"well-formed source, standing declared as {document.standing}"
+        outcome = cns_gate.GateOutcome.PASS
+    reason = check.reason
 
     digest, problem = _bind(cns_gate, lambda: _source_content(document))
     if not digest:
