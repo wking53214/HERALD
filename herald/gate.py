@@ -106,10 +106,10 @@ logger = logging.getLogger("herald.gate")
 # persistence story here, deliberately: see the module docstring.
 _ISSUER_KEY: bytes = secrets.token_bytes(32)
 
-# Label for _ISSUER_KEY. Random and process-local, never derived from the key.
+# Public identifier for _ISSUER_KEY: a short hash of it, never the key itself.
 # Bound into every authorization_mac and every export, so a record names the
 # key that signed it.
-KEY_ID: str = f"ephemeral-{secrets.token_hex(4)}"
+KEY_ID: str = "key-" + hashlib.sha256(b"herald-key-id|" + _ISSUER_KEY).hexdigest()[:12]
 
 
 def _decision_mac_payload(
