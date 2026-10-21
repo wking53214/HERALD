@@ -45,3 +45,32 @@ jobs:
       - name: Security scan (bandit)
         if: always()
         run: bandit -ll -r herald
+
+  cns:
+    # The job above does not install the cns extra, so conftest.py leaves
+    # Tests/test_cns_connector.py out and the connector is never tested
+    # against the real CNS. This job installs the extra and sets
+    # HERALD_REQUIRE_CNS=1, which makes conftest.py always collect the
+    # connector tests, so a missing cns fails the run instead of passing it.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          pip install pytest ruff==0.15.22 bandit
+          pip install -e ".[cns]"
+
+      - name: Tests with CNS required
+        env:
+          HERALD_REQUIRE_CNS: "1"
+        run: python3 -m pytest Tests -q -rs

@@ -54,11 +54,14 @@ behind a real capability check that fails loudly, or delete it.
 from __future__ import annotations
 
 import importlib.util
+import os
 from typing import Any, List, Tuple
 
 # Collect the connector tests only when CNS is installed, and the absence tests
 # only when it is not. Ignoring a file is not a skip, so neither set declines.
-if importlib.util.find_spec("cns") is not None:
+# With HERALD_REQUIRE_CNS=1 (CI's cns job) the connector tests are always
+# collected, so a missing cns is a collection error, not an ignored file.
+if os.environ.get("HERALD_REQUIRE_CNS") == "1" or importlib.util.find_spec("cns") is not None:
     collect_ignore = ["Tests/test_cns_absent.py"]
 else:
     collect_ignore = ["Tests/test_cns_connector.py"]
