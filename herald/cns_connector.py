@@ -88,7 +88,6 @@ from .gate import (
 from .extract import extract
 from .lineage import lineage_problem
 from .source import (
-    SOURCE_ACCEPTED,
     SOURCE_MALFORMED,
     SOURCE_STANDING_UNDECLARED,
     SourceDocument,
