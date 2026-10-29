@@ -273,3 +273,52 @@ def test_governed_run_does_not_extract_a_malformed_source():
 def test_governed_run_rejects_non_documents():
     with pytest.raises(TypeError):
         run_governed("raw text")
+
+
+# -- the confidence gate can carry its document ------------------------------
+
+import logging  # noqa: E402
+
+from herald.extract import extract  # noqa: E402
+
+
+def _claim_and_document():
+    document = source_with("record", "Invoice INV-2207 came to $412.00 for the burst pipe.")
+    claim = next(c for c in extract(document) if c.kind == "amount")
+    return claim, document
+
+
+def test_a_gate_given_its_document_rechecks_the_citation_and_says_so(caplog):
+    claim, document = _claim_and_document()
+    gate = ConfidenceGate()
+    with caplog.at_level(logging.WARNING, logger="herald.gate"):
+        result = HeraldConfidenceGate(gate, document=document).check(claim)
+    assert "NOT re-checked" not in caplog.text
+    assert gate.submit(claim, document=document).source_verified is True
+    assert result.outcome in (GateOutcome.PASS, GateOutcome.RETRY)
+
+
+def test_a_gate_without_its_document_still_behaves_as_before(caplog):
+    claim, _ = _claim_and_document()
+    with caplog.at_level(logging.WARNING, logger="herald.gate"):
+        HeraldConfidenceGate().check(claim)
+    assert "NOT re-checked" in caplog.text
+
+
+def test_a_claim_from_another_document_is_a_breach_when_the_gate_has_its_document():
+    claim, _ = _claim_and_document()
+    other = source_with("record", "Invoice INV-2207 came to $4,120.00 for the burst pipe.")
+    result = HeraldConfidenceGate(ConfidenceGate(), document=other).check(claim)
+    assert result.outcome is GateOutcome.TERMINAL_BREACH
+
+
+def test_a_gate_that_requires_its_source_refuses_every_claim_without_a_document():
+    claim, document = _claim_and_document()
+    assert HeraldConfidenceGate(ConfidenceGate(require_source=True)).check(claim).outcome is GateOutcome.TERMINAL_BREACH
+    assert HeraldConfidenceGate(ConfidenceGate(require_source=True), document=document).check(claim).outcome in (
+        GateOutcome.PASS, GateOutcome.RETRY)
+
+
+def test_the_document_must_be_a_source_document():
+    with pytest.raises(TypeError):
+        HeraldConfidenceGate(document="the text")
