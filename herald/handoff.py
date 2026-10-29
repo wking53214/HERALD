@@ -225,6 +225,9 @@ class ClaimExport:
     #: The named person whose sign-off made this claim usable, from the gate's own signed decision. None for a
     #: claim no person confirmed. A consumer that takes in a HUMAN_CONFIRMED claim needs this to say who vouched.
     confirmed_by: Optional[str] = None
+    #: Why they confirmed it, and when, from the same signed decision. None for a claim no person confirmed.
+    confirmation_rationale: Optional[str] = None
+    confirmed_at: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -247,6 +250,8 @@ class ClaimExport:
             "content_hash": self.content_hash,
             "authority": self.authority,
             "confirmed_by": self.confirmed_by,
+            "confirmation_rationale": self.confirmation_rationale,
+            "confirmed_at": self.confirmed_at,
         }
 
     @property
@@ -603,6 +608,8 @@ def build(
                 content_hash=claim.content_hash,
                 authority=claim.authority,
                 confirmed_by=decision.confirmed_by,
+                confirmation_rationale=decision.confirmation_rationale,
+                confirmed_at=decision.confirmed_at,
             ))
         else:
             refused.append(RefusalExport(

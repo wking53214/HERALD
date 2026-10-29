@@ -134,6 +134,37 @@ def test_an_export_without_the_field_still_loads_and_reads_as_unconfirmed():
     assert all(e.confirmed_by is None for e in reloaded.admitted)
 
 
+def test_a_human_confirmed_claim_carries_why_and_when():
+    target, package = _confirmed_package("w.king")
+    confirmed = next(e for e in package.admitted if e.claim_id == target.claim_id)
+    assert confirmed.confirmation_rationale == "checked the source"
+    assert confirmed.confirmed_at and confirmed.to_dict()["confirmed_at"] == confirmed.confirmed_at
+
+
+def test_a_claim_no_person_confirmed_carries_no_rationale_or_time():
+    package = handoff_for()
+    assert all(e.confirmation_rationale is None and e.confirmed_at is None for e in package.admitted)
+
+
+def test_the_rationale_and_time_are_covered_by_the_export_mac():
+    _, package = _confirmed_package("w.king")
+    for field in ("confirmation_rationale", "confirmed_at"):
+        exported = package.to_dict()
+        for entry in exported["admitted"]:
+            if entry["reading"] == "HUMAN_CONFIRMED":
+                entry[field] = "edited"
+        with pytest.raises(SealIntegrityError, match="export_mac"):
+            handoff.verify_export(exported)
+
+
+def test_editing_a_confirmation_after_it_was_sealed_voids_it_including_the_time():
+    confirmation = gate.HumanConfirmation(claim_id="c1", confirmed_value=1, confirmed_by="w.king",
+                                          rationale="checked").apply()
+    confirmation.confirmed_at = "2000-01-01T00:00:00+00:00"
+    with pytest.raises(SealIntegrityError, match="edited after sign-off"):
+        confirmation.verify()
+
+
 # -- co-occurrence ---------------------------------------------------------
 
 def test_claims_written_in_one_breath_share_a_bundle():
