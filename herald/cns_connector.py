@@ -295,6 +295,15 @@ class HeraldConfidenceGate:
     ``check`` runs ``ConfidenceGate.submit`` unchanged on a
     :class:`~herald.claim.CandidateClaim` and returns the decision as a bound
     ``cns.gate.GateResult``.
+
+    ``document`` is the :class:`~herald.source.SourceDocument` the claims were
+    read from. Give it whenever you have it: ``check`` then re-checks every
+    claim's citation against that text (the decision records
+    ``source_verified=True``) and refuses, as a ``TERMINAL_BREACH``, a claim
+    that was not extracted from that exact document. Without it the gate
+    behaves as before: the citation is not re-checked and HERALD logs that it
+    was not. A gate wrapped with ``require_source=True`` and no ``document``
+    refuses every claim.
     """
 
     name = GATE_NAME
@@ -304,11 +313,17 @@ class HeraldConfidenceGate:
         gate: Optional[ConfidenceGate] = None,
         *,
         subject: str = DEFAULT_SUBJECT,
+        document: Optional[SourceDocument] = None,
     ) -> None:
         _cns_gate()  # fail here, at construction, not on first use
         _require_subject(subject)
+        if document is not None and not isinstance(document, SourceDocument):
+            raise TypeError(
+                f"document must be the SourceDocument the claims were read from; got {type(document).__name__}"
+            )
         self._gate = gate if gate is not None else ConfidenceGate()
         self._subject = subject
+        self._document = document
 
     @property
     def position(self) -> Any:
@@ -319,7 +334,10 @@ class HeraldConfidenceGate:
             raise TypeError(
                 f"the confidence gate judges a CandidateClaim; got {type(candidate).__name__}"
             )
-        return submit_to_cns(self._gate, candidate, subject=self._subject)
+        return submit_to_cns(
+            self._gate, candidate, subject=self._subject,
+            document=self._document, source=self._document,
+        )
 
 
 def cns_chain(gate: Optional[ConfidenceGate] = None) -> Any:
