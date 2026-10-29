@@ -83,6 +83,57 @@ def test_human_confirmed_claims_have_no_derivation_method():
     assert confirmed[0].reading == "HUMAN_CONFIRMED"
 
 
+def _confirmed_package(confirmed_by="w.king"):
+    d = doc()
+    claims = extract.extract(d)
+    target = min(claims, key=lambda c: c.confidence)
+    controller = gate.ConfidenceGate(require_source=True)
+    controller.record_confirmation(gate.HumanConfirmation(
+        claim_id=target.claim_id, confirmed_value=500.0,
+        confirmed_by=confirmed_by, rationale="checked the source"))
+    return target, handoff.build(claims, controller.submit_all(claims, document=d), d)
+
+
+def test_a_human_confirmed_claim_names_the_person_who_confirmed_it():
+    """A consumer that takes in a person's sign-off must be able to say whose it was."""
+    target, package = _confirmed_package("w.king")
+    confirmed = next(e for e in package.admitted if e.claim_id == target.claim_id)
+    assert confirmed.reading == "HUMAN_CONFIRMED" and confirmed.confirmed_by == "w.king"
+    assert confirmed.to_dict()["confirmed_by"] == "w.king"
+
+
+def test_a_claim_no_person_confirmed_names_no_one():
+    package = handoff_for()
+    assert package.admitted and all(e.confirmed_by is None for e in package.admitted)
+    assert all(e.reading != "HUMAN_CONFIRMED" for e in package.admitted)
+
+
+def test_the_confirmer_is_covered_by_the_export_mac():
+    """Editing whose sign-off it was, after the export was sealed, breaks the export."""
+    _, package = _confirmed_package("w.king")
+    exported = package.to_dict()
+    handoff.verify_export(exported)
+    for entry in exported["admitted"]:
+        if entry["reading"] == "HUMAN_CONFIRMED":
+            entry["confirmed_by"] = "someone.else"
+    with pytest.raises(SealIntegrityError, match="export_mac"):
+        handoff.verify_export(exported)
+
+
+def test_an_export_without_the_field_still_loads_and_reads_as_unconfirmed():
+    """Exports sealed before the field existed carry no confirmed_by; they must still verify and load."""
+    package = handoff_for()
+    exported = package.to_dict()
+    for entry in exported["admitted"]:
+        entry.pop("confirmed_by")
+    # Re-seal the MAC over the older shape, as an older HERALD would have.
+    from herald.handoff import EXPORT_MAC_VERSION, KEY_ID, _sign_export  # noqa: PLC0415
+    exported["export_mac"] = _sign_export(EXPORT_MAC_VERSION, exported["document"], exported["herald"],
+                                          exported["admitted"], exported["refused"], KEY_ID)
+    reloaded = Handoff.from_dict(exported)
+    assert all(e.confirmed_by is None for e in reloaded.admitted)
+
+
 # -- co-occurrence ---------------------------------------------------------
 
 def test_claims_written_in_one_breath_share_a_bundle():
