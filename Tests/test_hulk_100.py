@@ -1751,11 +1751,10 @@ def test_round2_r2_mutating_verdict_is_now_detected_and_no_longer_flips_a_refusa
 
 @pytest.mark.parametrize("field,new_value", [
     ("confidence", 0.01),
-    ("confirmed_by", "attacker"),
     ("decided_at", "2000-01-01T00:00:00+00:00"),
 ])
 def test_round2_r2_these_fields_remain_undetected_but_also_remain_inert(field, new_value):
-    """[EXECUTING] ROUND 2, fields 4,6,7/8: confidence, confirmed_by,
+    """[EXECUTING] ROUND 2, fields 4,7/8: confidence,
     decided_at -- deliberately NOT covered by authorization_mac (see
     _decision_mac_payload's docstring in herald/gate.py), because neither
     export dataclass in handoff.py reads them from the decision. Still
@@ -1765,13 +1764,28 @@ def test_round2_r2_these_fields_remain_undetected_but_also_remain_inert(field, n
     directly -- that surface is still unauthenticated, just not exercised
     by build(). threshold, the fourth field originally grouped with these
     in Round 2, is now covered (see the dedicated threshold test below)
-    and moved out of this group.
+    and moved out of this group. confirmed_by moved out too: the export now
+    carries it, so it is covered (see the confirmed_by test below).
     """
     doc, claim, decision = _round2_admitted_claim_and_decision(f"r2-inert-{field}")
     setattr(decision, field, new_value)
     package = handoff_module.build([claim], [decision], doc)  # must NOT raise
     assert len(package.admitted) == 1
     assert package.admitted[0].value == claim.value
+
+
+@pytest.mark.parametrize("field,new_value", [
+    ("confirmed_by", "attacker"),
+    ("confirmation_rationale", "attacker says so"),
+    ("confirmed_at", "2000-01-01T00:00:00+00:00"),
+])
+def test_round2_r2_mutating_the_signoff_record_is_now_detected(field, new_value):
+    """The export carries who confirmed a claim, why and when, so a decision edited
+    on any of them is refused instead of arriving in the export looking signed."""
+    doc, claim, decision = _round2_admitted_claim_and_decision(f"r2-signoff-{field}")
+    setattr(decision, field, new_value)
+    with pytest.raises(HandoffError):
+        handoff_module.build([claim], [decision], doc)
 
 
 def test_round2_r2_mutating_threshold_is_now_detected():
@@ -2134,13 +2148,13 @@ def test_round2_r9_fully_fabricated_claim_and_decision_no_longer_has_an_ancestor
 def test_round2_r9_unrelated_field_tampering_that_leaves_the_hash_alone_is_still_rejected():
     """[EXECUTING] ROUND 9, combo 3/3, the negative control. Claim is
     mutated and resealed; an OTHER, non-MAC-covered decision field
-    (confirmed_by here, not reason -- reason is MAC-covered as of Round 3,
+    (confidence here, not reason -- reason is MAC-covered as of Round 3,
     see the dedicated reason test above) is also tampered;
     authorized_content_hash is left untouched, still pointing at the
     claim's pre-mutation state.
 
     REJECT, via the original (Round 1-era) content_hash-mismatch path,
-    not the new MAC path: confirmed_by isn't signed, so the MAC still
+    not the new MAC path: confidence isn't signed, so the MAC still
     matches its own fields; the state-vs-authorized-state comparison is
     what catches this one. Confirms both checks remain precise after
     layering the MAC on top: tampering an unrelated field, whether or not
@@ -2150,7 +2164,7 @@ def test_round2_r9_unrelated_field_tampering_that_leaves_the_hash_alone_is_still
     doc, claim, decision = _round2_admitted_claim_and_decision("r9-combo3")
     claim.value = {"amount": 42.0, "currency": "USD"}
     claim.seal()
-    decision.confirmed_by = "irrelevant tamper, hash untouched"  # decoy mutation, not MAC-covered
+    decision.confidence = 0.01  # decoy mutation, not MAC-covered
 
     with pytest.raises(HandoffError) as exc_info:
         handoff_module.build([claim], [decision], doc)

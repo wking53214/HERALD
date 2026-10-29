@@ -115,7 +115,8 @@ KEY_ID: str = "key-" + hashlib.sha256(b"herald-key-id|" + _ISSUER_KEY).hexdigest
 def _decision_mac_payload(
     claim_id: str, verdict: str, threshold: float, reason: str,
     authorized_content_hash: Optional[str], source_verified: bool = False,
-    key_id: str = KEY_ID,
+    key_id: str = KEY_ID, confirmed_by: Optional[str] = None,
+    confirmation_rationale: Optional[str] = None, confirmed_at: Optional[str] = None,
 ) -> Dict[str, Any]:
     """The fields an authorization_mac actually covers.
 
@@ -126,10 +127,13 @@ def _decision_mac_payload(
     binding this decision to the numeric policy that produced it; reason
     is bound because it is the one field RefusalExport re-exports
     verbatim, so a tampered reason was a live, demonstrated exploit, not
-    a hypothetical one. confidence, confirmed_by, and decided_at are
-    deliberately NOT covered: neither export dataclass in handoff.py
-    reads them from the decision, so tampering them has no exploitable
-    effect through this package's own handoff path today.
+    a hypothetical one. confirmed_by, confirmation_rationale and
+    confirmed_at ARE covered: build() copies them into the export, where
+    a consumer takes them as who vouched for a claim, why, and when, so an
+    edit to them on the decision would otherwise arrive looking signed.
+    confidence and decided_at are deliberately NOT covered: neither export
+    dataclass in handoff.py reads them from the decision, so tampering
+    them has no exploitable effect through this package's own handoff path.
     """
     return {
         "claim_id": claim_id,
@@ -142,13 +146,18 @@ def _decision_mac_payload(
         "source_verified": source_verified,
         # Bound so a decision cannot be relabelled as signed under another key.
         "key_id": key_id,
+        # Bound because the export carries them as the record of a person's sign-off.
+        "confirmed_by": confirmed_by,
+        "confirmation_rationale": confirmation_rationale,
+        "confirmed_at": confirmed_at,
     }
 
 
 def _sign_decision(
     claim_id: str, verdict: str, threshold: float, reason: str,
     authorized_content_hash: Optional[str], source_verified: bool = False,
-    key_id: str = KEY_ID,
+    key_id: str = KEY_ID, confirmed_by: Optional[str] = None,
+    confirmation_rationale: Optional[str] = None, confirmed_at: Optional[str] = None,
 ) -> str:
     """HMAC-SHA256 over the bound fields, keyed with the process issuer key.
 
@@ -160,7 +169,7 @@ def _sign_decision(
     """
     payload = _canonical(_decision_mac_payload(
         claim_id, verdict, threshold, reason, authorized_content_hash, source_verified,
-        key_id,
+        key_id, confirmed_by, confirmation_rationale, confirmed_at,
     ))
     return hmac.new(_ISSUER_KEY, payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
@@ -223,6 +232,7 @@ class HumanConfirmation:
             "confirmed_value": self.confirmed_value,
             "confirmed_by": self.confirmed_by,
             "rationale": self.rationale,
+            "confirmed_at": self.confirmed_at,
         }
 
     def compute_seal(self) -> str:
@@ -286,6 +296,10 @@ class GateDecision:
     # The key that issued authorization_mac. Bound into the MAC, so it cannot be
     # changed after issuance without the MAC failing.
     key_id: str = KEY_ID
+    # Why the named person confirmed it, and when. Set only on a decision made
+    # from a human confirmation; bound into the MAC with confirmed_by.
+    confirmation_rationale: Optional[str] = None
+    confirmed_at: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -325,6 +339,7 @@ class GateDecision:
         expected_mac = _sign_decision(
             self.claim_id, self.verdict, self.threshold, self.reason,
             self.authorized_content_hash, self.source_verified, self.key_id,
+            self.confirmed_by, self.confirmation_rationale, self.confirmed_at,
         )
         if self.authorization_mac is None or not hmac.compare_digest(
             expected_mac, self.authorization_mac
@@ -397,6 +412,8 @@ class ConfidenceGate:
         claim: CandidateClaim,
         confirmed_by: Optional[str] = None,
         source_verified: bool = False,
+        confirmation_rationale: Optional[str] = None,
+        confirmed_at: Optional[str] = None,
     ) -> GateDecision:
         """Build one GateDecision, MAC included, from the claim's own
         current fields. Every branch of submit() below used to construct
@@ -418,9 +435,11 @@ class ConfidenceGate:
             authorized_content_hash=content_hash,
             source_verified=source_verified,
             key_id=KEY_ID,
+            confirmation_rationale=confirmation_rationale,
+            confirmed_at=confirmed_at,
             authorization_mac=_sign_decision(
                 claim.claim_id, verdict, threshold, reason, content_hash, source_verified,
-                KEY_ID,
+                KEY_ID, confirmed_by, confirmation_rationale, confirmed_at,
             ),
         )
 
@@ -519,6 +538,7 @@ class ConfidenceGate:
             return self._decide(
                 VERDICT_ADMITTED, threshold, reason, claim,
                 confirmed_by=confirmation.confirmed_by, source_verified=source_verified,
+                confirmation_rationale=confirmation.rationale, confirmed_at=confirmation.confirmed_at,
             )
 
         if claim.confidence >= threshold:
