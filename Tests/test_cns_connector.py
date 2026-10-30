@@ -279,8 +279,6 @@ def test_governed_run_rejects_non_documents():
 
 import logging  # noqa: E402
 
-from herald.extract import extract  # noqa: E402
-
 
 def _claim_and_document():
     document = source_with("record", "Invoice INV-2207 came to $412.00 for the burst pipe.")
