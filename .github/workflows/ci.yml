@@ -20,7 +20,7 @@ jobs:
           # selection with no local config to hold it steady, which turns a
           # clean tree red with no code change to blame. Bump this pin
           # deliberately and clean up what the new rule set flags.
-          pip install pytest ruff==0.15.22 bandit
+          pip install pytest ruff==0.15.22 bandit "cryptography>=42"
 
       - name: Tests
         run: python3 -m pytest Tests -q

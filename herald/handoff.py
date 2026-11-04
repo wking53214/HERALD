@@ -70,6 +70,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
+
 from . import binding
 from .claim import CandidateClaim, _canonical
 from .errors import BoundaryViolation, HeraldError, SealIntegrityError
@@ -83,6 +87,9 @@ class HandoffError(HeraldError):
 
 #: Current export format. Version 2 binds the key ID into export_mac.
 EXPORT_MAC_VERSION = "2"
+#: Version 3: an Ed25519 signature by a configured export key, verifiable in ANY process that holds the public key.
+#: Version 2 stays in-process only (HMAC over a process-local key). See `verify_export`.
+EXPORT_SIGNATURE_VERSION = "3"
 #: LEGACY, VERIFY-ONLY. Version 1 exports carry no key ID. Still checkable, never produced.
 LEGACY_EXPORT_MAC_VERSION = "1"
 NO_FLAG_RECORDED = "NO_FLAG_RECORDED"
@@ -140,7 +147,71 @@ def _sign_export(
     return hmac.new(_ISSUER_KEY, payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
-def verify_export(payload: Mapping[str, Any]) -> None:
+def export_key_id(public_key: Ed25519PublicKey) -> str:
+    """The label a v3 export names its signing key by: a short hash of the public key, never the key's secret."""
+    raw = public_key.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    return "ed25519-" + hashlib.sha256(raw).hexdigest()[:16]
+
+
+def load_export_signing_key(path: str) -> Ed25519PrivateKey:
+    """Read an Ed25519 export signing key from a PEM file (PKCS#8). Refuses any other key type."""
+    with open(path, "rb") as fh:
+        key = serialization.load_pem_private_key(fh.read(), password=None)
+    if not isinstance(key, Ed25519PrivateKey):
+        raise HandoffError("the export signing key must be an Ed25519 private key")
+    return key
+
+
+def load_export_public_key(pem: bytes) -> Ed25519PublicKey:
+    """Read an Ed25519 export verification key (PEM, SubjectPublicKeyInfo). Refuses any other key type."""
+    key = serialization.load_pem_public_key(pem)
+    if not isinstance(key, Ed25519PublicKey):
+        raise HandoffError("the export verification key must be an Ed25519 public key")
+    return key
+
+
+def export_public_pem(private_key: Ed25519PrivateKey) -> bytes:
+    """The PEM a consumer pins to verify this key's exports."""
+    return private_key.public_key().public_bytes(
+        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+
+
+def _signature_input(payload: Mapping[str, Any]) -> bytes:
+    """The exact bytes a v3 signature covers: the canonical JSON of the payload, which includes the key ID.
+
+    TIE recomputes these bytes independently (tie.evidence.herald_intake). The rule is: json.dumps with sorted keys
+    and separators (",", ":"), ensure_ascii on. Any change here is a format change and needs a new version."""
+    return _canonical(_export_mac_payload(
+        EXPORT_SIGNATURE_VERSION, payload["document"], payload["herald"], payload["admitted"], payload["refused"],
+        payload["key_id"],
+    )).encode("utf-8")
+
+
+def _verify_signature(payload: Mapping[str, Any], claimed: Any,
+                      trusted_keys: Optional[Mapping[str, Ed25519PublicKey]]) -> None:
+    """Check a v3 export against the caller's pinned public keys. The caller decides whom to trust, not the export."""
+    if not trusted_keys:
+        raise SealIntegrityError(
+            "a version 3 export is verified with trusted_keys (the export key's public key), not in-process")
+    key_id = payload.get("key_id")
+    key = trusted_keys.get(key_id) if isinstance(key_id, str) else None
+    if key is None:
+        raise SealIntegrityError(f"export was signed with key {key_id!r}, which is not among the trusted keys")
+    if not isinstance(claimed, str):
+        raise SealIntegrityError("a version 3 export has no signature")
+    try:
+        signature = bytes.fromhex(claimed)
+    except ValueError:
+        raise SealIntegrityError("a version 3 export's signature is not hex") from None
+    try:
+        key.verify(signature, _signature_input(payload))
+    except InvalidSignature:
+        raise SealIntegrityError(
+            "export signature does not verify under its key: the export was altered after it was signed") from None
+
+
+def verify_export(payload: Mapping[str, Any], *,
+                  trusted_keys: Optional[Mapping[str, Ed25519PublicKey]] = None) -> None:
     """Re-verify a Handoff.to_dict() (or its JSON round-trip) after the
     fact.
 
@@ -161,6 +232,9 @@ def verify_export(payload: Mapping[str, Any]) -> None:
     """
     claimed = payload.get("export_mac")
     version = payload.get("export_mac_version")
+    if version == EXPORT_SIGNATURE_VERSION:
+        _verify_signature(payload, claimed, trusted_keys)
+        return
     if version not in (EXPORT_MAC_VERSION, LEGACY_EXPORT_MAC_VERSION):
         raise SealIntegrityError(
             f"unsupported or missing export_mac_version {version!r}"
@@ -469,6 +543,7 @@ def build(
     decisions: Sequence[GateDecision],
     document: SourceDocument,
     binding_pin: Optional["binding.Binding"] = None,
+    export_signing_key: Optional[Ed25519PrivateKey] = None,
 ) -> Handoff:
     """Assemble the handoff for one document.
 
@@ -629,6 +704,21 @@ def build(
     herald_dict = {"version": binding.VERSION, "code_hash": binding.code_hash()}
     admitted_dicts = [e.to_dict() for e in admitted]
     refused_dicts = [r.to_dict() for r in refused]
+    if export_signing_key is not None:
+        # Version 3: an Ed25519 signature that any process holding the public key can check.
+        key_id = export_key_id(export_signing_key.public_key())
+        payload = _export_mac_payload(EXPORT_SIGNATURE_VERSION, document_dict, herald_dict, admitted_dicts,
+                                      refused_dicts, key_id)
+        signature = export_signing_key.sign(_signature_input(payload)).hex()
+        return Handoff(
+            document=document_dict,
+            herald=herald_dict,
+            admitted=tuple(admitted),
+            refused=tuple(refused),
+            export_mac=signature,
+            export_mac_version=EXPORT_SIGNATURE_VERSION,
+            key_id=key_id,
+        )
     export_mac = _sign_export(
         EXPORT_MAC_VERSION, document_dict, herald_dict, admitted_dicts, refused_dicts, KEY_ID
     )
@@ -648,6 +738,7 @@ def read(
     document: SourceDocument,
     gate_instance: Optional[ConfidenceGate] = None,
     binding_pin: Optional["binding.Binding"] = None,
+    export_signing_key: Optional[Ed25519PrivateKey] = None,
 ) -> Handoff:
     """The whole path in one call: extract, gate, package.
 
@@ -667,4 +758,4 @@ def read(
     claims = extract_module.extract(document)
     controller = gate_instance or ConfidenceGate(require_source=True)
     decisions = controller.submit_all(claims, document=document)
-    return build(claims, decisions, document, binding_pin=binding_pin)
+    return build(claims, decisions, document, binding_pin=binding_pin, export_signing_key=export_signing_key)
