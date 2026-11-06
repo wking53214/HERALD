@@ -33,8 +33,8 @@ Measured 2026-10-31 at main `f708fc3` (CI status was last recorded 2026-10-30 an
 | Version | 0.3.0 (`pyproject.toml` and `herald/binding.py` agree) |
 | Tag and GitHub Release | None yet. Tagging is the owner's decision. |
 | CI on main | Green as of 2026-10-30 (tests, calibration gate, ruff 0.15.22, bandit, and the CNS job on Python 3.11 and 3.12). Not re-run on 2026-10-31. |
-| Tests | `python -m pytest -q`: 436 passed, 0 failed, 0 skipped without CNS (clean venv); 464 passed, 0 failed, 0 skipped with CNS 2.3.0 installed. Ruff and bandit were not re-run. |
-| CNS pin | The optional `cns` extra in `pyproject.toml` is pinned to the tag v2.3.0 (its own comment still says v2.2.0, which is stale) |
+| Tests | `python -m pytest -q`: 445 passed, 0 failed, 0 skipped without CNS; 473 passed, 0 failed, 0 skipped with CNS 2.3.0 installed (measured 2026-11-06, main `b2260c1`). Ruff and bandit were not re-run. |
+| CNS pin | The optional `cns` extra in `pyproject.toml` is pinned to the tag v2.3.0, and its comment says so. |
 
 ## 5. Core Invariants & Guarantees
 
@@ -99,7 +99,7 @@ extract -> bind spans -> ConfidenceGate (OMEGA) -> Handoff + export_mac
 |---|---|---|
 | Optional connector expressing ALPHA and OMEGA verdicts as `cns.gate` results | implemented | `herald/cns_connector.py:129` (`_cns_gate`, lazy `importlib.import_module("cns.gate")`), `:272` (`submit_to_cns`), `:371` (`source_to_cns_result`), `:436` (`full_chain`), `:468` (`run_governed`) |
 | Called by the CNS spine script | implemented, on the CNS side | CNS `chains/evidence_spine.py:146-148` imports `run_governed`, `HeraldConfidenceGate`, `HeraldSourceGate` |
-| HERALD works with CNS absent | implemented | `Tests/test_cns_absent.py`; 436 tests pass in a venv without CNS |
+| HERALD works with CNS absent | implemented | `Tests/test_cns_absent.py`; 445 tests pass in a venv without CNS |
 | Imports of `cns_interop` or `cns_composition` | absent | no such import anywhere in the repo |
 | UAI-1 signed messages (docs/interop/UAI-1.md in CNS) | absent | no reference in this repo |
 
