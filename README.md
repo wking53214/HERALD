@@ -98,7 +98,7 @@ extract -> bind spans -> ConfidenceGate (OMEGA) -> Handoff + export_mac
 | Item | Status | Evidence |
 |---|---|---|
 | Optional connector expressing ALPHA and OMEGA verdicts as `cns.gate` results | implemented | `herald/cns_connector.py:129` (`_cns_gate`, lazy `importlib.import_module("cns.gate")`), `:272` (`submit_to_cns`), `:371` (`source_to_cns_result`), `:436` (`full_chain`), `:468` (`run_governed`) |
-| Called by the CNS spine script | implemented, on the CNS side | CNS `chains/evidence_spine.py:146-148` imports `run_governed`, `HeraldConfidenceGate`, `HeraldSourceGate` |
+| Called by the CNS spine script | implemented, on the CNS side | CNS `chains/evidence_spine.py:173-174` imports `run_governed`, `HeraldConfidenceGate`, `HeraldSourceGate` |
 | HERALD works with CNS absent | implemented | `Tests/test_cns_absent.py`; 445 tests pass in a venv without CNS |
 | Imports of `cns_interop` or `cns_composition` | absent | no such import anywhere in the repo |
 | UAI-1 signed messages (docs/interop/UAI-1.md in CNS) | absent | no reference in this repo |
