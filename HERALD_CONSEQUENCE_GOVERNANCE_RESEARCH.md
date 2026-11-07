@@ -52,7 +52,7 @@ Yes, in a structured way:
 
 ### Does ConfidenceGate already do part of this?
 
-Yes, but only as a threshold gate. It does not evaluate consequence. its function is to deny low-confidence claims and require a named human sign-off.
+Yes, but only as a threshold gate. It does not evaluate consequence. Its function is to deny low-confidence claims and require a named human sign-off.
 
 ### Should consequence occur before ConfidenceGate?
 
@@ -118,7 +118,7 @@ REJECT
 
 ### Why
 
-- Silicon-level improvement is not significant enough to justify changing HERALD's contract.
+- Marginal improvement is not significant enough to justify changing HERALD's contract.
 - HERALD already has a stronger, deterministic evidence model and a gate that enforces minimum confidence.
 - A consequence layer would be a domain-policy overlay, not a core claim primitive.
 - It risks becoming a second authority that can override the evidence ledger at the boundary.
