@@ -10,7 +10,7 @@ A mention in earlier versions of this README of an observe-perceive `herald_gove
 
 ## 2. Full System Scope & Architectural Depth
 
-Package `herald/`: `claim.py`, `extract.py`, `binding.py`, `gate.py`, `source.py`, `calibration.py`, `handoff.py`, `ambiguity.py`, `boundary.py`, `golden_set.py`. Tests include `test_hulk_100.py`, consequence-governance experiment. CONSTITUTION.md states the linguistic-governance rules.
+Package `herald/`: `claim.py`, `extract.py`, `binding.py`, `gate.py`, `source.py`, `calibration.py`, `handoff.py`, `ambiguity.py`, `boundary.py`, `golden_set.py`, `lineage.py`, `positions.py`, `cns_connector.py` (optional CNS bridge), `errors.py`, `demo.py`, and `consequence_governance_experiment.py`. Tests include `test_hulk_100.py`, consequence-governance experiment. CONSTITUTION.md states the linguistic-governance rules.
 
 Pipeline: source → extract candidate claims → bind spans → gate on confidence/ambiguity → typed handoff. Test counts are under Release and test status in section 4.
 
@@ -26,14 +26,14 @@ Commercial: **FEATURE unless paired with a domain.** Extraction quality depends 
 
 ### Release and test status
 
-Measured 2026-10-31 at main `f708fc3` (CI status was last recorded 2026-10-30 and was not re-checked).
+Measured 2026-11-06 at main `8df86f8` unless a row says otherwise.
 
 | What | State |
 |---|---|
 | Version | 0.3.0 (`pyproject.toml` and `herald/binding.py` agree) |
 | Tag and GitHub Release | None yet. Tagging is the owner's decision. |
-| CI on main | Green as of 2026-10-30 (tests, calibration gate, ruff 0.15.22, bandit, and the CNS job on Python 3.11 and 3.12). Not re-run on 2026-10-31. |
-| Tests | `python -m pytest -q`: 445 passed, 0 failed, 0 skipped without CNS; 473 passed, 0 failed, 0 skipped with CNS 2.3.0 installed (measured 2026-11-06, main `b2260c1`). Ruff and bandit were not re-run. |
+| CI on main | Last recorded green on 2026-10-30 (tests, calibration gate, ruff 0.15.22, bandit, and the CNS job on Python 3.11 and 3.12). Not re-run on the hosted runner. Local re-run at `8df86f8` on 2026-11-06: ruff 0.15.22 clean, bandit clean. |
+| Tests | `python -m pytest -q` at `8df86f8` on 2026-11-06: 445 passed, 0 failed without CNS. With CNS 2.3.0 installed: 473 passed, 0 failed, 0 skipped (carried forward from a 2026-11-06 run at main `b2260c1`; not re-run at `8df86f8`). |
 | CNS pin | The optional `cns` extra in `pyproject.toml` is pinned to the tag v2.3.0, and its comment says so. |
 
 ## 5. Core Invariants & Guarantees
@@ -73,7 +73,7 @@ documents -> HERALD -> claims+spans+handoff -> TIE (see section 8 for the full s
 - Extract domain-agnostic claims (dates, amounts, percentages, quantities, durations, references) with spans and provenance (`extract.py`, `binding.py`, `claim.py`).
 - Refuse to build a claim whose kind is a governed determination such as legal or compliance judgment (`boundary.py`, CONSTITUTION.md section 1).
 - Gate each claim on confidence and ambiguity into admitted, refused-pending-human or blocked (`gate.py`, `ConfidenceGate`).
-- Package admitted and refused claims, with reasons and a signed export, as a `Handoff` (`handoff.py:287`, `build` at `handoff.py:467`).
+- Package admitted and refused claims, with reasons and a signed export, as a `Handoff` (class at `handoff.py:361`, `build` at `handoff.py:541`).
 
 **Inputs and outputs.** In: a `SourceDocument`, optionally a `HumanConfirmation` naming who confirmed a refused claim. Out: `GateDecision` per claim and a `Handoff` dict carrying `export_mac`, `export_mac_version` and the signing `key_id`. Handoff is data, not a call into any executor.
 
@@ -91,7 +91,7 @@ extract -> bind spans -> ConfidenceGate (OMEGA) -> Handoff + export_mac
         (downstream, not imported or called by this repo)
 ```
 
-**Companions.** The spine is HERALD, TIE, Conservation_Kernel, Governance_Gateway and CCC, in that order, run end to end by `chains/evidence_spine.py` in [CNS](https://github.com/wking53214/CNS). CNS holds the shapes of a gate decision (PASS, RETRY, TERMINAL_BREACH), not the decisions. See also [TIE](https://github.com/wking53214/TIE), [Conservation_Kernel](https://github.com/wking53214/Conservation_Kernel), [Governance_Gateway](https://github.com/wking53214/Governance_Gateway) and [CCC](https://github.com/wking53214/CCC). Nothing in HERALD's source names TIE, Conservation_Kernel, Governance_Gateway, CCC, CCCb or Link; those relationships live in CNS and in the downstream repositories. In the CNS spine script, TIE's intake function `evidence_from_herald_export` is what reads HERALD's export.
+**Companions.** The spine is HERALD, TIE, Conservation_Kernel, Governance_Gateway and CCC, in that order, run end to end by `chains/evidence_spine.py` in [CNS](https://github.com/wking53214/CNS). CNS holds the shapes of a gate decision (PASS, RETRY, TERMINAL_BREACH), not the decisions. See also [TIE](https://github.com/wking53214/TIE), [Conservation_Kernel](https://github.com/wking53214/Conservation_Kernel), [Governance_Gateway](https://github.com/wking53214/Governance_Gateway) and [CCC](https://github.com/wking53214/CCC). Apart from one comment in `handoff.py` that names TIE, HERALD's source does not name TIE, Conservation_Kernel, Governance_Gateway, CCC, CCCb or Link; those relationships live in CNS and in the downstream repositories. In the CNS spine script, TIE's intake function `evidence_from_herald_export` is what reads HERALD's export.
 
 **CNS interaction: partial.**
 
@@ -105,7 +105,7 @@ extract -> bind spans -> ConfidenceGate (OMEGA) -> Handoff + export_mac
 
 HERALD does not decide for CNS and CNS does not decide for HERALD: the connector only translates HERALD's own verdicts. Communication, recommendation, decision and permission stay separate layers: HERALD recommends by admitting a claim, the downstream responsible system decides, and the receiver's own policy permits.
 
-**Limitations (measured or read from source, 2026-10-31).**
+**Limitations (read from source at `8df86f8`, 2026-11-06).**
 
 - The decision MAC and `export_mac` use a process-local random key (`gate.py:107`, `handoff.py:143-160`). `verify_export` therefore proves non-alteration only inside the process that produced the export. A different process or machine cannot verify it, and `KEY_ID` is a label, not a secret. The CNS spine script works because it runs all five seats in one process. Crossing a process boundary needs a different mechanism (for example UAI-1), which HERALD does not implement.
 - The source gate treats `unknown` standing as RETRY at the CNS connector, which is stricter than plain `extract`, which still runs on unknown-standing text.
