@@ -12,3 +12,10 @@ _Findings below were surfaced by ghost_buster and explicitly reviewed by a human
 - **3 functions share identical AST structure (names/literals differ, control flow and shape don't): Tests/test_hulk_100.py:1844:test_round2_r3_substituted_claim_with_same_claim_id_different_content_is_rejected, Tests/test_hulk_100.py:2314:test_round3_I_replay_against_independent_claim_is_rejected, Tests/test_hulk_100.py:2440:test_round3_crypto_2_copy_authorization_a_substitute_claim_b_is_rejected** (`Tests/test_hulk_100.py:1844`, `ghost-9e21fe4d0603` (re-check 2026-11-08 at main `d7e3e51`: the three functions are still at lines 1844, 2314 and 2440; the earlier ID `ghost-588085528840` is no longer produced), severity: major)
   Structural fingerprint match, not textual diff -- this is the 'copy-pasted then renamed' shape specifically. Confirm these are actually solving the same problem before merging; some structural matches are coincidental (e.g. two unrelated simple validators).
   *Why documented, not fixed:* Verified by reading the source (re-checked 2026-11-06 at main `60d5150`; line numbers corrected): all three follow HERALD's adversarial regression pattern -- construct a claim/decision, submit a tampered or substituted variant, assert it is rejected. Same shape by design (it's the test harness's own convention for this class of attack), not accidental duplication.
+
+### Triage recommendations (2026-11-08, pending owner confirmation)
+
+These are recommendations, not owner decisions. They were recorded while closing open items, and the owner has not yet reviewed them.
+
+- **`build` spans 193 lines** (`herald/handoff.py`, ghost-d54ed63aa20d, major). Recommendation: accept and defer. This function defines the exact bytes of the signed export, which TIE recomputes independently and which the pinned-vector tests check. Refactoring it risks silent format drift. Revisit only with those vector tests as the guard.
+- **`to_cns_result` repeats a statement three times** (`herald/cns_connector.py`, ghost-60dfd4196d20, major). Recommendation: false positive. The three repeats are separate input-validation guards, each with its own error message.
