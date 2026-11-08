@@ -53,6 +53,13 @@ Source binding required for a claim to pass the gate. Ambiguity is first-class (
 
 The decision MAC is tamper-evidence within one process, not tamper-proofing. The CNS digest is tamper-evidence across processes.
 
+**What the guarantees do not cover.**
+
+- *Integrity is not truth.* A seal, MAC, digest or signature shows that content was not altered and, for a signature, that a trusted key made it. None of them shows that a claim is true, or that the source's author or the person who confirmed a claim had authority to do so. The CNS digest is not a signature, an authorization credential or proof of truth.
+- *Human identity is not human authority.* A `HumanConfirmation` records the name of the person who confirmed a refused claim. HERALD does not check that the person may confirm claims of that kind. That authority belongs to the consuming governance system.
+- *The code hash pins the package, not the installation.* The consumer pin covers the `.py` files in the `herald` package, sorted by path. It does not cover installed dependencies, the Python runtime or external configuration, so it is not a complete software supply-chain attestation.
+- *Calibration is not extraction accuracy.* The calibration run counts false confidence (which blocks) and over-caution (tracked, not blocking) against the golden set. It does not measure precision, recall or semantic correctness on general text.
+
 ## 6. Inputs, Outputs & Type Contracts
 
 See `herald/claim.py`, `handoff.py`. Handoff is data, not an RPC to execution.
