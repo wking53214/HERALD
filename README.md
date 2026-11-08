@@ -26,14 +26,14 @@ Commercial: **FEATURE unless paired with a domain.** Extraction quality depends 
 
 ### Release and test status
 
-Measured 2026-11-06 at main `8df86f8` unless a row says otherwise.
+Measured 2026-11-08 at main `ec9412f` unless a row says otherwise.
 
 | What | State |
 |---|---|
 | Version | 0.3.0 (`pyproject.toml` and `herald/binding.py` agree) |
 | Tag and GitHub Release | None yet. Tagging is the owner's decision. |
-| CI on main | Last recorded green on 2026-10-30 (tests, calibration gate, ruff 0.15.22, bandit, and the CNS job on Python 3.11 and 3.12). Not re-run on the hosted runner. Local re-run at `8df86f8` on 2026-11-06: ruff 0.15.22 clean, bandit clean. |
-| Tests | `python -m pytest -q` at `8df86f8` on 2026-11-06: 445 passed, 0 failed without CNS. With CNS 2.3.0 installed: 473 passed, 0 failed, 0 skipped (carried forward from a 2026-11-06 run at main `b2260c1`; not re-run at `8df86f8`). |
+| CI on main | Last recorded green on 2026-10-30 (tests, calibration gate, ruff 0.15.22, bandit, and the CNS job on Python 3.11 and 3.12). Not re-run on the hosted runner. Local re-run at `ec9412f` on 2026-11-08: ruff 0.15.22 clean, bandit clean. |
+| Tests | `python -m pytest Tests` at `ec9412f` on 2026-11-08: 443 passed, 0 failed without CNS (`Tests/test_cns_connector.py` excluded, as the CI job without CNS does). With CNS 2.3.0 installed: 473 passed, 0 failed, 0 skipped. |
 | CNS pin | The optional `cns` extra in `pyproject.toml` is pinned to the tag v2.3.0, and its comment says so. |
 
 ## 5. Core Invariants & Guarantees
