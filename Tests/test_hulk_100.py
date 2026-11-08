@@ -77,6 +77,7 @@ import dataclasses
 import hashlib
 import hmac
 import json
+import statistics
 import time
 
 import pytest
@@ -2760,13 +2761,19 @@ def test_nl_redos_missing_required_unit_is_now_bounded_not_quadratic():
             best = min(best, time.time() - t0)
         return best
 
+    # One ratio is noisy on a shared runner (a single sample has been seen at
+    # 3.5x for a linear pattern). A quadratic pattern gives about 4x every
+    # time, so the median of five independent ratios still catches it.
     for spec in (percent_spec, duration_spec, quantity_spec, currency_spec):
-        small = timed(spec, 600)
-        large = timed(spec, 1200)
-        ratio = large / max(small, 1e-6)
+        ratios = []
+        for _ in range(5):
+            small = timed(spec, 600)
+            large = timed(spec, 1200)
+            ratios.append(large / max(small, 1e-6))
+        ratio = statistics.median(ratios)
         assert ratio < 3.0, (
             f"{spec.name}: doubling input length scaled runtime by "
-            f"{ratio:.1f}x -- expected well under 3x (linear-ish, bounded); "
+            f"{ratio:.1f}x (median of 5) -- expected well under 3x (linear-ish, bounded); "
             "if this fails, the [\\d,]{0,24} bound may have regressed"
         )
         assert large < 0.05, (
