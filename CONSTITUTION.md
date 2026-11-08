@@ -170,3 +170,11 @@ gets no vote on the deterministic ones.
 **Why.** What is being measured here is uncertainty. A detector whose own
 output varies run to run cannot be tested for honest calibration, and honest
 calibration is the entire acceptance criterion.
+
+---
+
+## Clarification: what signatures and confirmations establish
+
+*This note restates the principles above. It does not change them.*
+
+A signature or MAC shows that content was not altered after signing, and, for a version 3 export, that a trusted key made it. It does not show that a claim is true, that the author of a source document had authority, or that a named person was entitled to confirm a claim. A `HumanConfirmation` records who confirmed; the consuming governance system decides whether that person was authorized to.
