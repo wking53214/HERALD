@@ -33,14 +33,14 @@ Measured 2026-11-08 at main `ec9412f` unless a row says otherwise.
 | Version | 0.3.0 (`pyproject.toml` and `herald/binding.py` agree) |
 | Tag and GitHub Release | None yet. Tagging is the owner's decision. |
 | CI on main | Last recorded green on 2026-10-30 (tests, calibration gate, ruff 0.15.22, bandit, and the CNS job on Python 3.11 and 3.12). Not re-run on the hosted runner. Local re-run at `ec9412f` on 2026-11-08: ruff 0.15.22 clean, bandit clean. |
-| Tests | `python -m pytest Tests` at `ec9412f` on 2026-11-08: 443 passed, 0 failed without CNS (`Tests/test_cns_connector.py` excluded, as the CI job without CNS does). With CNS 2.3.0 installed: 473 passed, 0 failed, 0 skipped. |
+| Tests | `python -m pytest Tests` at `ec9412f` on 2026-11-08. Without CNS (clean venv, cns not installed): 445 passed, 0 failed. `Tests/test_cns_connector.py` is ignored automatically when cns is absent (`conftest.py`). With CNS 2.3.0 installed: 473 passed, 0 failed, 0 skipped; `Tests/test_cns_absent.py` is ignored automatically in that case. |
 | CNS pin | The optional `cns` extra in `pyproject.toml` is pinned to the tag v2.3.0, and its comment says so. |
 
 ## 5. Core Invariants & Guarantees
 
 Source binding required for a claim to pass the gate. Ambiguity is first-class (`ambiguity.py`). Fail-closed gate: unbound/low-confidence claims do not become handoff payloads.
 
-**Optional CNS connector.** `herald/cns_connector.py` expresses HERALD's gates as CNS gate results, at both ends. The source gate (ALPHA) judges a document before extraction: malformed input is TERMINAL_BREACH, undeclared standing is RETRY, and anything else is PASS. The confidence gate (OMEGA) judges each claim: admitted claims become PASS, refused claims become RETRY (a named human can confirm and resubmit), and blocked or unverifiable decisions become TERMINAL_BREACH. Pass the judged source to the confidence gate and a claim not extracted from that exact source (same id, text hash, and standing) becomes TERMINAL_BREACH, so the two ends are linked. HERALD imports nothing from CNS unless this module is used. Install with `pip install 'herald[cns]'`.
+**Optional CNS connector.** `herald/cns_connector.py` expresses HERALD's gates as CNS gate results, at both ends. The source gate (ALPHA) judges a document before extraction: malformed input is TERMINAL_BREACH, undeclared standing is RETRY, and anything else is PASS. The confidence gate (OMEGA) judges each claim: admitted claims become PASS, refused claims become RETRY (a named human can confirm and resubmit), and blocked or unverifiable decisions become TERMINAL_BREACH. Pass the judged source to the confidence gate and a claim not extracted from that exact source (same id, text hash, and standing) becomes TERMINAL_BREACH, so the two ends are linked. The two ways of wiring the gates differ in this guarantee. `full_chain()` places both gates in one chain but does not check that the claims came from the source ALPHA judged; the consumer must make that link. `run_governed()` always makes it, because it extracts only from the judged source and passes that same source to OMEGA. HERALD imports nothing from CNS unless this module is used. Install with `pip install 'herald[cns]'`.
 
 **Design principles (CNS spirit).** HERALD's own logic follows the principles of the CNS contract, with HERALD's names kept:
 
