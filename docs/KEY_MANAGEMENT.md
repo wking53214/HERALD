@@ -49,4 +49,4 @@ This page covers the keys HERALD uses to sign exports, what HERALD does and does
 
 ## Limits
 
-A valid signature shows that a trusted key signed the content and that the content was not altered afterward. It does not show that a claim is true, that the source's author had authority, or that a named person was entitled to confirm a claim. See `README.md`, section 5.
+A valid signature shows that a trusted key signed the content and that the content was not altered afterward. It does not show that a claim is true, that the source's author had authority, or that a named person was entitled to confirm a claim. See `README.md`, section 4.

@@ -1,122 +1,95 @@
 # HERALD
 
-Evidence-preserving **natural-language → checkable claims** layer: extract, bind to source, confidence-gate, hand off. Not a live decision-path stage.
+HERALD turns prose into candidate claims that stay tied to the text they came from, and says plainly which ones it lets leave and which it holds back. It reads. It does not decide whether a claim is true, and it does not authorize anything.
 
-## 1. Pipeline Position & Role
+**Release status:** version 0.3.0 in code. **No tag and no GitHub Release exist.** Tagging is the owner's decision. Apache-2.0.
 
-**INTEGRITY / INTERPRETATION inlet.** First hop of the evidence spine (see "Role in the STACK spine" below). It reads a document, extracts candidate claims, and exports the admitted ones. It does not authorize action.
+## 1. Position in the STACK spine
 
-A mention in earlier versions of this README of an observe-perceive `herald_governance_adapter.py` is not backed by anything in this repository (no such file or import exists here), so it is no longer stated as fact.
-
-## 2. Full System Scope & Architectural Depth
-
-Package `herald/`: `claim.py`, `extract.py`, `binding.py`, `gate.py`, `source.py`, `calibration.py`, `handoff.py`, `ambiguity.py`, `boundary.py`, `golden_set.py`, `lineage.py`, `positions.py`, `cns_connector.py` (optional CNS bridge), `errors.py`, `demo.py`, and `consequence_governance_experiment.py`. Tests include `test_hulk_100.py`, consequence-governance experiment. CONSTITUTION.md states the linguistic-governance rules.
-
-Pipeline: source → extract candidate claims → bind spans → gate on confidence/ambiguity → typed handoff. Test counts are under Release and test status in section 4.
-
-## 3. What It Does NOT Do / Non-Goals
-
-- Does not execute, authorize, or mutate the source.
-- Does not replace an LLM extraction vendor as a company.
-- Does not implement TIE reconstruction/coverage (sibling).
-
-## 4. Brutally Honest Current Status & Gaps
-
-Commercial: **FEATURE unless paired with a domain.** Extraction quality depends on golden-set calibration (`herald/calibration.py`, `golden_set.py`) : not a general-language proof. Consequence-governance experiment is research, not a shipped control plane.
-
-### Release and test status
-
-Measured 2026-11-08 at main `ec9412f` unless a row says otherwise.
-
-| What | State |
-|---|---|
-| Version | 0.3.0 (`pyproject.toml` and `herald/binding.py` agree) |
-| Tag and GitHub Release | None yet. Tagging is the owner's decision. |
-| CI on main | Last recorded green on 2026-10-30 (tests, calibration gate, ruff 0.15.22, bandit, and the CNS job on Python 3.11 and 3.12). Not re-run on the hosted runner. Local re-run at `ec9412f` on 2026-11-08: ruff 0.15.22 clean, bandit clean. |
-| Tests | `python -m pytest Tests` at `ec9412f` on 2026-11-08. Without CNS (clean venv, cns not installed): 445 passed, 0 failed. `Tests/test_cns_connector.py` is ignored automatically when cns is absent (`conftest.py`). With CNS 2.3.0 installed: 473 passed, 0 failed, 0 skipped; `Tests/test_cns_absent.py` is ignored automatically in that case. |
-| CNS pin | The optional `cns` extra in `pyproject.toml` is pinned to the tag v2.3.0, and its comment says so. |
-
-## 5. Core Invariants & Guarantees
-
-Source binding required for a claim to pass the gate. Ambiguity is first-class (`ambiguity.py`). Fail-closed gate: unbound/low-confidence claims do not become handoff payloads.
-
-**Optional CNS connector.** `herald/cns_connector.py` expresses HERALD's gates as CNS gate results, at both ends. The source gate (ALPHA) judges a document before extraction: malformed input is TERMINAL_BREACH, undeclared standing is RETRY, and anything else is PASS. The confidence gate (OMEGA) judges each claim: admitted claims become PASS, refused claims become RETRY (a named human can confirm and resubmit), and blocked or unverifiable decisions become TERMINAL_BREACH. Pass the judged source to the confidence gate and a claim not extracted from that exact source (same id, text hash, and standing) becomes TERMINAL_BREACH, so the two ends are linked. The two ways of wiring the gates differ in this guarantee. `full_chain()` places both gates in one chain but does not check that the claims came from the source ALPHA judged; the consumer must make that link. `run_governed()` always makes it, because it extracts only from the judged source and passes that same source to OMEGA. HERALD imports nothing from CNS unless this module is used. Install with `pip install 'herald[cns]'`.
-
-**Design principles (CNS spirit).** HERALD's own logic follows the principles of the CNS contract, with HERALD's names kept:
-
-- **Declared ends.** Each check states where it sits: ALPHA before work runs (`herald/source.py`, `check_source`), OMEGA on the output (`ConfidenceGate.position`). Position is part of the gate, not a note about where it is called.
-- **Verdicts bound to what they judged.** A decision is bound to its claim's content hash, and a claim is bound to its source by id, text hash, and standing (`herald/lineage.py`).
-- **Waiting is not terminal.** A refused claim (`REFUSED_PENDING_HUMAN`) can come back after a human confirms it. A blocked claim (`BLOCKED_INTEGRITY`) cannot.
-- **Fail closed.** A decision that does not verify is never trusted, including a refusal.
-- **Admitted is not approved.** `ADMITTED_FOR_GOVERNANCE` means only that the claim moves to the governance layer.
-- **Logic stays here.** HERALD owns its checks. The CNS connector only translates their results.
-
-The decision MAC is tamper-evidence within one process, not tamper-proofing. The CNS digest is tamper-evidence across processes.
-
-**What the guarantees do not cover.**
-
-- *Integrity is not truth.* A seal, MAC, digest or signature shows that content was not altered and, for a signature, that a trusted key made it. None of them shows that a claim is true, or that the source's author or the person who confirmed a claim had authority to do so. The CNS digest is not a signature, an authorization credential or proof of truth.
-- *Human identity is not human authority.* A `HumanConfirmation` records the name of the person who confirmed a refused claim. HERALD does not check that the person may confirm claims of that kind. That authority belongs to the consuming governance system.
-- *The code hash pins the package, not the installation.* The consumer pin covers the `.py` files in the `herald` package, sorted by path. It does not cover installed dependencies, the Python runtime or external configuration, so it is not a complete software supply-chain attestation.
-- *Calibration is not extraction accuracy.* The calibration run counts false confidence (which blocks) and over-caution (tracked, not blocking) against the golden set. It does not measure precision, recall or semantic correctness on general text.
-
-## 6. Inputs, Outputs & Type Contracts
-
-See `herald/claim.py`, `handoff.py`. Handoff is data, not an RPC to execution.
-
-## 7. Stack Integration Topology
-
-```text
-documents -> HERALD -> claims+spans+handoff -> TIE (see section 8 for the full spine)
-```
-
-## 8. Role in the STACK spine
-
-**Purpose.** HERALD turns prose into candidate claims that stay tied to the text they came from, and says plainly which ones it will let leave and which it holds back. It reads. It does not decide whether a claim is true.
-
-**Responsibilities (all in `herald/`).**
-
-- Ingest a `SourceDocument` (id, text, declared standing: record, attestation, derived or unknown) and judge it before extraction (`source.py:295`, `check_source`).
-- Extract domain-agnostic claims (dates, amounts, percentages, quantities, durations, references) with spans and provenance (`extract.py`, `binding.py`, `claim.py`).
-- Refuse to build a claim whose kind is a governed determination such as legal or compliance judgment (`boundary.py`, CONSTITUTION.md section 1).
-- Gate each claim on confidence and ambiguity into admitted, refused-pending-human or blocked (`gate.py`, `ConfidenceGate`).
-- Package admitted and refused claims, with reasons and a signed export, as a `Handoff` (class at `handoff.py:361`, `build` at `handoff.py:541`).
-
-**Inputs and outputs.** In: a `SourceDocument`, optionally a `HumanConfirmation` naming who confirmed a refused claim. Out: `GateDecision` per claim and a `Handoff` dict carrying `export_mac`, `export_mac_version` and the signing `key_id`. Handoff is data, not a call into any executor.
-
-**Owns.** Extraction, span binding, ambiguity, confidence gating, the handoff format, and the claim-boundary rule.
-
-**Does not own.** Truth of a claim, permission to act, recording evidence (TIE), admission of a root artifact (Conservation_Kernel), the admission door (Governance_Gateway), the store (CCC), or the shared gate contract (CNS). Admitted means only "moves on to governance".
+HERALD is the first hop of the evidence spine, the INTEGRITY and INTERPRETATION inlet.
 
 ```text
 SourceDocument
-   |  ALPHA: check_source          (source.py)
+   |  ALPHA: source gate (check_source)
    v
-extract -> bind spans -> ConfidenceGate (OMEGA) -> Handoff + export_mac
+extract -> bind spans -> ConfidenceGate (OMEGA) -> Handoff (signed export)
                                                       |
-        ... TIE -> Conservation_Kernel -> Governance_Gateway -> CCC
-        (downstream, not imported or called by this repo)
+   TIE -> Conservation_Kernel -> Governance_Gateway -> CCC
+   (downstream; not imported or called by this repo)
 ```
 
-**Companions.** The spine is HERALD, TIE, Conservation_Kernel, Governance_Gateway and CCC, in that order, run end to end by `chains/evidence_spine.py` in [CNS](https://github.com/wking53214/CNS). CNS holds the shapes of a gate decision (PASS, RETRY, TERMINAL_BREACH), not the decisions. See also [TIE](https://github.com/wking53214/TIE), [Conservation_Kernel](https://github.com/wking53214/Conservation_Kernel), [Governance_Gateway](https://github.com/wking53214/Governance_Gateway) and [CCC](https://github.com/wking53214/CCC). Apart from one comment in `handoff.py` that names TIE, HERALD's source does not name TIE, Conservation_Kernel, Governance_Gateway, CCC, CCCb or Link; those relationships live in CNS and in the downstream repositories. In the CNS spine script, TIE's intake function `evidence_from_herald_export` is what reads HERALD's export.
+The spine is HERALD, TIE, Conservation_Kernel, Governance_Gateway and CCC, in that order. The CNS spine script (`chains/evidence_spine.py` in the CNS repository) runs them end to end. CNS holds the shapes of a gate decision (PASS, RETRY, TERMINAL_BREACH). It does not hold the decisions.
 
-**CNS interaction: partial.**
+**What HERALD hands on:** admitted claims and refused claims, each with its reason and provenance, packaged as a signed `Handoff`. TIE's intake reads that export. The signature is checked against a public key the receiver pins.
 
-| Item | Status | Evidence |
-|---|---|---|
-| Optional connector expressing ALPHA and OMEGA verdicts as `cns.gate` results | implemented | `herald/cns_connector.py:129` (`_cns_gate`, lazy `importlib.import_module("cns.gate")`), `:272` (`submit_to_cns`), `:371` (`source_to_cns_result`), `:436` (`full_chain`), `:468` (`run_governed`) |
-| Called by the CNS spine script | implemented, on the CNS side | CNS `chains/evidence_spine.py:173-174` imports `run_governed`, `HeraldConfidenceGate`, `HeraldSourceGate` |
-| HERALD works with CNS absent | implemented | `Tests/test_cns_absent.py`; 445 tests pass in a venv without CNS |
-| Imports of `cns_interop` or `cns_composition` | absent | no such import anywhere in the repo |
-| UAI-1 signed messages (docs/interop/UAI-1.md in CNS) | absent | no reference in this repo |
+**What HERALD does not own:** truth of a claim, permission to act, recording evidence (TIE), admission of a root artifact (Conservation_Kernel), the admission door (Governance_Gateway), the store (CCC), and the shared gate contract (CNS). "Admitted" means only "moves on to governance."
 
-HERALD does not decide for CNS and CNS does not decide for HERALD: the connector only translates HERALD's own verdicts. Communication, recommendation, decision and permission stay separate layers: HERALD recommends by admitting a claim, the downstream responsible system decides, and the receiver's own policy permits.
+**Verified across processes:** on 2026-11-08, a signed export made by HERALD main was checked by TIE's intake in a separate process holding only the public key. The genuine export was accepted. An altered copy was refused. The check is also a test in TIE (PR #47).
 
-**Limitations (read from source at `8df86f8`, 2026-11-06).**
+## 2. What it does
 
-- The decision MAC uses a process-local random key (`gate.py:107`), so a decision can only be checked inside the process that made it. Exports come in two versions. Version 2 (`export_mac`) is an HMAC with that same process-local key, so `verify_export` proves non-alteration only inside the producing process. Version 3 is an optional Ed25519 signature (`build(export_signing_key=...)` in `handoff.py`) that any process can verify with the matching public key, passed as `trusted_keys` to `verify_export`. The receiver must trust and pin that public key itself. HERALD provides no key registry, rotation or revocation service. `KEY_ID` is a label, not a secret, and a signature shows possession of a trusted key, not the truth of a claim. Version 3 is opt-in: `build` produces version 2 unless a signing key is supplied. The CNS spine script works because it runs all five seats in one process. UAI-1 signed messages remain absent from this repo.
-- The source gate treats `unknown` standing as RETRY at the CNS connector, which is stricter than plain `extract`, which still runs on unknown-standing text.
-- Extraction covers domain-agnostic kinds only. Calibration is against a small golden set, not a general-language proof.
-- No tag or GitHub Release exists (section 4).
+Source → extract candidate claims → bind each claim to a span → gate on confidence and ambiguity → typed handoff.
 
-Apache-2.0.
+- **Source.** A `SourceDocument` carries an id, its text, and a declared standing: record, attestation, derived or unknown. The source is judged before extraction (`source.py`).
+- **Claims.** Domain-agnostic kinds only: dates, amounts, percentages, quantities, durations, references (`extract.py`, `claim.py`). Each claim keeps a span, the source id, a text hash, and the standing (`binding.py`, `lineage.py`).
+- **Boundary.** A claim whose kind is a governed determination, such as a legal or compliance judgment, is refused at construction (`boundary.py`, `CONSTITUTION.md` section 1).
+- **Gate.** Each claim is admitted, refused pending a named human, or blocked. Blocked means the integrity check failed, and no human can reverse it (`gate.py`).
+- **Handoff.** Admitted and refused claims, with reasons, in one signed export (`handoff.py`). Refused claims stay in the export, so a consumer can see what was held back and why.
+
+## 3. What it does not do
+
+- It does not execute, authorize, or change the source.
+- It does not decide whether a claim is true.
+- It does not replace an LLM extraction vendor.
+- It does not implement TIE reconstruction or coverage.
+- The consequence-governance work is research. `herald/consequence_governance_experiment.py` is not part of the production contract, and `HERALD_CONSEQUENCE_GOVERNANCE_RESEARCH.md` recommends against integrating it into the core.
+
+## 4. What the guarantees do and do not cover
+
+- **Source binding.** A claim cannot pass the gate unless it is bound to its source. Unbound or low-confidence claims never become handoff payloads.
+- **Integrity is not truth.** A seal, MAC, digest or signature shows that content was not altered and, for a signature, that a trusted key made it. None of them shows that a claim is true.
+- **Authority is not identity.** A `HumanConfirmation` records the name of the person who confirmed a refused claim. HERALD does not check that the person may confirm claims of that kind. The consuming governance system decides that.
+- **Two export versions.** Version 2 is an HMAC with a process-local key, so it can only be checked in the process that made it. Version 3 is an Ed25519 signature that any process can check with a public key the receiver pins. Version 3 is opt-in: `build` produces version 2 unless a signing key is supplied. HERALD has no key registry, rotation or revocation. See `docs/KEY_MANAGEMENT.md`.
+- **Decision MAC.** Process-local, like version 2. It is tamper-evidence within one process, not tamper-proofing.
+- **Code-hash pin.** Covers the `.py` files in the `herald` package. It does not cover dependencies, the runtime, or configuration.
+- **Unknown standing.** The CNS connector treats unknown standing as RETRY. Plain extraction still runs on it.
+- **Calibration.** It counts false confidence (blocking) and over-caution (tracked). It does not measure extraction precision, recall, or correctness on general text. See `docs/CALIBRATION.md`.
+
+## 5. The optional CNS connector
+
+`herald/cns_connector.py` expresses HERALD's two gates as CNS gate results. HERALD imports nothing from CNS unless this module is used. Install with `pip install 'herald[cns]'`.
+
+- **Source gate (ALPHA).** Malformed input is TERMINAL_BREACH, undeclared standing is RETRY, anything else is PASS.
+- **Confidence gate (OMEGA).** Admitted claims are PASS. Refused claims are RETRY, so a named human can confirm and resubmit. Blocked or unverifiable decisions are TERMINAL_BREACH.
+- **Two ways to wire the gates.** `full_chain()` puts both gates in one chain but does not check that claims came from the source ALPHA judged; the consumer must make that link. `run_governed()` always makes it. It extracts only from the judged source and passes that same source to OMEGA.
+- **Design rule.** HERALD owns its checks. The connector only translates their results.
+
+HERALD works with CNS absent. Its tests cover both cases.
+
+## 6. Status and evidence
+
+| Item | State |
+|---|---|
+| Version | 0.3.0 (`pyproject.toml` and `herald/binding.py` agree) |
+| Tag and GitHub Release | None. Tagging is the owner's decision. |
+| Tests, without CNS | 445 passed, 0 failed. Clean venv, cns not installed. Measured 2026-11-08 at `ec9412f`. |
+| Tests, with CNS 2.3.0 | 473 passed, 0 failed, 0 skipped. Measured 2026-11-08 at `ec9412f`. |
+| Test command | `python -m pytest Tests`. `conftest.py` skips the connector tests when cns is absent and the absence tests when it is present. |
+| Lint and security | ruff 0.15.22 clean, bandit clean. Measured 2026-11-08 at `ec9412f`. |
+| CI on main | Last recorded green on 2026-10-30. Re-checked on PR branches 2026-11-08 (tests and CNS jobs green). |
+| Calibration | 24-case starter set: 24 pass, 0 false confidence, 0 over-caution. Run 2026-11-08 at `4e86a1b`. |
+| CNS pin | Optional `cns` extra, pinned to tag v2.3.0. |
+
+The code has not changed since `ec9412f`. Later commits to main changed documentation only.
+
+## 7. Read next
+
+- `CONSTITUTION.md`: the rules HERALD is built to keep.
+- `docs/ARCHITECTURE.md`: the flow and the trust boundary, with both export versions.
+- `docs/KEY_MANAGEMENT.md`: signing keys, what HERALD provides, and what operators and consumers must arrange.
+- `docs/CALIBRATION.md`: what the calibration run covers and what it does not.
+- `ARCHITECTURE_GHOSTS.md`: documented structural findings. The ghost IDs are not yet verified.
+- `HERALD_CONSEQUENCE_GOVERNANCE_RESEARCH.md`: research on consequence-aware governance. Its recommendation is not to integrate it.
+- Key modules: `herald/gate.py` (confidence gate and decision MAC), `herald/handoff.py` (export and signatures), `herald/cns_connector.py` (optional CNS bridge), `herald/source.py` (source gate), `herald/lineage.py` (claim-to-source binding).
+
+Commercial status: a feature unless paired with a domain. Extraction quality depends on calibration against a small golden set.
