@@ -22,6 +22,6 @@ None are confirmed as defects. Every entry in this document is either a structur
 
 These were recorded as recommendations on 2026-11-08. The owner has not confirmed them.
 
-- **`build` spans 193 lines** (`herald/handoff.py`, `ghost-d54ed63aa20d`, major). Recommendation: accept and defer. The function defines the exact bytes of the signed export, which TIE recomputes independently and the pinned-vector tests check. A refactor risks silent format drift. Revisit only with those vector tests as the guard.
-- **`to_cns_result` repeats a statement three times** (`herald/cns_connector.py`, `ghost-60dfd4196d20`, major). Recommendation: false positive. The three repeats are separate input-validation guards, each with its own error message.
+- **`build` spans 193 lines** (`herald/handoff.py`, `ghost-d54ed63aa20d`, major). Decision: accepted and deferred (owner, 2026-11-08). The function defines the exact bytes of the signed export, which TIE recomputes independently and the pinned-vector tests check. A refactor risks silent format drift. Revisit only with those vector tests as the guard.
+- **`to_cns_result` repeats a statement three times** (`herald/cns_connector.py`, `ghost-60dfd4196d20`, major). Decision: false positive (owner, 2026-11-08). The three repeats are separate input-validation guards, each with its own error message.
 - **Scanner baseline is stale.** 73 of the 86 entries in `.ghost_baseline.json` match nothing in the current scan. Recommendation: do not regenerate it, because that would accept unreviewed findings. Owner to decide how to retire the stale entries.
