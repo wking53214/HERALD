@@ -93,4 +93,34 @@ The production package (`herald/`, `pyproject.toml`) has not changed since `ec94
 - `HERALD_CONSEQUENCE_GOVERNANCE_RESEARCH.md`: research on consequence-aware governance. Its recommendation is not to integrate it.
 - Key modules: `herald/gate.py` (confidence gate and decision MAC), `herald/handoff.py` (export and signatures), `herald/cns_connector.py` (optional CNS bridge), `herald/source.py` (source gate), `herald/lineage.py` (claim-to-source binding).
 
+## 8. Install and minimal use
+
+HERALD is not published to PyPI. Install from a clone (Python 3.11 or later, `cryptography` 42 or later):
+
+```bash
+git clone https://github.com/wking53214/HERALD.git && cd HERALD
+pip install .
+```
+
+The example below reads one source and produces a version 2 export (process-local) and a version 3 export (Ed25519, checkable by any process that pins the public key). Both admit the claims, because the source is passed to the strict gate that `handoff.read()` uses by default.
+
+```python
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from herald import handoff
+from herald.source import SourceDocument, STANDING_RECORD
+
+doc = SourceDocument(
+    source_id="loan-1",
+    text="The borrower paid $1,250.00 on 2026-03-14.",
+    medium="document",
+    standing=STANDING_RECORD,
+)
+
+v2 = handoff.read(doc)                              # version 2: HMAC, process-local
+key = Ed25519PrivateKey.generate()                  # in practice, an operator-held key file
+v3 = handoff.read(doc, export_signing_key=key)      # version 3: Ed25519, cross-process
+```
+
+In production, load the signing key from the operator's PKCS#8 PEM file (see `docs/KEY_MANAGEMENT.md`) and give the receiver only the public key. The example generates a key in memory only to keep it short.
+
 Commercial status: a feature unless paired with a domain. Extraction quality depends on calibration against a small golden set.
