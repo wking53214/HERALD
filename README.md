@@ -10,12 +10,15 @@ HERALD is the first hop of the evidence spine, the INTEGRITY and INTERPRETATION 
 
 ```text
 SourceDocument
-   |  ALPHA: source gate (check_source)
+   |  extract (validates the document)
    v
-extract -> bind spans -> ConfidenceGate (OMEGA) -> Handoff (signed export)
-                                                      |
+bind spans -> ConfidenceGate (OMEGA) -> Handoff (signed export)
+                                           |
    TIE -> Conservation_Kernel -> Governance_Gateway -> CCC
    (downstream; not imported or called by this repo)
+
+Optional: the CNS connector can run ALPHA, the source gate (check_source),
+before extraction. handoff.read() does not call it.
 ```
 
 The spine is HERALD, TIE, Conservation_Kernel, Governance_Gateway and CCC, in that order. The CNS repository includes an end-to-end integration harness (`chains/evidence_spine.py`) that exercises this sequence. Several downstream transitions in that harness are supplied by harness-level adapters rather than production orchestration. The sequence shows interoperability under the tested conditions. It does not establish a deployable, durable end-to-end service. CNS holds the shapes of a gate decision (PASS, RETRY, TERMINAL_BREACH), not the decisions.
