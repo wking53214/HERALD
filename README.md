@@ -18,13 +18,13 @@ extract -> bind spans -> ConfidenceGate (OMEGA) -> Handoff (signed export)
    (downstream; not imported or called by this repo)
 ```
 
-The spine is HERALD, TIE, Conservation_Kernel, Governance_Gateway and CCC, in that order. The CNS spine script (`chains/evidence_spine.py` in the CNS repository) runs them end to end. CNS holds the shapes of a gate decision (PASS, RETRY, TERMINAL_BREACH). It does not hold the decisions.
+The spine is HERALD, TIE, Conservation_Kernel, Governance_Gateway and CCC, in that order. The CNS repository includes an end-to-end integration harness (`chains/evidence_spine.py`) that exercises this sequence. Several downstream transitions in that harness are supplied by harness-level adapters rather than production orchestration. The sequence shows interoperability under the tested conditions. It does not establish a deployable, durable end-to-end service. CNS holds the shapes of a gate decision (PASS, RETRY, TERMINAL_BREACH), not the decisions.
 
 **What HERALD hands on:** admitted claims and refused claims, each with its reason and provenance, packaged as a signed `Handoff`. TIE's intake reads that export. The signature is checked against a public key the receiver pins.
 
 **What HERALD does not own:** truth of a claim, permission to act, recording evidence (TIE), admission of a root artifact (Conservation_Kernel), the admission door (Governance_Gateway), the store (CCC), and the shared gate contract (CNS). "Admitted" means only "moves on to governance."
 
-**Verified across processes:** on 2026-11-08, a signed export made by HERALD main was checked by TIE's intake in a separate process holding only the public key. The genuine export was accepted. An altered copy was refused. The check is also a test in TIE (PR #47).
+**HERALD to TIE is separately tested.** On 2026-11-08, a signed export made by HERALD main was checked by TIE's intake in a separate process holding only the public key. The genuine export was accepted and an altered copy was refused. This is also a test in TIE (PR #47). The later handoffs in the sequence (TIE to Conservation_Kernel, Conservation_Kernel to Governance_Gateway, and document to CCC) are not yet established as independent production handoffs.
 
 ## 2. What it does
 
@@ -46,7 +46,8 @@ Source → extract candidate claims → bind each claim to a span → gate on co
 
 ## 4. What the guarantees do and do not cover
 
-- **Source binding.** A claim cannot pass the gate unless it is bound to its source. Unbound or low-confidence claims never become handoff payloads.
+- **Source binding.** Claims carry source identity and content hashes. The strict path (`ConfidenceGate(require_source=True)`, which `handoff.read()` uses) requires the original source document and verifies the citation before admission. The default `ConfidenceGate()` permits admission without rechecking the source, records `source_verified=False`, and logs a warning. Consumers handling consequential claims must enable `require_source=True`.
+- **Handoff contents.** Claims that fail integrity verification cannot be admitted. Low-confidence claims remain refused unless the required human confirmation is supplied. Refused claims are retained in the signed handoff with their reasons. They are never presented as admitted claims.
 - **Integrity is not truth.** A seal, MAC, digest or signature shows that content was not altered and, for a signature, that a trusted key made it. None of them shows that a claim is true.
 - **Authority is not identity.** A `HumanConfirmation` records the name of the person who confirmed a refused claim. HERALD does not check that the person may confirm claims of that kind. The consuming governance system decides that.
 - **Two export versions.** Version 2 is an HMAC with a process-local key, so it can only be checked in the process that made it. Version 3 is an Ed25519 signature that any process can check with a public key the receiver pins. Version 3 is opt-in: `build` produces version 2 unless a signing key is supplied. HERALD has no key registry, rotation or revocation. See `docs/KEY_MANAGEMENT.md`.
@@ -72,15 +73,15 @@ HERALD works with CNS absent. Its tests cover both cases.
 |---|---|
 | Version | 0.3.0 (`pyproject.toml` and `herald/binding.py` agree) |
 | Tag and GitHub Release | None. Tagging is the owner's decision. |
-| Tests, without CNS | 445 passed, 0 failed. Clean venv, cns not installed. Measured 2026-11-08 at `ec9412f`. |
-| Tests, with CNS 2.3.0 | 473 passed, 0 failed, 0 skipped. Measured 2026-11-08 at `ec9412f`. |
+| Tests, without CNS | 445 passed, 0 failed. Clean venv, cns not installed. Measured 2026-11-08 at `392dfd0`. |
+| Tests, with CNS 2.3.0 | 473 passed, 0 failed. Measured 2026-11-08 at `392dfd0`. |
 | Test command | `python -m pytest Tests`. `conftest.py` skips the connector tests when cns is absent and the absence tests when it is present. |
-| Lint and security | ruff 0.15.22 clean, bandit clean. Measured 2026-11-08 at `ec9412f`. |
+| Lint and security | ruff 0.15.22 clean. bandit at the CI threshold (`-ll`, medium and above) clean. One low-severity finding, `calibration.py`: the constant `VERDICT_PASS` is flagged as a possible password string. Measured 2026-11-08 at `392dfd0`. |
 | CI on main | Last recorded green on 2026-10-30. Re-checked on PR branches 2026-11-08 (tests and CNS jobs green). |
 | Calibration | 24-case starter set: 24 pass, 0 false confidence, 0 over-caution. Run 2026-11-08 at `4e86a1b`. |
 | CNS pin | Optional `cns` extra, pinned to tag v2.3.0. |
 
-The code has not changed since `ec9412f`. Later commits to main changed documentation only.
+The production package (`herald/`, `pyproject.toml`) has not changed since `ec9412f`. Later changes on main are documentation, and one test-only change: the ReDoS timing check now takes the median of five ratios (PR #39). The counts above were measured at `392dfd0`.
 
 ## 7. Read next
 

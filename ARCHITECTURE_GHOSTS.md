@@ -1,21 +1,27 @@
 ## HERALD -- Known Structural Ghosts
 
-_Findings below were surfaced by ghost_buster and explicitly reviewed by a human, who decided documenting the current state was the right call rather than fixing it immediately. This section is generated -- see each entry's `id` to re-run ghost_buster and confirm it's still accurate before trusting it blindly on a later read._
+These entries come from ghost_buster. Each one records what the scanner reported and what a person reviewed. They are sorted into four categories. A recommendation is not a decision, and nothing here is accepted architecture until the owner says so.
 
-### Duplication
+Re-run ghost_buster with an entry's `id` before trusting it on a later read. IDs can change between scanner versions.
 
-- **2 of the 3 functions named in the original finding share identical AST structure (names/literals differ, control flow and shape don't): Tests/test_hulk_100.py:380:test_no_decision_history_keyed_by_claim_id_in_the_gate, Tests/test_hulk_100.py:397:test_no_handoff_to_handoff_continuity_check.** The third function named in the original finding, `test_no_external_authorization_ledger_for_claims_or_confirmations`, is not in the file as of main `60d5150`, so this finding may be stale. (`Tests/test_hulk_100.py:380`, `ghost-ee069564097f`, severity: major)
-  *Re-check 2026-11-08 at main `d7e3e51` with ghost_tools 1.10.14: ghost-ee069564097f is not reproduced. Both functions still exist (lines 380 and 397), but this scan does not flag them. Treat this entry as unverified.*
-  Structural fingerprint match, not textual diff -- this is the 'copy-pasted then renamed' shape specifically. Confirm these are actually solving the same problem before merging; some structural matches are coincidental (e.g. two unrelated simple validators).
-  *Why documented, not fixed:* Re-checked against the source on 2026-11-06 (main `60d5150`). Both functions are recorded-gap checks. Each asserts that HERALD's public API does not yet have a particular feature (a decision-history method on the gate, a handoff comparison function). Each is written to fail once that feature lands, so it can then be replaced with a real test. The structural match is expected: they share a shape by design, not copy-paste drift.
+Scan reference: ghost_tools 1.10.14 on main `d7e3e51`, 2026-11-08. It reported 22 findings. Only the entries below have been reviewed. The rest are not listed until someone reviews them.
 
-- **3 functions share identical AST structure (names/literals differ, control flow and shape don't): Tests/test_hulk_100.py:1844:test_round2_r3_substituted_claim_with_same_claim_id_different_content_is_rejected, Tests/test_hulk_100.py:2314:test_round3_I_replay_against_independent_claim_is_rejected, Tests/test_hulk_100.py:2440:test_round3_crypto_2_copy_authorization_a_substitute_claim_b_is_rejected** (`Tests/test_hulk_100.py:1844`, `ghost-9e21fe4d0603` (re-check 2026-11-08 at main `d7e3e51`: the three functions are still at lines 1844, 2314 and 2440; the earlier ID `ghost-588085528840` is no longer produced), severity: major)
-  Structural fingerprint match, not textual diff -- this is the 'copy-pasted then renamed' shape specifically. Confirm these are actually solving the same problem before merging; some structural matches are coincidental (e.g. two unrelated simple validators).
-  *Why documented, not fixed:* Verified by reading the source (re-checked 2026-11-06 at main `60d5150`; line numbers corrected): all three follow HERALD's adversarial regression pattern -- construct a claim/decision, submit a tampered or substituted variant, assert it is rejected. Same shape by design (it's the test harness's own convention for this class of attack), not accidental duplication.
+### 1. Confirmed findings
 
-### Triage recommendations (2026-11-08, pending owner confirmation)
+None are confirmed as defects. Every entry in this document is either a structural pattern the owner has reviewed as by design (section 3), a finding that no longer reproduces (section 2), or a pending decision (section 4).
 
-These are recommendations, not owner decisions. They were recorded while closing open items, and the owner has not yet reviewed them.
+### 2. Not reproduced or historical
 
-- **`build` spans 193 lines** (`herald/handoff.py`, ghost-d54ed63aa20d, major). Recommendation: accept and defer. This function defines the exact bytes of the signed export, which TIE recomputes independently and which the pinned-vector tests check. Refactoring it risks silent format drift. Revisit only with those vector tests as the guard.
-- **`to_cns_result` repeats a statement three times** (`herald/cns_connector.py`, ghost-60dfd4196d20, major). Recommendation: false positive. The three repeats are separate input-validation guards, each with its own error message.
+- **Two recorded-gap checks** (`Tests/test_hulk_100.py:380` and `:397`, `ghost-ee069564097f`, severity major). Reviewed 2026-11-06 at `60d5150` as recorded-gap checks that are meant to fail once a feature lands. On 2026-11-08 at `d7e3e51` the scanner did not report this pair, though both functions still exist. Status: **unverified**. The third function named in the original finding, `test_no_external_authorization_ledger_for_claims_or_confirmations`, is not in the file.
+
+### 3. Accepted design trade-offs
+
+- **Three adversarial regression tests share one shape** (`Tests/test_hulk_100.py:1844`, `:2314` and `:2440`, now `ghost-9e21fe4d0603`, severity major). Reproduced 2026-11-08 at the same lines; the earlier ID `ghost-588085528840` is no longer produced. Reviewed 2026-11-06 at `60d5150`: each builds a claim or decision, submits a tampered or substituted variant, and asserts rejection. This is the test harness's convention for that attack class, not copy-paste debt.
+
+### 4. Pending owner decisions
+
+These were recorded as recommendations on 2026-11-08. The owner has not confirmed them.
+
+- **`build` spans 193 lines** (`herald/handoff.py`, `ghost-d54ed63aa20d`, major). Recommendation: accept and defer. The function defines the exact bytes of the signed export, which TIE recomputes independently and the pinned-vector tests check. A refactor risks silent format drift. Revisit only with those vector tests as the guard.
+- **`to_cns_result` repeats a statement three times** (`herald/cns_connector.py`, `ghost-60dfd4196d20`, major). Recommendation: false positive. The three repeats are separate input-validation guards, each with its own error message.
+- **Scanner baseline is stale.** 73 of the 86 entries in `.ghost_baseline.json` match nothing in the current scan. Recommendation: do not regenerate it, because that would accept unreviewed findings. Owner to decide how to retire the stale entries.
