@@ -6,7 +6,7 @@ HERALD turns prose into candidate claims that stay tied to the text they came fr
 
 ## 1. Position in the STACK spine
 
-HERALD is the first hop of the evidence spine, the INTEGRITY and INTERPRETATION inlet.
+HERALD is the first hop of the evidence spine, the INTEGRITY and INTERPRETATION inlet. It is the source-to-candidate-claim boundary: it takes a source document and produces the candidate claims, with their refusals and reasons, that the rest of the spine receives.
 
 ```text
 SourceDocument
@@ -20,11 +20,11 @@ extract -> bind spans -> ConfidenceGate (OMEGA) -> Handoff (signed export)
 
 The spine is HERALD, TIE, Conservation_Kernel, Governance_Gateway and CCC, in that order. The CNS repository includes an end-to-end integration harness (`chains/evidence_spine.py`) that exercises this sequence. Several downstream transitions in that harness are supplied by harness-level adapters rather than production orchestration. The sequence shows interoperability under the tested conditions. It does not establish a deployable, durable end-to-end service. CNS holds the shapes of a gate decision (PASS, RETRY, TERMINAL_BREACH), not the decisions.
 
-**What HERALD hands on:** admitted claims and refused claims, each with its reason and provenance, packaged as a signed `Handoff`. TIE's intake reads that export. The signature is checked against a public key the receiver pins.
+**What HERALD hands on:** admitted claims and refused claims, each with its reason and provenance, packaged as a signed `Handoff`. TIE's intake reads that export. Cross-process verification requires a version 3 Ed25519 export and a public key the receiver pins independently. The default version 2 HMAC export is process-local and cannot establish that boundary (see section 4).
 
 **What HERALD does not own:** truth of a claim, permission to act, recording evidence (TIE), admission of a root artifact (Conservation_Kernel), the admission door (Governance_Gateway), the store (CCC), and the shared gate contract (CNS). "Admitted" means only "moves on to governance."
 
-**HERALD to TIE is separately tested.** On 2026-11-08, a signed export made by HERALD main was checked by TIE's intake in a separate process holding only the public key. The genuine export was accepted and an altered copy was refused. This is also a test in TIE (PR #47). The later handoffs in the sequence (TIE to Conservation_Kernel, Conservation_Kernel to Governance_Gateway, and document to CCC) are not yet established as independent production handoffs.
+**HERALD to TIE is separately tested.** On 2026-11-08, a version 3 (Ed25519) export made by HERALD main was checked by TIE's intake in a separate process holding only the public key. The genuine export was accepted and an altered copy was refused. The test exercises the version 3 path only; the default version 2 export is not covered by it. The test lives in TIE as [TIE PR #47](https://github.com/wking53214/TIE/pull/47). The later handoffs in the sequence (TIE to Conservation_Kernel, Conservation_Kernel to Governance_Gateway, and document to CCC) are not yet established as independent production handoffs.
 
 ## 2. What it does
 
