@@ -9,7 +9,7 @@ HERALD reads a document and uses fixed text patterns (not AI) to pull out six ki
 - **ALPHA / OMEGA:** CNS's names for a check at the entry point and a check at the exit point.
 - **Admitted:** passed on to governance. It does not mean approved.
 
-**Release status:** version 0.3.0 in code. **No tag and no GitHub Release exist.** Tagging is the owner's decision. Apache-2.0.
+**Release status:** version 0.3.0 in code. **No tag and no GitHub Release exist.** Tagging is the owner's decision. Apache-2.0, copyright William N. King (see `LICENSE` and `NOTICE`).
 
 ## 1. Where this fits in ≡TACK
 
@@ -70,7 +70,7 @@ For a five-minute tour of what HERALD does and refuses to do, run `python -m her
 
 CNS is the shared connecting layer between ≡TACK repositories. It holds the shapes of a gate decision (PASS, RETRY, TERMINAL_BREACH), not the decisions.
 
-- **HERALD's side:** `herald/cns_connector.py`. Optional. HERALD imports nothing from CNS unless this module is used. Install with `pip install 'herald[cns]'`.
+- **HERALD's side:** `herald/cns_connector.py`. Optional. HERALD imports nothing from CNS unless this module is used. HERALD is not on PyPI, so install from a clone of this repository with the CNS extra (`pip install ".[cns]"` run inside the clone).
 - **CNS's side:** `cns_composition/repo_gates.py` in the CNS repository, which registers HERALD's source check at ALPHA and its confidence check at OMEGA.
 - **Connection list:** CNS's `contracts/cns-links.json` records the link in both directions (two-way).
 - **Built:** yes.
@@ -92,17 +92,17 @@ HERALD works with CNS absent. Its tests cover both cases.
 |---|---|
 | Version | 0.3.0 (`pyproject.toml` and `herald/binding.py` agree) |
 | Tag and GitHub Release | None. Tagging is the owner's decision. |
-| Tests, without CNS | 445 passed, 0 failed. Clean venv, cns not installed. Measured 2026-11-08 at `392dfd0`. |
-| Tests, with CNS 2.3.0 | 473 passed, 0 failed. Measured 2026-11-08 at `392dfd0`. |
+| Tests, without CNS | 445 passed, 0 failed. Clean venv, cns not installed. Measured 2026-11-08 at `392dfd0`; re-measured 2026-11-10 at `63ed11b` with the same result. |
+| Tests, with CNS 2.3.0 | 473 passed, 0 failed. Measured 2026-11-08 at `392dfd0`; re-measured 2026-11-10 at `63ed11b` with the same result. |
 | Test command | `python -m pytest Tests`. `conftest.py` skips the connector tests when cns is absent and the absence tests when it is present. |
-| Lint and security | ruff 0.15.22 clean. bandit at the CI threshold (`-ll`, medium and above) clean. One low-severity finding, `calibration.py`: the constant `VERDICT_PASS` is flagged as a possible password string. Measured 2026-11-08 at `392dfd0`. |
-| CI on main | Last recorded green on 2026-10-30. Re-checked on PR branches 2026-11-08 (tests and CNS jobs green). |
+| Lint and security | ruff 0.15.22 clean. bandit at the CI threshold (`-ll`, medium and above) clean. One low-severity finding, `calibration.py`: the constant `VERDICT_PASS` is flagged as a possible password string. Measured 2026-11-08 at `392dfd0`; re-checked 2026-11-10 at `63ed11b` with the same result. |
+| CI on main | Green at `63ed11b` on 2026-11-08 (GitHub Actions). |
 | Calibration | 24-case starter set: 24 pass, 0 false confidence, 0 over-caution. Run 2026-11-08 at `4e86a1b`. The set has no case for reference claims, so that kind is extracted but not calibrated. |
 | CNS pin | Optional `cns` extra, pinned to tag v2.3.0. |
 | Consumers | TIE reads the export as data and does not import HERALD. CNS imports HERALD in its integration harness only. No production system imports HERALD. |
 | Commercial status | HERALD's value depends on pairing it with a specific field (for example, lending), because its calibration set is small (24 cases). |
 
-The production package (`herald/`, `pyproject.toml`) has not changed since `ec9412f`. Later changes on main are documentation, and one test-only change: the ReDoS timing check now takes the median of five ratios (PR #39). The counts above were measured at `392dfd0`.
+The production package (`herald/`, `pyproject.toml`) has not changed since `ec9412f`. Later changes on main are documentation, and one test-only change: the ReDoS timing check now takes the median of five ratios (PR #39). The counts above were measured at `392dfd0` and re-measured at `63ed11b`.
 
 ## 7. Read next
 
