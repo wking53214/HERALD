@@ -1,12 +1,19 @@
 # HERALD
 
-HERALD turns prose into candidate claims that stay tied to the text they came from, and says plainly which ones it lets leave and which it holds back. It reads. It does not decide whether a claim is true, and it does not authorize anything.
+HERALD reads a document and uses fixed text patterns (not AI) to pull out six kinds of facts: dates, amounts, percentages, quantities, durations and references. It ties each fact to the exact text it came from and says which facts it passes on and which it holds back, and why. It does not decide whether a fact is true and does not authorize anything. It is for teams that need machine-read facts they can trace back to their source before a governance system acts on them.
 
-**Release status:** version 0.3.0 in code. **No tag and no GitHub Release exist.** Tagging is the owner's decision. Apache-2.0.
+**Terms used below**
 
-## 1. Position in the STACK spine
+- **Candidate claim:** a fact HERALD read, not yet checked by anyone downstream.
+- **Standing:** what kind of document the source is: an official record, someone's statement (attestation), derived material, or unknown.
+- **ALPHA / OMEGA:** CNS's names for a check at the entry point and a check at the exit point.
+- **Admitted:** passed on to governance. It does not mean approved.
 
-HERALD is the first hop of the evidence spine, the INTEGRITY and INTERPRETATION inlet. It is the source-to-candidate-claim boundary: it takes a source document and produces the candidate claims, with their refusals and reasons, that the rest of the spine receives.
+**Release status:** version 0.3.0 in code. **No tag and no GitHub Release exist.** Tagging is the owner's decision. Apache-2.0, copyright William N. King (see `LICENSE` and `NOTICE`).
+
+## 1. Where this fits in ≡TACK
+
+≡TACK is William N. King's full library of repositories. One family inside it is the evidence spine, a five-step chain that takes a document from raw text to a stored, governed record: HERALD, then TIE, then Conservation_Kernel, then Governance_Gateway, then CCC. The chain exists so that every fact a system acts on can be traced, checked and kept. HERALD is step one. It receives a source document from whoever supplies it and hands a signed export to TIE, which records it as evidence. HERALD does not call TIE or any later step. In this README, "spine" means this five-repo chain only.
 
 ```text
 SourceDocument
@@ -20,8 +27,6 @@ bind spans -> ConfidenceGate (OMEGA) -> Handoff (signed export)
 Optional: the CNS connector can run ALPHA, the source gate (check_source),
 before extraction. handoff.read() does not call it.
 ```
-
-The spine is HERALD, TIE, Conservation_Kernel, Governance_Gateway and CCC, in that order. The CNS repository includes an end-to-end integration harness (`chains/evidence_spine.py`) that exercises this sequence. Several downstream transitions in that harness are supplied by harness-level adapters rather than production orchestration. The sequence shows interoperability under the tested conditions. It does not establish a deployable, durable end-to-end service. CNS holds the shapes of a gate decision (PASS, RETRY, TERMINAL_BREACH), not the decisions.
 
 **What HERALD hands on:** admitted claims and refused claims, each with its reason and provenance, packaged as a signed `Handoff`. TIE's intake reads that export. Cross-process verification requires a version 3 Ed25519 export and a public key the receiver pins independently. The default version 2 HMAC export is process-local and cannot establish that boundary (see section 4).
 
@@ -39,13 +44,15 @@ Source → extract candidate claims → bind each claim to a span → gate on co
 - **Gate.** Each claim is admitted, refused pending a named human, or blocked. Blocked means the integrity check failed, and no human can reverse it (`gate.py`).
 - **Handoff.** Admitted and refused claims, with reasons, in one signed export (`handoff.py`). Refused claims stay in the export, so a consumer can see what was held back and why.
 
+For a five-minute tour of what HERALD does and refuses to do, run `python -m herald.demo`.
+
 ## 3. What it does not do
 
 - It does not execute, authorize, or change the source.
 - It does not decide whether a claim is true.
 - It does not replace an LLM extraction vendor.
 - It does not implement TIE reconstruction or coverage.
-- The consequence-governance work is research. `herald/consequence_governance_experiment.py` is not part of the production contract, and `HERALD_CONSEQUENCE_GOVERNANCE_RESEARCH.md` recommends against integrating it into the core.
+- The consequence-governance work is research. `HERALD_CONSEQUENCE_GOVERNANCE_RESEARCH.md` recommends keeping it out of HERALD's core. Note, however, that the prototype (`herald/consequence_governance_experiment.py`) currently sits inside the `herald` package: a normal install includes it and the code-hash pin covers it. Nothing in the normal path calls it, and it is not part of the export contract.
 
 ## 4. What the guarantees do and do not cover
 
@@ -55,13 +62,22 @@ Source → extract candidate claims → bind each claim to a span → gate on co
 - **Authority is not identity.** A `HumanConfirmation` records the name of the person who confirmed a refused claim. HERALD does not check that the person may confirm claims of that kind. The consuming governance system decides that.
 - **Two export versions.** Version 2 is an HMAC with a process-local key, so it can only be checked in the process that made it. Version 3 is an Ed25519 signature that any process can check with a public key the receiver pins. Version 3 is opt-in: `build` produces version 2 unless a signing key is supplied. HERALD has no key registry, rotation or revocation. See `docs/KEY_MANAGEMENT.md`.
 - **Decision MAC.** Process-local, like version 2. It is tamper-evidence within one process, not tamper-proofing.
-- **Code-hash pin.** Covers the `.py` files in the `herald` package. It does not cover dependencies, the runtime, or configuration.
+- **Code-hash pin.** Covers the `.py` files in the `herald` package. It does not cover dependencies, the runtime, or configuration. `CONSTITUTION.md` section 7 requires consumers to pin HERALD's version and code hash. No consumer does this yet: CNS's integration harness checks out HERALD's main branch without a pin.
 - **Unknown standing.** The CNS connector treats unknown standing as RETRY. Plain extraction still runs on it.
 - **Calibration.** It counts false confidence (blocking) and over-caution (tracked). It does not measure extraction precision, recall, or correctness on general text. See `docs/CALIBRATION.md`.
 
-## 5. The optional CNS connector
+## 5. CNS connection
 
-`herald/cns_connector.py` expresses HERALD's two gates as CNS gate results. HERALD imports nothing from CNS unless this module is used. Install with `pip install 'herald[cns]'`.
+CNS is the shared connecting layer between ≡TACK repositories. It holds the shapes of a gate decision (PASS, RETRY, TERMINAL_BREACH), not the decisions.
+
+- **HERALD's side:** `herald/cns_connector.py`. Optional. HERALD imports nothing from CNS unless this module is used. HERALD is not on PyPI, so install from a clone of this repository with the CNS extra (`pip install ".[cns]"` run inside the clone).
+- **CNS's side:** `cns_composition/repo_gates.py` in the CNS repository, which registers HERALD's source check at ALPHA and its confidence check at OMEGA.
+- **Connection list:** CNS's `contracts/cns-links.json` records the link in both directions (two-way).
+- **Built:** yes.
+- **Tested:** yes. The connector tests run against CNS v2.3.0 in CI (the `cns` job).
+- **Used on HERALD's normal path:** no. `handoff.read()` never calls CNS. Today the only real caller is CNS's integration harness (`chains/evidence_spine.py`), which runs one document through all five spine repos. Several downstream steps in that harness are supplied by harness-level adapters. It shows the pieces work together under tested conditions. It is not a production pipeline.
+
+How HERALD's results map to CNS outcomes:
 
 - **Source gate (ALPHA).** Malformed input is TERMINAL_BREACH, undeclared standing is RETRY, anything else is PASS.
 - **Confidence gate (OMEGA).** Admitted claims are PASS. Refused claims are RETRY, so a named human can confirm and resubmit. Blocked or unverifiable decisions are TERMINAL_BREACH.
@@ -76,15 +92,17 @@ HERALD works with CNS absent. Its tests cover both cases.
 |---|---|
 | Version | 0.3.0 (`pyproject.toml` and `herald/binding.py` agree) |
 | Tag and GitHub Release | None. Tagging is the owner's decision. |
-| Tests, without CNS | 445 passed, 0 failed. Clean venv, cns not installed. Measured 2026-11-08 at `392dfd0`. |
-| Tests, with CNS 2.3.0 | 473 passed, 0 failed. Measured 2026-11-08 at `392dfd0`. |
+| Tests, without CNS | 445 passed, 0 failed. Clean venv, cns not installed. Measured 2026-11-08 at `392dfd0`; re-measured 2026-11-10 at `63ed11b` with the same result. |
+| Tests, with CNS 2.3.0 | 473 passed, 0 failed. Measured 2026-11-08 at `392dfd0`; re-measured 2026-11-10 at `63ed11b` with the same result. |
 | Test command | `python -m pytest Tests`. `conftest.py` skips the connector tests when cns is absent and the absence tests when it is present. |
-| Lint and security | ruff 0.15.22 clean. bandit at the CI threshold (`-ll`, medium and above) clean. One low-severity finding, `calibration.py`: the constant `VERDICT_PASS` is flagged as a possible password string. Measured 2026-11-08 at `392dfd0`. |
-| CI on main | Last recorded green on 2026-10-30. Re-checked on PR branches 2026-11-08 (tests and CNS jobs green). |
-| Calibration | 24-case starter set: 24 pass, 0 false confidence, 0 over-caution. Run 2026-11-08 at `4e86a1b`. |
+| Lint and security | ruff 0.15.22 clean. bandit at the CI threshold (`-ll`, medium and above) clean. One low-severity finding, `calibration.py`: the constant `VERDICT_PASS` is flagged as a possible password string. Measured 2026-11-08 at `392dfd0`; re-checked 2026-11-10 at `63ed11b` with the same result. |
+| CI on main | Green at `63ed11b` on 2026-11-08 (GitHub Actions). |
+| Calibration | 24-case starter set: 24 pass, 0 false confidence, 0 over-caution. Run 2026-11-08 at `4e86a1b`. The set has no case for reference claims, so that kind is extracted but not calibrated. |
 | CNS pin | Optional `cns` extra, pinned to tag v2.3.0. |
+| Consumers | TIE reads the export as data and does not import HERALD. CNS imports HERALD in its integration harness only. No production system imports HERALD. |
+| Commercial status | HERALD's value depends on pairing it with a specific field (for example, lending), because its calibration set is small (24 cases). |
 
-The production package (`herald/`, `pyproject.toml`) has not changed since `ec9412f`. Later changes on main are documentation, and one test-only change: the ReDoS timing check now takes the median of five ratios (PR #39). The counts above were measured at `392dfd0`.
+The production package (`herald/`, `pyproject.toml`) has not changed since `ec9412f`. Later changes on main are documentation, and one test-only change: the ReDoS timing check now takes the median of five ratios (PR #39). The counts above were measured at `392dfd0` and re-measured at `63ed11b`.
 
 ## 7. Read next
 
@@ -92,7 +110,7 @@ The production package (`herald/`, `pyproject.toml`) has not changed since `ec94
 - `docs/ARCHITECTURE.md`: the flow and the trust boundary, with both export versions.
 - `docs/KEY_MANAGEMENT.md`: signing keys, what HERALD provides, and what operators and consumers must arrange.
 - `docs/CALIBRATION.md`: what the calibration run covers and what it does not.
-- `ARCHITECTURE_GHOSTS.md`: documented structural findings. The ghost IDs are not yet verified.
+- `ARCHITECTURE_GHOSTS.md`: reviewed scanner findings. None is confirmed as a defect, two carry owner decisions, one entry is unverified, and the saved scanner baseline is stale (73 of 86 entries match nothing in the latest scan).
 - `HERALD_CONSEQUENCE_GOVERNANCE_RESEARCH.md`: research on consequence-aware governance. Its recommendation is not to integrate it.
 - Key modules: `herald/gate.py` (confidence gate and decision MAC), `herald/handoff.py` (export and signatures), `herald/cns_connector.py` (optional CNS bridge), `herald/source.py` (source gate), `herald/lineage.py` (claim-to-source binding).
 
@@ -125,5 +143,3 @@ v3 = handoff.read(doc, export_signing_key=key)      # version 3: Ed25519, cross-
 ```
 
 In production, load the signing key from the operator's PKCS#8 PEM file (see `docs/KEY_MANAGEMENT.md`) and give the receiver only the public key. The example generates a key in memory only to keep it short.
-
-Commercial status: a feature unless paired with a domain. Extraction quality depends on calibration against a small golden set.

@@ -95,9 +95,9 @@ is consistently a guess.
 
 HERALD supplies two orthogonal facts and refuses to collapse them:
 
-- **Reading** — how the value was obtained: read by a named extractor,
+- **Reading:** how the value was obtained: read by a named extractor,
   proposed by a model, or confirmed by a named human.
-- **Standing** — what the document itself is: a system of record, an
+- **Standing:** what the document itself is: a system of record, an
   interested party's assertion, or another system's output.
 
 These are independent. A borrower's letter and a bank statement can both
@@ -179,4 +179,10 @@ calibration is the entire acceptance criterion.
 
 A signature or MAC shows that content was not altered after signing, and, for a version 3 export, that a trusted key made it. It does not show that a claim is true, that the author of a source document had authority, or that a named person was entitled to confirm a claim. A `HumanConfirmation` records who confirmed; the consuming governance system decides whether that person was authorized to.
 
-Source verification has two paths, and they are not equivalent. The strict path, `ConfidenceGate(require_source=True)`, requires the original source document, checks each claim's citation against it, and refuses a submission that lacks it. `handoff.read()` and `handoff.build()` use this path. The permissive default, `ConfidenceGate()`, can admit a claim without rechecking its source. It records `source_verified=False` and logs a warning. An admission on the permissive path says less than one on the strict path and must not be presented as source-verified. Consequential use requires the strict path.
+Source verification has two paths, and they are not equivalent. The strict path, `ConfidenceGate(require_source=True)`, requires the original source document, checks each claim's citation against it, and refuses a submission that lacks it. `handoff.read()` uses this path. `handoff.build()` does not run the gate: it takes the gate's decisions and re-checks each claim's citation against the document it is given, refusing any mismatch. The export does not record whether the gate itself ran on the strict path. The permissive default, `ConfidenceGate()`, can admit a claim without rechecking its source. It records `source_verified=False` and logs a warning. An admission on the permissive path says less than one on the strict path and must not be presented as source-verified. Consequential use requires the strict path.
+
+---
+
+## Change record
+
+- **2026-11-10:** the clarification note above was corrected to describe `handoff.build()` accurately (it re-checks citations itself rather than running the strict gate), and two em dashes in section 6 were replaced with colons. Wording and punctuation only. No rule in sections 1 to 9 changed.
