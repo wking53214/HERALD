@@ -95,9 +95,9 @@ is consistently a guess.
 
 HERALD supplies two orthogonal facts and refuses to collapse them:
 
-- **Reading** — how the value was obtained: read by a named extractor,
+- **Reading:** how the value was obtained: read by a named extractor,
   proposed by a model, or confirmed by a named human.
-- **Standing** — what the document itself is: a system of record, an
+- **Standing:** what the document itself is: a system of record, an
   interested party's assertion, or another system's output.
 
 These are independent. A borrower's letter and a bank statement can both
@@ -185,4 +185,4 @@ Source verification has two paths, and they are not equivalent. The strict path,
 
 ## Change record
 
-- **2026-11-10:** the clarification note above was corrected to describe `handoff.build()` accurately (it re-checks citations itself rather than running the strict gate). Wording only. No rule in sections 1 to 9 changed.
+- **2026-11-10:** the clarification note above was corrected to describe `handoff.build()` accurately (it re-checks citations itself rather than running the strict gate), and two em dashes in section 6 were replaced with colons. Wording and punctuation only. No rule in sections 1 to 9 changed.
