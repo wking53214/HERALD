@@ -52,7 +52,7 @@ For a five-minute tour of what HERALD does and refuses to do, run `python -m her
 - It does not decide whether a claim is true.
 - It does not replace an LLM extraction vendor.
 - It does not implement TIE reconstruction or coverage.
-- The consequence-governance work is research. `herald/consequence_governance_experiment.py` is not part of the production contract, and `HERALD_CONSEQUENCE_GOVERNANCE_RESEARCH.md` recommends against integrating it into the core.
+- The consequence-governance work is research. `HERALD_CONSEQUENCE_GOVERNANCE_RESEARCH.md` recommends keeping it out of HERALD's core. Note, however, that the prototype (`herald/consequence_governance_experiment.py`) currently sits inside the `herald` package: a normal install includes it and the code-hash pin covers it. Nothing in the normal path calls it, and it is not part of the export contract.
 
 ## 4. What the guarantees do and do not cover
 
@@ -62,7 +62,7 @@ For a five-minute tour of what HERALD does and refuses to do, run `python -m her
 - **Authority is not identity.** A `HumanConfirmation` records the name of the person who confirmed a refused claim. HERALD does not check that the person may confirm claims of that kind. The consuming governance system decides that.
 - **Two export versions.** Version 2 is an HMAC with a process-local key, so it can only be checked in the process that made it. Version 3 is an Ed25519 signature that any process can check with a public key the receiver pins. Version 3 is opt-in: `build` produces version 2 unless a signing key is supplied. HERALD has no key registry, rotation or revocation. See `docs/KEY_MANAGEMENT.md`.
 - **Decision MAC.** Process-local, like version 2. It is tamper-evidence within one process, not tamper-proofing.
-- **Code-hash pin.** Covers the `.py` files in the `herald` package. It does not cover dependencies, the runtime, or configuration.
+- **Code-hash pin.** Covers the `.py` files in the `herald` package. It does not cover dependencies, the runtime, or configuration. `CONSTITUTION.md` section 7 requires consumers to pin HERALD's version and code hash. No consumer does this yet: CNS's integration harness checks out HERALD's main branch without a pin.
 - **Unknown standing.** The CNS connector treats unknown standing as RETRY. Plain extraction still runs on it.
 - **Calibration.** It counts false confidence (blocking) and over-caution (tracked). It does not measure extraction precision, recall, or correctness on general text. See `docs/CALIBRATION.md`.
 
@@ -97,7 +97,7 @@ HERALD works with CNS absent. Its tests cover both cases.
 | Test command | `python -m pytest Tests`. `conftest.py` skips the connector tests when cns is absent and the absence tests when it is present. |
 | Lint and security | ruff 0.15.22 clean. bandit at the CI threshold (`-ll`, medium and above) clean. One low-severity finding, `calibration.py`: the constant `VERDICT_PASS` is flagged as a possible password string. Measured 2026-11-08 at `392dfd0`. |
 | CI on main | Last recorded green on 2026-10-30. Re-checked on PR branches 2026-11-08 (tests and CNS jobs green). |
-| Calibration | 24-case starter set: 24 pass, 0 false confidence, 0 over-caution. Run 2026-11-08 at `4e86a1b`. |
+| Calibration | 24-case starter set: 24 pass, 0 false confidence, 0 over-caution. Run 2026-11-08 at `4e86a1b`. The set has no case for reference claims, so that kind is extracted but not calibrated. |
 | CNS pin | Optional `cns` extra, pinned to tag v2.3.0. |
 | Consumers | TIE reads the export as data and does not import HERALD. CNS imports HERALD in its integration harness only. No production system imports HERALD. |
 | Commercial status | HERALD's value depends on pairing it with a specific field (for example, lending), because its calibration set is small (24 cases). |
@@ -110,7 +110,7 @@ The production package (`herald/`, `pyproject.toml`) has not changed since `ec94
 - `docs/ARCHITECTURE.md`: the flow and the trust boundary, with both export versions.
 - `docs/KEY_MANAGEMENT.md`: signing keys, what HERALD provides, and what operators and consumers must arrange.
 - `docs/CALIBRATION.md`: what the calibration run covers and what it does not.
-- `ARCHITECTURE_GHOSTS.md`: documented structural findings. The ghost IDs are not yet verified.
+- `ARCHITECTURE_GHOSTS.md`: reviewed scanner findings. None is confirmed as a defect, two carry owner decisions, one entry is unverified, and the saved scanner baseline is stale (73 of 86 entries match nothing in the latest scan).
 - `HERALD_CONSEQUENCE_GOVERNANCE_RESEARCH.md`: research on consequence-aware governance. Its recommendation is not to integrate it.
 - Key modules: `herald/gate.py` (confidence gate and decision MAC), `herald/handoff.py` (export and signatures), `herald/cns_connector.py` (optional CNS bridge), `herald/source.py` (source gate), `herald/lineage.py` (claim-to-source binding).
 
