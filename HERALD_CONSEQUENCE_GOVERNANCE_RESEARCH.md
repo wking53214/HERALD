@@ -1,5 +1,7 @@
 # HERALD Consequence-Aware Epistemic Governance Research
 
+**Status (2026-11-10):** research only. The recommendation below (reject, and keep any prototype outside HERALD's core package) has not been acted on. The prototype still sits inside the `herald` package, so a normal install includes it and the code-hash pin covers it. Nothing on HERALD's normal path calls it; only `Tests/test_consequence_governance_experiment.py` uses it. Moving it out is the owner's decision.
+
 ## Executive summary
 
 This experiment does not justify integrating consequence-aware governance into the production HERALD contract. The repo already enforces a strict constitutional boundary: HERALD emits candidate claims, not decisions; confidence is a computed, reasoned value; the source is bound and re-verified; and the handoff retains refusal reasons and provenance. A consequence-sensitive policy is useful as an optional runtime advisory layer, but it should not become part of the authoritative candidate-claim or gate contract because it would duplicate existing evidence-first governance without improving HERALD's determinism or traceability.
@@ -126,7 +128,7 @@ REJECT
 
 ## If something is kept
 
-Keep it as an optional advisory layer in a consumer or integration repo, not in the HERALD kernel.
+Keep it as an optional advisory layer in a consumer or integration repo, not in HERALD's core package (`herald/`).
 
 The right placement is:
 

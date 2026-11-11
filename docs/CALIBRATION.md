@@ -33,6 +33,8 @@ Run on 2026-11-08 at main `4e86a1b`:
 - No extraction: 0
 - Gate result: not blocking
 
+Re-run 2026-11-10 at main `63ed11b`: same result. The set file still hashes to the prefix `dad416159a4c`, and the case counts by kind match the table above.
+
 ## What this does not establish
 
 - Behavior on text outside the 24 cases, including other kinds, longer documents, and other languages.

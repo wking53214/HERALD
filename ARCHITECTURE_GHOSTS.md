@@ -1,6 +1,6 @@
 ## HERALD -- Known Structural Ghosts
 
-These entries come from ghost_buster. Each one records what the scanner reported and what a person reviewed. They are sorted into four categories, plus the owner decisions recorded in section 4. Only the decisions in section 4 are the owner's. Nothing else here is accepted architecture.
+These entries come from ghost_buster, the structural scanner in the ghost_tools repository. Each one records what the scanner reported and what a person reviewed. Sections 1, 2, 3 and 5 sort the findings. Section 4 holds the owner's decisions, and only those are the owner's. Nothing else here is accepted architecture.
 
 Re-run ghost_buster with an entry's `id` before trusting it on a later read. IDs can change between scanner versions.
 
