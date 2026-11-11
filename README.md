@@ -1,12 +1,19 @@
 # HERALD
 
-HERALD turns prose into candidate claims that stay tied to the text they came from, and says plainly which ones it lets leave and which it holds back. It reads. It does not decide whether a claim is true, and it does not authorize anything.
+HERALD reads a document and uses fixed text patterns (not AI) to pull out six kinds of facts: dates, amounts, percentages, quantities, durations and references. It ties each fact to the exact text it came from and says which facts it passes on and which it holds back, and why. It does not decide whether a fact is true and does not authorize anything. It is for teams that need machine-read facts they can trace back to their source before a governance system acts on them.
+
+**Terms used below**
+
+- **Candidate claim:** a fact HERALD read, not yet checked by anyone downstream.
+- **Standing:** what kind of document the source is: an official record, someone's statement (attestation), derived material, or unknown.
+- **ALPHA / OMEGA:** CNS's names for a check at the entry point and a check at the exit point.
+- **Admitted:** passed on to governance. It does not mean approved.
 
 **Release status:** version 0.3.0 in code. **No tag and no GitHub Release exist.** Tagging is the owner's decision. Apache-2.0.
 
-## 1. Position in the STACK spine
+## 1. Where this fits in ≡TACK
 
-HERALD is the first hop of the evidence spine, the INTEGRITY and INTERPRETATION inlet. It is the source-to-candidate-claim boundary: it takes a source document and produces the candidate claims, with their refusals and reasons, that the rest of the spine receives.
+≡TACK is William N. King's full library of repositories. One family inside it is the evidence spine, a five-step chain that takes a document from raw text to a stored, governed record: HERALD, then TIE, then Conservation_Kernel, then Governance_Gateway, then CCC. The chain exists so that every fact a system acts on can be traced, checked and kept. HERALD is step one. It receives a source document from whoever supplies it and hands a signed export to TIE, which records it as evidence. HERALD does not call TIE or any later step. In this README, "spine" means this five-repo chain only.
 
 ```text
 SourceDocument
@@ -20,8 +27,6 @@ bind spans -> ConfidenceGate (OMEGA) -> Handoff (signed export)
 Optional: the CNS connector can run ALPHA, the source gate (check_source),
 before extraction. handoff.read() does not call it.
 ```
-
-The spine is HERALD, TIE, Conservation_Kernel, Governance_Gateway and CCC, in that order. The CNS repository includes an end-to-end integration harness (`chains/evidence_spine.py`) that exercises this sequence. Several downstream transitions in that harness are supplied by harness-level adapters rather than production orchestration. The sequence shows interoperability under the tested conditions. It does not establish a deployable, durable end-to-end service. CNS holds the shapes of a gate decision (PASS, RETRY, TERMINAL_BREACH), not the decisions.
 
 **What HERALD hands on:** admitted claims and refused claims, each with its reason and provenance, packaged as a signed `Handoff`. TIE's intake reads that export. Cross-process verification requires a version 3 Ed25519 export and a public key the receiver pins independently. The default version 2 HMAC export is process-local and cannot establish that boundary (see section 4).
 
@@ -38,6 +43,8 @@ Source → extract candidate claims → bind each claim to a span → gate on co
 - **Boundary.** A claim whose kind is a governed determination, such as a legal or compliance judgment, is refused at construction (`boundary.py`, `CONSTITUTION.md` section 1).
 - **Gate.** Each claim is admitted, refused pending a named human, or blocked. Blocked means the integrity check failed, and no human can reverse it (`gate.py`).
 - **Handoff.** Admitted and refused claims, with reasons, in one signed export (`handoff.py`). Refused claims stay in the export, so a consumer can see what was held back and why.
+
+For a five-minute tour of what HERALD does and refuses to do, run `python -m herald.demo`.
 
 ## 3. What it does not do
 
@@ -59,9 +66,18 @@ Source → extract candidate claims → bind each claim to a span → gate on co
 - **Unknown standing.** The CNS connector treats unknown standing as RETRY. Plain extraction still runs on it.
 - **Calibration.** It counts false confidence (blocking) and over-caution (tracked). It does not measure extraction precision, recall, or correctness on general text. See `docs/CALIBRATION.md`.
 
-## 5. The optional CNS connector
+## 5. CNS connection
 
-`herald/cns_connector.py` expresses HERALD's two gates as CNS gate results. HERALD imports nothing from CNS unless this module is used. Install with `pip install 'herald[cns]'`.
+CNS is the shared connecting layer between ≡TACK repositories. It holds the shapes of a gate decision (PASS, RETRY, TERMINAL_BREACH), not the decisions.
+
+- **HERALD's side:** `herald/cns_connector.py`. Optional. HERALD imports nothing from CNS unless this module is used. Install with `pip install 'herald[cns]'`.
+- **CNS's side:** `cns_composition/repo_gates.py` in the CNS repository, which registers HERALD's source check at ALPHA and its confidence check at OMEGA.
+- **Connection list:** CNS's `contracts/cns-links.json` records the link in both directions (two-way).
+- **Built:** yes.
+- **Tested:** yes. The connector tests run against CNS v2.3.0 in CI (the `cns` job).
+- **Used on HERALD's normal path:** no. `handoff.read()` never calls CNS. Today the only real caller is CNS's integration harness (`chains/evidence_spine.py`), which runs one document through all five spine repos. Several downstream steps in that harness are supplied by harness-level adapters. It shows the pieces work together under tested conditions. It is not a production pipeline.
+
+How HERALD's results map to CNS outcomes:
 
 - **Source gate (ALPHA).** Malformed input is TERMINAL_BREACH, undeclared standing is RETRY, anything else is PASS.
 - **Confidence gate (OMEGA).** Admitted claims are PASS. Refused claims are RETRY, so a named human can confirm and resubmit. Blocked or unverifiable decisions are TERMINAL_BREACH.
@@ -83,6 +99,8 @@ HERALD works with CNS absent. Its tests cover both cases.
 | CI on main | Last recorded green on 2026-10-30. Re-checked on PR branches 2026-11-08 (tests and CNS jobs green). |
 | Calibration | 24-case starter set: 24 pass, 0 false confidence, 0 over-caution. Run 2026-11-08 at `4e86a1b`. |
 | CNS pin | Optional `cns` extra, pinned to tag v2.3.0. |
+| Consumers | TIE reads the export as data and does not import HERALD. CNS imports HERALD in its integration harness only. No production system imports HERALD. |
+| Commercial status | HERALD's value depends on pairing it with a specific field (for example, lending), because its calibration set is small (24 cases). |
 
 The production package (`herald/`, `pyproject.toml`) has not changed since `ec9412f`. Later changes on main are documentation, and one test-only change: the ReDoS timing check now takes the median of five ratios (PR #39). The counts above were measured at `392dfd0`.
 
@@ -125,5 +143,3 @@ v3 = handoff.read(doc, export_signing_key=key)      # version 3: Ed25519, cross-
 ```
 
 In production, load the signing key from the operator's PKCS#8 PEM file (see `docs/KEY_MANAGEMENT.md`) and give the receiver only the public key. The example generates a key in memory only to keep it short.
-
-Commercial status: a feature unless paired with a domain. Extraction quality depends on calibration against a small golden set.
