@@ -98,7 +98,7 @@ HERALD works with CNS absent. Its tests cover both cases.
 | Lint and security | ruff 0.15.22 clean. bandit at the CI threshold (`-ll`, medium and above) clean. One low-severity finding, `calibration.py`: the constant `VERDICT_PASS` is flagged as a possible password string. Measured 2026-11-08 at `392dfd0`; re-checked 2026-11-10 at `63ed11b` with the same result. |
 | CI on main | Green at `63ed11b` on 2026-11-08 (GitHub Actions). |
 | Calibration | 24-case starter set: 24 pass, 0 false confidence, 0 over-caution. Run 2026-11-08 at `4e86a1b`. The set has no case for reference claims, so that kind is extracted but not calibrated. |
-| CNS pin | Optional `cns` extra, pinned to tag v3.0.0. |
+| CNS pin | Optional `cns` extra, pinned to tag v4.0.0. |
 | Consumers | TIE reads the export as data and does not import HERALD. CNS imports HERALD in its integration harness only. No production system imports HERALD. |
 | Commercial status | HERALD's value depends on pairing it with a specific field (for example, lending), because its calibration set is small (24 cases). |
 
