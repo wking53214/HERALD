@@ -37,7 +37,9 @@ DEIXIS       -- this, that, it, they, such, the former (referent unclear)
 from __future__ import annotations
 
 import re
+from bisect import bisect_right
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 
 HEDGE = "HEDGE"
@@ -128,6 +130,17 @@ _SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+|\n+")
 
 def sentence_spans(text: str) -> List[Tuple[int, int]]:
     """Character ranges of each sentence, in order."""
+    return list(_sentence_index(text)[0])
+
+
+@lru_cache(maxsize=8)
+def _sentence_index(text: str) -> Tuple[Tuple[Tuple[int, int], ...], Tuple[int, ...]]:
+    """The sentence ranges of `text` and their start offsets, worked out once per text.
+
+    A document with many claims asks for the sentence around each one. Splitting the whole text again
+    for every claim made the cost grow with claims times length; the answer depends only on the text.
+    The result is immutable, so a cached value cannot be changed by a caller.
+    """
     spans: List[Tuple[int, int]] = []
     cursor = 0
     for match in _SENTENCE_BREAK.finditer(text):
@@ -136,16 +149,17 @@ def sentence_spans(text: str) -> List[Tuple[int, int]]:
         cursor = match.end()
     if cursor < len(text):
         spans.append((cursor, len(text)))
-    return spans
+    return tuple(spans), tuple(start for start, _ in spans)
 
 
 def containing_sentence(
     text: str, span: Tuple[int, int]
 ) -> Tuple[int, int]:
     """The sentence range a claim sits in, or the whole text if none matches."""
-    for start, end in sentence_spans(text):
-        if span[0] >= start and span[0] < end:
-            return (start, end)
+    spans, starts = _sentence_index(text)
+    index = bisect_right(starts, span[0]) - 1
+    if index >= 0 and span[0] < spans[index][1]:
+        return spans[index]
     return (0, len(text))
 
 
