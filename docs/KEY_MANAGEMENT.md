@@ -12,7 +12,7 @@ This page covers the keys HERALD uses to sign exports, what HERALD does and does
 
 - **Key identifier.** Each version 3 export names its key with a label: `ed25519-` followed by the first 16 hexadecimal characters of the SHA-256 hash of the public key. The label is derived from the public key and contains no secret. It is a label, not proof that the key is trusted.
 - **Public key export.** `export_public_pem` produces the public key in PEM form for a consumer to pin.
-- **Trusted-key verification.** `verify_export` checks a signature only against keys in the mapping the caller supplies. A signature from any other key is refused, including one whose label matches a trusted key.
+- **Trusted-key verification.** `verify_export` checks a signature only against keys in the mapping the caller supplies. A signature from any other key is refused, including one whose label matches a trusted key. `Handoff.from_dict(payload, trusted_keys=...)` -- the ordinary path back from a stored or transmitted export to a usable object -- forwards the same mapping to `verify_export` unchanged; it is not a second, separately-trusting path.
 
 ## What HERALD does not provide
 

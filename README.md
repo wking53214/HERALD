@@ -74,7 +74,9 @@ CNS is the shared connecting layer between ≡TACK repositories. It holds the sh
 - **CNS's side:** `cns_composition/repo_gates.py` in the CNS repository, which registers HERALD's source check at ALPHA and its confidence check at OMEGA.
 - **Connection list:** CNS's `contracts/cns-links.json` records the link in both directions (two-way).
 - **Built:** yes.
-- **Tested:** yes. The connector tests run against CNS v3.0.0 in CI (the `cns` job).
+- **Tested:** yes. The connector tests run against CNS v4.0.0 in CI (the `cns` job). Re-verified directly
+  (not just by import) on 2026-11-14: `cns.gate`'s `GateResult`, `GateOutcome`, `GatePosition`, `GateChain`,
+  `Gate` and `subject_digest` all match the shapes `cns_connector.py` assumes, field for field.
 - **Used on HERALD's normal path:** no. `handoff.read()` never calls CNS. Today the only real caller is CNS's integration harness (`chains/evidence_spine.py`), which runs one document through all five spine repos. Several downstream steps in that harness are supplied by harness-level adapters. It shows the pieces work together under tested conditions. It is not a production pipeline.
 
 How HERALD's results map to CNS outcomes:
@@ -92,17 +94,24 @@ HERALD works with CNS absent. Its tests cover both cases.
 |---|---|
 | Version | 0.3.0 (`pyproject.toml` and `herald/binding.py` agree) |
 | Tag and GitHub Release | None. Tagging is the owner's decision. |
-| Tests, without CNS | 445 passed, 0 failed. Clean venv, cns not installed. Measured 2026-11-08 at `392dfd0`; re-measured 2026-11-10 at `63ed11b` with the same result. |
-| Tests, with CNS 2.3.0 | 473 passed, 0 failed. Measured 2026-11-08 at `392dfd0`; re-measured 2026-11-10 at `63ed11b` with the same result. |
-| Test command | `python -m pytest Tests`. `conftest.py` skips the connector tests when cns is absent and the absence tests when it is present. |
-| Lint and security | ruff 0.15.22 clean. bandit at the CI threshold (`-ll`, medium and above) clean. One low-severity finding, `calibration.py`: the constant `VERDICT_PASS` is flagged as a possible password string. Measured 2026-11-08 at `392dfd0`; re-checked 2026-11-10 at `63ed11b` with the same result. |
-| CI on main | Green at `63ed11b` on 2026-11-08 (GitHub Actions). |
-| Calibration | 24-case starter set: 24 pass, 0 false confidence, 0 over-caution. Run 2026-11-08 at `4e86a1b`. The set has no case for reference claims, so that kind is extracted but not calibrated. |
-| CNS pin | Optional `cns` extra, pinned to tag v4.0.0. |
+| Tests, without CNS | 469 passed, 0 failed. Clean venv, cns not installed. Measured 2026-11-14 at `50ec248`. |
+| Tests, with CNS v4.0.0 | 497 passed, 0 failed. Measured 2026-11-14 at `50ec248`, same venv with `pip install ".[cns]"`. |
+| Test command | `python -m pytest Tests`. `conftest.py` collects the connector tests when cns is present and the absence tests when it is not; neither set is skipped. |
+| Lint and security | ruff 0.15.22 clean. bandit at the CI threshold (`-ll`, medium and above) clean. One low-severity finding, `calibration.py`: the constant `VERDICT_PASS` is flagged as a possible password string. Re-checked 2026-11-14 at `50ec248`, same result. Note: a newer ruff (0.16.x+) installed without this project's pinned version reports hundreds of additional findings on this codebase, almost all pyupgrade/import-sort/style categories (`UP*`, `I001`, `RUF*`) that are off by default in 0.15.22 and on by default in the newer release. That is a tooling-default change between ruff versions, not a regression in this code; pin `ruff==0.15.22` (or add an explicit `[tool.ruff.lint] select`) when checking it. |
+| CI on main | Green at `50ec248` on 2026-11-13 (GitHub Actions run #187, verified directly against the Actions API on 2026-11-14, not copied from an earlier report). |
+| Calibration | 24-case starter set: 24 pass, 0 false confidence, 0 over-caution. Run 2026-11-08 at `4e86a1b`. The set has no case for reference claims, so that kind is extracted but not calibrated. See the pending-changes note below: a 2026-11-14 review adds 4 cases, including the first reference-kind coverage. |
+| CNS pin | Optional `cns` extra, pinned to tag v4.0.0. Verified 2026-11-14: `cns.gate`'s public types match what `cns_connector.py` calls, and the full suite passes live against the installed v4.0.0 package (see the row above). |
 | Consumers | TIE reads the export as data and does not import HERALD. CNS imports HERALD in its integration harness only. No production system imports HERALD. |
-| Commercial status | HERALD's value depends on pairing it with a specific field (for example, lending), because its calibration set is small (24 cases). |
+| Commercial status | HERALD's value depends on pairing it with a specific field (for example, lending), because its calibration set is small (24 cases, 28 pending; see below). |
 
-The production package (`herald/`, `pyproject.toml`) has not changed since `ec9412f`. Later changes on main are documentation, and one test-only change: the ReDoS timing check now takes the median of five ratios (PR #39). The counts above were measured at `392dfd0` and re-measured at `63ed11b`.
+**Pending changes from a 2026-11-14 review (uncommitted in this working tree, not yet merged -- the counts above are for the last commit, `50ec248`; these are not):**
+
+- **Fix:** `Handoff.from_dict()` could not reconstruct a version 3 (Ed25519) export under any input. It called `verify_export(payload)` with no way for a caller to pass `trusted_keys` through, and `verify_export` refuses a v3 payload outright without them. Every existing test exercised `verify_export()` directly; none went through the public `from_dict()` path for a v3 export, which is how the gap went unnoticed. Fixed by adding an optional `trusted_keys` keyword to `from_dict()`, forwarded unchanged to `verify_export()`. v1/v2 behavior is unaffected; a missing, wrong, or unknown key still fails closed; a tampered payload still fails closed even with the right key. 7 new tests in `Tests/test_export_signature.py`, including one that reconstructs a v3 export in a separate process holding only the public PEM.
+- **Test independence:** `Tests/test_sentence_index.py`'s correctness oracle previously called `ambiguity.sentence_spans()`, which uses the same cached splitter under test, so it could only catch a bug in the bisect lookup, not in the splitting logic itself. Rewritten with an independent, regex-free, character-scanning reference implementation, plus explicit coverage for empty text, decimal numbers and currency, adjacent sentences, newline-only breaks, boundary offsets, unusually long documents, and adversarial all-punctuation/all-whitespace inputs.
+- **Benchmark, not a CI assertion:** `benchmarks/sentence_index_bench.py` (new, not collected by pytest) measures PR #46's optimization directly against the prior per-claim-resplitting implementation. Measured on the review machine: at 2,000 sentences / 2,000 claims, the old approach took ~4.3s and the new one ~0.0024s (roughly 1,700x); the old approach's cost scales with sentences times claims, the new one's with sentences once plus claims times log(sentences). Not a universal speedup claim; see the script's own docstring for methodology.
+- **Calibration:** 4 new cases (28 total), each verified against the real extractor before being added, not asserted from reading the code: `reference-clear-1` and `reference-ambig-1` (the set's first reference-kind coverage, closing the gap the row above names), `quantity-modal-1` (a second ambiguous quantity case; the set previously had only one), and `multi-currency-clear-1` (a regression anchor confirming two amounts joined by a bare "and" do not false-trigger the and/or coordination pattern). All 28 cases pass at the existing 0.75 threshold; 0 false confidence, 0 over-caution. No threshold was changed.
+
+Production code has changed twice since `ec9412f`, both already on `main`: PR #46 split sentences once per text instead of once per claim (`herald/ambiguity.py`), and PR #47 moved the CNS pin to v4.0.0 (`pyproject.toml`). The counts in the table above are measured at the current `main` HEAD, `50ec248`, which includes both.
 
 ## 7. Read next
 
@@ -140,6 +149,11 @@ doc = SourceDocument(
 v2 = handoff.read(doc)                              # version 2: HMAC, process-local
 key = Ed25519PrivateKey.generate()                  # in practice, an operator-held key file
 v3 = handoff.read(doc, export_signing_key=key)      # version 3: Ed25519, cross-process
+
+# The receiver's side: only the public key, never the private one. Pin trusted_keys
+# from a channel you already trust (see docs/KEY_MANAGEMENT.md), not from the export.
+trusted = {handoff.export_key_id(key.public_key()): key.public_key()}
+reloaded = handoff.Handoff.from_dict(v3.to_dict(), trusted_keys=trusted)
 ```
 
 In production, load the signing key from the operator's PKCS#8 PEM file (see `docs/KEY_MANAGEMENT.md`) and give the receiver only the public key. The example generates a key in memory only to keep it short.
