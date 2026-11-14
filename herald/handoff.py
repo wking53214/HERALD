@@ -472,7 +472,8 @@ class Handoff:
         }
 
     @classmethod
-    def from_dict(cls, payload: Mapping[str, Any]) -> "Handoff":
+    def from_dict(cls, payload: Mapping[str, Any], *,
+                  trusted_keys: Optional[Mapping[str, Ed25519PublicKey]] = None) -> "Handoff":
         """Reconstruct a Handoff from its to_dict() output (or a JSON round-trip of it).
 
         Calls verify_export() on the payload before constructing anything
@@ -489,12 +490,31 @@ class Handoff:
         caller who reads admitted[0]["value"] out of the raw dict/JSON
         directly without ever calling this method.
 
+        trusted_keys -- forwarded to verify_export() unchanged. Required
+        for a version 3 (Ed25519) export: verify_export() refuses a v3
+        payload outright when this is None or empty, the same as it
+        always has for a direct call, so a receiving process cannot get
+        a reconstructed Handoff out of this method without supplying the
+        keys it has independently chosen to trust. Ignored for version 1
+        and version 2 payloads, which verify_export() checks by the
+        process-local issuer key alone. Before this parameter existed,
+        from_dict() called verify_export(payload) with no way to pass
+        trusted_keys through at all, so a genuine, correctly signed v3
+        export could not be reconstructed by this method under ANY
+        input -- not a weaker check, a total block on the one export
+        format meant to cross a process boundary. A caller could still
+        reach the real check by calling verify_export() directly and
+        reconstructing the dataclasses by hand, which is exactly what
+        this package's own test suite did, and exactly why the gap went
+        unnoticed: the private path worked, so nothing exercised the
+        public one.
+
         `bundles` and `summary` in the payload are ignored on the way
         back in -- both are computed views on Handoff (a property and a
         method, not stored fields), so there is nothing to reconstruct
         them into.
         """
-        verify_export(payload)
+        verify_export(payload, trusted_keys=trusted_keys)
         admitted = tuple(ClaimExport(**e) for e in payload.get("admitted", []))
         refused = tuple(RefusalExport(**r) for r in payload.get("refused", []))
         return cls(
