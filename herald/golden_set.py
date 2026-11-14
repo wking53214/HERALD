@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import List
 
 from .calibration import GoldenCase
-from .extract import KIND_AMOUNT, KIND_DATE, KIND_DURATION, KIND_PERCENT, KIND_QUANTITY
+from .extract import KIND_AMOUNT, KIND_DATE, KIND_DURATION, KIND_PERCENT, KIND_QUANTITY, KIND_REFERENCE
 
 STARTER_SET: List[GoldenCase] = [
     # -- clear cases: HERALD should be confident -----------------------
@@ -88,6 +88,31 @@ STARTER_SET: List[GoldenCase] = [
     GoldenCase("deixis-amount-1",
                "That amount, $1,250, seems to reflect the earlier balance.", True, KIND_AMOUNT,
                "seems plus an unclear referent"),
+
+    # -- reference kind: previously extracted but never calibrated -------
+    # (docs/CALIBRATION.md named this the set's one known kind gap: the
+    # extractor has had KIND_REFERENCE since extract.py's first version,
+    # but no case ever exercised it.)
+    GoldenCase("reference-clear-1",
+               "Please cite case number CASE-20394 in all correspondence.", False, KIND_REFERENCE,
+               "a structured reference stated as a plain instruction, no hedging nearby"),
+    GoldenCase("reference-ambig-1",
+               "The relevant file may be ticket TCK-4821 or a related one.", True, KIND_REFERENCE,
+               "may, plus or a related one: which reference is meant is unresolved"),
+
+    # -- quantity kind: the starter set had exactly one ambiguous case
+    # (vague-qty-1, VAGUE_QUANT); this adds MODAL coverage for the same kind.
+    GoldenCase("quantity-modal-1",
+               "The team may need to reprocess 312 records.", True, KIND_QUANTITY,
+               "may: whether the 312 records are reprocessed at all is undecided"),
+
+    # -- multiple amounts/currencies in one sentence: a regression anchor,
+    # not a new finding. "$500 USD and 450 EUR" has an "and" between two
+    # operands but no "or", so it must not trip the COORDINATION pattern
+    # (which requires AND-then-OR); verified this stays clear before adding.
+    GoldenCase("multi-currency-clear-1",
+               "The invoice shows $500 USD and 450 EUR as separate line items.", False, KIND_AMOUNT,
+               "two currencies, each stated plainly; 'and' alone must not read as and/or coordination"),
 ]
 
 
