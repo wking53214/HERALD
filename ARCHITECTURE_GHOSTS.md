@@ -2,6 +2,8 @@
 
 These entries come from ghost_buster, the structural scanner in the ghost_tools repository. Each one records what the scanner reported and what a person reviewed. Sections 1, 2, 3 and 5 sort the findings. Section 4 holds the owner's decisions, and only those are the owner's. Nothing else here is accepted architecture.
 
+Run ghost_buster from the ghost_tools repository, not from PyPI: a PyPI package named `ghost_tools` exists (seen 2026-11-15 as version 1.6.0) and its versioning does not match the scan reference below, so it should not be assumed to be the same tool.
+
 Re-run ghost_buster with an entry's `id` before trusting it on a later read. IDs can change between scanner versions.
 
 Scan reference (historical baseline, not a current scan): ghost_tools 1.10.14 on main `d7e3e51`, 2026-11-08. It reported 22 findings. Only the entries below have been reviewed. The rest are not listed until someone reviews them.
@@ -12,7 +14,7 @@ None are confirmed as defects. Every entry in this document is either a structur
 
 ### 2. Not reproduced or historical
 
-- **Two recorded-gap checks** (`Tests/test_hulk_100.py:380` and `:397`, `ghost-ee069564097f`, severity major). Reviewed 2026-11-06 at `60d5150` as recorded-gap checks that are meant to fail once a feature lands. On 2026-11-08 at `d7e3e51` the scanner did not report this pair, though both functions still exist. Status: **unverified**. The third function named in the original finding, `test_no_external_authorization_ledger_for_claims_or_confirmations`, is not in the file.
+- **Two recorded-gap checks** (`Tests/test_hulk_100.py:380` and `:397`, `ghost-ee069564097f`, severity major). Reviewed 2026-11-06 at `60d5150` as recorded-gap checks that are meant to fail once a feature lands. On 2026-11-08 at `d7e3e51` the scanner did not report this pair, though both functions still exist. Re-checked 2026-11-15 at `50ec248`: both functions are still at those lines and pass, so each absence they assert still holds (no public decision history on `ConfidenceGate`; no handoff comparison function). The scanner finding itself was not re-run. Status: **verified as recorded gaps by test; scanner status unverified**. The third function named in the original finding, `test_no_external_authorization_ledger_for_claims_or_confirmations`, is not in the file.
 
 ### 3. Accepted design trade-offs
 
@@ -27,4 +29,4 @@ Decided by the owner on 2026-11-08.
 
 ### 5. Pending owner decisions
 
-- **Scanner baseline is stale.** 73 of the 86 entries in `.ghost_baseline.json` match nothing in the current scan. Recommendation: do not regenerate it, because that would accept unreviewed findings. Owner to decide how to retire the stale entries.
+- **Scanner baseline is stale.** 73 of the 86 entries in `.ghost_baseline.json` match nothing in the current scan. Recommendation: do not regenerate it, because that would accept unreviewed findings. Owner to decide how to retire the stale entries. Not acted on 2026-11-15: telling which entries are stale needs a ghost_buster scan from the ghost_tools repository, which was not available in that session, and the baseline's entries point at paths on a different machine.

@@ -55,6 +55,7 @@ from .errors import (
     BoundaryViolation,
     CalibrationError,
     HeraldError,
+    ForeignKeyExportError,
     SealIntegrityError,
 )
 from .gate import (
@@ -115,6 +116,7 @@ __all__ = [
     "starter_set",
     "HeraldError",
     "BoundaryViolation",
+    "ForeignKeyExportError",
     "SealIntegrityError",
     "BindingError",
     "CalibrationError",

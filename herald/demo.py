@@ -71,6 +71,9 @@ def main() -> None:
         ))
         after = controller.submit(target, document=document)
         print(f"  {after.verdict} by {after.confirmed_by}: {after.reason}")
+        # Confirming re-sealed the claim, so the earlier REFUSED decision no
+        # longer matches it; the handoff in step 8 needs the new decision.
+        decisions[claims.index(target)] = after
 
     _rule("6. The source moved: the claim is unchanged, and that is the danger")
     edited = SourceDocument(

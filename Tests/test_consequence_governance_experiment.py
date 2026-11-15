@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from herald.consequence_governance_experiment import (
+from experiments.consequence_governance_experiment import (
     ConsequenceAwareGovernance,
     ConsequenceLevel,
     EvidenceProfile,

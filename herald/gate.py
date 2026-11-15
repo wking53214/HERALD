@@ -394,6 +394,11 @@ class ConfidenceGate:
         self.thresholds: Dict[str, float] = dict(thresholds or {})
         self.require_source = require_source
         self._confirmations: Dict[str, HumanConfirmation] = {}
+        # claim_id -> content_hash of the claim as this gate last confirmed
+        # it. The only evidence, besides a confirmation passed in or on
+        # file, that a claim arriving with provenance HUMAN_CONFIRMED got
+        # it from this gate rather than from an assignment (HMAX-012).
+        self._confirmed_hashes: Dict[str, Optional[str]] = {}
 
     def threshold_for(self, kind: str) -> float:
         return self.thresholds.get(kind, self.default_threshold)
@@ -483,6 +488,27 @@ class ConfidenceGate:
         except SealIntegrityError as exc:
             return self._decide(VERDICT_BLOCKED, threshold, f"integrity: {exc}", claim)
 
+        if confirmation is None:
+            confirmation = self._confirmations.get(claim.claim_id)
+
+        # HMAX-012. Provenance is a plain field, so a claim can arrive
+        # saying HUMAN_CONFIRMED without anyone having confirmed it, and
+        # that value exempts it from the extractor re-derivation in
+        # verify_against(). Only this gate sets the value legitimately, so
+        # it is believed only when a confirmation is in hand or this gate
+        # itself sealed the claim in that state.
+        if (
+            claim.provenance == PROV_HUMAN_CONFIRMED
+            and confirmation is None
+            and self._confirmed_hashes.get(claim.claim_id) != claim.content_hash
+        ):
+            return self._decide(
+                VERDICT_BLOCKED, threshold,
+                "provenance: claim says HUMAN_CONFIRMED but no human confirmation "
+                "is on file and this gate did not confirm it",
+                claim,
+            )
+
         source_verified = False
         if document is not None:
             try:
@@ -508,8 +534,6 @@ class ConfidenceGate:
                 "with require_source=True to refuse instead."
             )
 
-        if confirmation is None:
-            confirmation = self._confirmations.get(claim.claim_id)
         if confirmation is not None:
             # Two different questions, asked in this order. validate() asks
             # "is this a valid sign-off at all" -- the rules __post_init__
@@ -534,6 +558,7 @@ class ConfidenceGate:
             claim.provenance = PROV_HUMAN_CONFIRMED
             claim.value = confirmation.confirmed_value
             claim.seal()
+            self._confirmed_hashes[claim.claim_id] = claim.content_hash
             reason = f"human confirmation on file: {confirmation.rationale}"
             return self._decide(
                 VERDICT_ADMITTED, threshold, reason, claim,
