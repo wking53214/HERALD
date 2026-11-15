@@ -81,3 +81,25 @@ def test_unicode_folding_does_not_reject_permitted_kinds():
     for kind in ["date", "amount", "percent", "duration", "reference"]:
         claim = CandidateClaim(kind=kind, value=1, raw="x", span=(0, 1), source_id="s")
         assert claim.kind == kind
+
+
+def test_every_confusable_maps_one_non_ascii_char_to_one_ascii_letter():
+    for src, dst in boundary._CONFUSABLES.items():
+        assert src > 127, hex(src)
+        assert len(dst) == 1 and dst.isascii() and dst.isalpha(), (hex(src), dst)
+
+
+def test_every_confusable_is_folded_onto_its_latin_letter():
+    for src, dst in boundary._CONFUSABLES.items():
+        assert boundary._fold(chr(src)) == dst, hex(src)
+
+
+def test_every_confusable_defeats_nothing_inside_forbidden_words():
+    words = ["eligibility", "authorization", "diagnosis", "creditworthiness", "liability"]
+    for src, dst in boundary._CONFUSABLES.items():
+        for word in words:
+            pos = word.find(dst.lower())
+            if pos < 0:
+                continue
+            spoofed = word[:pos] + chr(src) + word[pos + 1:]
+            assert boundary.is_governed_determination(spoofed), (hex(src), spoofed)

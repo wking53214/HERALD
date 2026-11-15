@@ -117,6 +117,17 @@ _CONFUSABLES = {
         "\u0397": "H", "\u0399": "I", "\u039a": "K", "\u039c": "M",
         "\u039d": "N", "\u039f": "O", "\u03a1": "P", "\u03a4": "T",
         "\u03a5": "Y", "\u03a7": "X",
+        # Greek / Cyrillic extras (U+03C2 is what NFKD turns U+03F2 into)
+        "\u03f2": "c", "\u03c2": "c", "\u0475": "v", "\u03f3": "j",
+        # Latin-script lookalikes that NFKD leaves alone
+        "\u0131": "i", "\u0251": "a", "\u0261": "g",
+        # Latin small capitals
+        "\u1d00": "a", "\u1d04": "c", "\u1d07": "e", "\u026a": "i",
+        "\u029f": "l", "\u1d0d": "m", "\u0274": "n", "\u1d0f": "o",
+        "\u1d18": "p", "\u0280": "r", "\u1d1b": "t", "\u1d1c": "u",
+        "\u1d20": "v", "\u1d21": "w", "\u028f": "y", "\u1d22": "z",
+        # Armenian
+        "\u0578": "n", "\u0585": "o", "\u057d": "u",
     }.items()
 }
 

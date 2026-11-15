@@ -2,6 +2,8 @@
 
 These entries come from ghost_buster, the structural scanner in the ghost_tools repository. Each one records what the scanner reported and what a person reviewed. Sections 1, 2, 3 and 5 sort the findings. Section 4 holds the owner's decisions, and only those are the owner's. Nothing else here is accepted architecture.
 
+Run ghost_buster from the ghost_tools repository, not from PyPI: a PyPI package named `ghost_tools` exists (seen 2026-11-15 as version 1.6.0) and its versioning does not match the scan reference below, so it should not be assumed to be the same tool.
+
 Re-run ghost_buster with an entry's `id` before trusting it on a later read. IDs can change between scanner versions.
 
 Scan reference (historical baseline, not a current scan): ghost_tools 1.10.14 on main `d7e3e51`, 2026-11-08. It reported 22 findings. Only the entries below have been reviewed. The rest are not listed until someone reviews them.
