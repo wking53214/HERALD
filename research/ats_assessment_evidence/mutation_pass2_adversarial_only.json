@@ -1,0 +1,2746 @@
+[
+ {
+  "file": "gate.py",
+  "site": 0,
+  "op": "boolconst",
+  "line": 117,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 4,
+  "op": "ifneg",
+  "line": 226,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 8,
+  "op": "ifneg",
+  "line": 333,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 12,
+  "op": "ifneg",
+  "line": 391,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 16,
+  "op": "ifneg",
+  "line": 544,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 20,
+  "op": "raise2pass",
+  "line": 227,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 24,
+  "op": "raise2pass",
+  "line": 249,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 28,
+  "op": "raise2pass",
+  "line": 347,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 32,
+  "op": "notdrop",
+  "line": 391,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 36,
+  "op": "boolconst",
+  "line": 486,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 40,
+  "op": "cmp",
+  "line": 513,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 44,
+  "op": "boolop",
+  "line": 550,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 48,
+  "op": "cmp",
+  "line": 391,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 52,
+  "op": "calldrop",
+  "line": 527,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 2,
+  "op": "calldrop",
+  "line": 159,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 6,
+  "op": "ifneg",
+  "line": 173,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 10,
+  "op": "ifneg",
+  "line": 274,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 14,
+  "op": "ifneg",
+  "line": 352,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 18,
+  "op": "ifneg",
+  "line": 418,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 22,
+  "op": "boolconst",
+  "line": 81,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 26,
+  "op": "raise2pass",
+  "line": 167,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 30,
+  "op": "raise2pass",
+  "line": 174,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 34,
+  "op": "raise2pass",
+  "line": 272,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 38,
+  "op": "raise2pass",
+  "line": 336,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 42,
+  "op": "raise2pass",
+  "line": 347,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 46,
+  "op": "raise2pass",
+  "line": 362,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 50,
+  "op": "cmp",
+  "line": 418,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 54,
+  "op": "cmp",
+  "line": 173,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 58,
+  "op": "ifneg",
+  "line": 385,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 62,
+  "op": "raise2pass",
+  "line": 386,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 66,
+  "op": "cmp",
+  "line": 385,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 0,
+  "op": "ifneg",
+  "line": 124,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 4,
+  "op": "ifneg",
+  "line": 198,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 8,
+  "op": "ifneg",
+  "line": 242,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 12,
+  "op": "ifneg",
+  "line": 580,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 16,
+  "op": "ifneg",
+  "line": 753,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 20,
+  "op": "notdrop",
+  "line": 168,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 24,
+  "op": "cmp",
+  "line": 198,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 28,
+  "op": "calldrop",
+  "line": 207,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 32,
+  "op": "raise2pass",
+  "line": 239,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 36,
+  "op": "ifneg",
+  "line": 249,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 40,
+  "op": "calldrop",
+  "line": 497,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 44,
+  "op": "calldrop",
+  "line": 562,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 48,
+  "op": "raise2pass",
+  "line": 589,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 52,
+  "op": "ifneg",
+  "line": 664,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 56,
+  "op": "boolop",
+  "line": 759,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 60,
+  "op": "raise2pass",
+  "line": 250,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 64,
+  "op": "boolop",
+  "line": 261,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 68,
+  "op": "ifneg",
+  "line": 395,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 72,
+  "op": "cmp",
+  "line": 612,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 76,
+  "op": "calldrop",
+  "line": 657,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 80,
+  "op": "cmp",
+  "line": 403,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 84,
+  "op": "raise2pass",
+  "line": 637,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 88,
+  "op": "cmp",
+  "line": 402,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "boundary.py",
+  "site": 0,
+  "op": "ifneg",
+  "line": 193,
+  "status": "error"
+ },
+ {
+  "file": "boundary.py",
+  "site": 4,
+  "op": "raise2pass",
+  "line": 194,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "boundary.py",
+  "site": 8,
+  "op": "raise2pass",
+  "line": 147,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "boundary.py",
+  "site": 12,
+  "op": "notdrop",
+  "line": 129,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "binding.py",
+  "site": 3,
+  "op": "cmp",
+  "line": 84,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "binding.py",
+  "site": 7,
+  "op": "raise2pass",
+  "line": 93,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 1,
+  "op": "ifneg",
+  "line": 245,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 5,
+  "op": "ifneg",
+  "line": 308,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 9,
+  "op": "ifneg",
+  "line": 135,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 13,
+  "op": "cmp",
+  "line": 229,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 17,
+  "op": "ifneg",
+  "line": 252,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 21,
+  "op": "notdrop",
+  "line": 302,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 25,
+  "op": "boolconst",
+  "line": 84,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 29,
+  "op": "raise2pass",
+  "line": 134,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 33,
+  "op": "raise2pass",
+  "line": 142,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 37,
+  "op": "ifneg",
+  "line": 156,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 41,
+  "op": "cmp",
+  "line": 252,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 45,
+  "op": "notdrop",
+  "line": 131,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 49,
+  "op": "notdrop",
+  "line": 154,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 53,
+  "op": "cmp",
+  "line": 161,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 57,
+  "op": "cmp",
+  "line": 186,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 61,
+  "op": "cmp",
+  "line": 156,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "lineage.py",
+  "site": 3,
+  "op": "cmp",
+  "line": 16,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 1,
+  "op": "ifneg",
+  "line": 101,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 5,
+  "op": "notdrop",
+  "line": 88,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 9,
+  "op": "ifneg",
+  "line": 190,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 13,
+  "op": "raise2pass",
+  "line": 69,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 17,
+  "op": "boolop",
+  "line": 167,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 21,
+  "op": "cmp",
+  "line": 87,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 25,
+  "op": "cmp",
+  "line": 145,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 29,
+  "op": "boolop",
+  "line": 110,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 2,
+  "op": "ifneg",
+  "line": 105,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 6,
+  "op": "ifneg",
+  "line": 125,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 10,
+  "op": "cmp",
+  "line": 100,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 14,
+  "op": "notdrop",
+  "line": 115,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 18,
+  "op": "ifneg",
+  "line": 317,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 22,
+  "op": "boolconst",
+  "line": 71,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 26,
+  "op": "cmp",
+  "line": 275,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 30,
+  "op": "ifneg",
+  "line": 341,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 34,
+  "op": "boolop",
+  "line": 136,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "ambiguity.py",
+  "site": 2,
+  "op": "ifneg",
+  "line": 192,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "ambiguity.py",
+  "site": 6,
+  "op": "cmp",
+  "line": 192,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "ambiguity.py",
+  "site": 10,
+  "op": "cmp",
+  "line": 147,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "ambiguity.py",
+  "site": 14,
+  "op": "cmp",
+  "line": 211,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 1,
+  "op": "boolconst",
+  "line": 158,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 5,
+  "op": "ifneg",
+  "line": 246,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 9,
+  "op": "ifneg",
+  "line": 344,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 13,
+  "op": "ifneg",
+  "line": 487,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 17,
+  "op": "notdrop",
+  "line": 224,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 21,
+  "op": "cmp",
+  "line": 246,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 25,
+  "op": "cmp",
+  "line": 333,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 29,
+  "op": "cmp",
+  "line": 354,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 33,
+  "op": "raise2pass",
+  "line": 392,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 37,
+  "op": "cmp",
+  "line": 487,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 41,
+  "op": "calldrop",
+  "line": 533,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 45,
+  "op": "cmp",
+  "line": 344,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 49,
+  "op": "boolop",
+  "line": 394,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 53,
+  "op": "notdrop",
+  "line": 584,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 3,
+  "op": "ifneg",
+  "line": 161,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 7,
+  "op": "ifneg",
+  "line": 201,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 11,
+  "op": "ifneg",
+  "line": 335,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 15,
+  "op": "ifneg",
+  "line": 361,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 19,
+  "op": "calldrop",
+  "line": 424,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 23,
+  "op": "cmp",
+  "line": 161,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 27,
+  "op": "notdrop",
+  "line": 170,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 31,
+  "op": "notdrop",
+  "line": 201,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 35,
+  "op": "cmp",
+  "line": 274,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 39,
+  "op": "cmp",
+  "line": 340,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 43,
+  "op": "cmp",
+  "line": 352,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 47,
+  "op": "cmp",
+  "line": 366,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 51,
+  "op": "boolconst",
+  "line": 78,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 55,
+  "op": "cmp",
+  "line": 173,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 59,
+  "op": "cmp",
+  "line": 373,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 63,
+  "op": "cmp",
+  "line": 415,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 67,
+  "op": "cmp",
+  "line": 371,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 1,
+  "op": "ifneg",
+  "line": 160,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 5,
+  "op": "ifneg",
+  "line": 200,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 9,
+  "op": "ifneg",
+  "line": 247,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 13,
+  "op": "ifneg",
+  "line": 587,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 17,
+  "op": "cmp",
+  "line": 124,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 21,
+  "op": "raise2pass",
+  "line": 169,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 25,
+  "op": "raise2pass",
+  "line": 199,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 29,
+  "op": "cmp",
+  "line": 235,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 33,
+  "op": "notdrop",
+  "line": 242,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 37,
+  "op": "notdrop",
+  "line": 264,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 41,
+  "op": "ifneg",
+  "line": 521,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 45,
+  "op": "cmp",
+  "line": 580,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 49,
+  "op": "cmp",
+  "line": 598,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 53,
+  "op": "cmp",
+  "line": 707,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 57,
+  "op": "raise2pass",
+  "line": 205,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 61,
+  "op": "boolop",
+  "line": 258,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 65,
+  "op": "cmp",
+  "line": 333,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 69,
+  "op": "boolop",
+  "line": 403,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 73,
+  "op": "raise2pass",
+  "line": 613,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 77,
+  "op": "cmp",
+  "line": 664,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 81,
+  "op": "boolop",
+  "line": 443,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 85,
+  "op": "raise2pass",
+  "line": 659,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 89,
+  "op": "cmp",
+  "line": 588,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "boundary.py",
+  "site": 1,
+  "op": "ifneg",
+  "line": 196,
+  "status": "error"
+ },
+ {
+  "file": "boundary.py",
+  "site": 5,
+  "op": "raise2pass",
+  "line": 197,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "boundary.py",
+  "site": 9,
+  "op": "notdrop",
+  "line": 193,
+  "status": "error"
+ },
+ {
+  "file": "binding.py",
+  "site": 0,
+  "op": "ifneg",
+  "line": 84,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "binding.py",
+  "site": 4,
+  "op": "raise2pass",
+  "line": 85,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "binding.py",
+  "site": 8,
+  "op": "cmp",
+  "line": 100,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 2,
+  "op": "ifneg",
+  "line": 257,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 6,
+  "op": "calldrop",
+  "line": 125,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 10,
+  "op": "ifneg",
+  "line": 141,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 14,
+  "op": "notdrop",
+  "line": 245,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 18,
+  "op": "cmp",
+  "line": 257,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 22,
+  "op": "raise2pass",
+  "line": 303,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 26,
+  "op": "boolop",
+  "line": 131,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 30,
+  "op": "notdrop",
+  "line": 135,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 34,
+  "op": "cmp",
+  "line": 143,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 38,
+  "op": "ifneg",
+  "line": 161,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 42,
+  "op": "cmp",
+  "line": 261,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 46,
+  "op": "notdrop",
+  "line": 131,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 50,
+  "op": "raise2pass",
+  "line": 155,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 54,
+  "op": "raise2pass",
+  "line": 162,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 58,
+  "op": "cmp",
+  "line": 187,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "lineage.py",
+  "site": 0,
+  "op": "ifneg",
+  "line": 16,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "lineage.py",
+  "site": 4,
+  "op": "cmp",
+  "line": 18,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 2,
+  "op": "ifneg",
+  "line": 113,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 6,
+  "op": "boolop",
+  "line": 101,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 10,
+  "op": "notdrop",
+  "line": 66,
+  "status": "error"
+ },
+ {
+  "file": "calibration.py",
+  "site": 14,
+  "op": "cmp",
+  "line": 101,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 18,
+  "op": "cmp",
+  "line": 181,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 22,
+  "op": "cmp",
+  "line": 167,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 26,
+  "op": "cmp",
+  "line": 149,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 30,
+  "op": "boolop",
+  "line": 122,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 3,
+  "op": "ifneg",
+  "line": 113,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 7,
+  "op": "ifneg",
+  "line": 262,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 11,
+  "op": "cmp",
+  "line": 100,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 15,
+  "op": "cmp",
+  "line": 122,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 19,
+  "op": "calldrop",
+  "line": 322,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 23,
+  "op": "cmp",
+  "line": 98,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 27,
+  "op": "cmp",
+  "line": 275,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 31,
+  "op": "cmp",
+  "line": 98,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 35,
+  "op": "cmp",
+  "line": 341,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "ambiguity.py",
+  "site": 3,
+  "op": "ifneg",
+  "line": 147,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "ambiguity.py",
+  "site": 7,
+  "op": "ifneg",
+  "line": 207,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "ambiguity.py",
+  "site": 11,
+  "op": "cmp",
+  "line": 161,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "ambiguity.py",
+  "site": 15,
+  "op": "boolop",
+  "line": 195,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 2,
+  "op": "calldrop",
+  "line": 208,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 6,
+  "op": "ifneg",
+  "line": 248,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 10,
+  "op": "calldrop",
+  "line": 353,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 14,
+  "op": "ifneg",
+  "line": 511,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 18,
+  "op": "raise2pass",
+  "line": 225,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 22,
+  "op": "raise2pass",
+  "line": 247,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 26,
+  "op": "raise2pass",
+  "line": 334,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 30,
+  "op": "raise2pass",
+  "line": 355,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 34,
+  "op": "boolconst",
+  "line": 414,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 38,
+  "op": "ifneg",
+  "line": 493,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 42,
+  "op": "calldrop",
+  "line": 536,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 46,
+  "op": "notdrop",
+  "line": 344,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 50,
+  "op": "calldrop",
+  "line": 489,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 0,
+  "op": "ifneg",
+  "line": 95,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 4,
+  "op": "ifneg",
+  "line": 166,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 8,
+  "op": "ifneg",
+  "line": 226,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 12,
+  "op": "ifneg",
+  "line": 340,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 16,
+  "op": "ifneg",
+  "line": 366,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 20,
+  "op": "cmp",
+  "line": 95,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 24,
+  "op": "raise2pass",
+  "line": 162,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 28,
+  "op": "raise2pass",
+  "line": 171,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 32,
+  "op": "cmp",
+  "line": 226,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 36,
+  "op": "raise2pass",
+  "line": 275,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 40,
+  "op": "raise2pass",
+  "line": 341,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 44,
+  "op": "raise2pass",
+  "line": 353,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 48,
+  "op": "ifneg",
+  "line": 372,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 52,
+  "op": "cmp",
+  "line": 170,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 56,
+  "op": "cmp",
+  "line": 372,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 60,
+  "op": "raise2pass",
+  "line": 374,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 64,
+  "op": "boolop",
+  "line": 383,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 68,
+  "op": "cmp",
+  "line": 383,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 2,
+  "op": "ifneg",
+  "line": 168,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 6,
+  "op": "ifneg",
+  "line": 235,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 10,
+  "op": "ifneg",
+  "line": 264,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 14,
+  "op": "ifneg",
+  "line": 598,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 18,
+  "op": "notdrop",
+  "line": 160,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 22,
+  "op": "notdrop",
+  "line": 193,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 26,
+  "op": "notdrop",
+  "line": 200,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 30,
+  "op": "calldrop",
+  "line": 236,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 34,
+  "op": "raise2pass",
+  "line": 243,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 38,
+  "op": "raise2pass",
+  "line": 265,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 42,
+  "op": "ifneg",
+  "line": 526,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 46,
+  "op": "raise2pass",
+  "line": 581,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 50,
+  "op": "raise2pass",
+  "line": 600,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 54,
+  "op": "cmp",
+  "line": 753,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 58,
+  "op": "raise2pass",
+  "line": 209,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 62,
+  "op": "boolop",
+  "line": 259,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 66,
+  "op": "boolconst",
+  "line": 272,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 70,
+  "op": "cmp",
+  "line": 418,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 74,
+  "op": "calldrop",
+  "line": 627,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 78,
+  "op": "cmp",
+  "line": 395,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 82,
+  "op": "notdrop",
+  "line": 457,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 86,
+  "op": "cmp",
+  "line": 405,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 90,
+  "op": "cmp",
+  "line": 599,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "boundary.py",
+  "site": 2,
+  "op": "ifneg",
+  "line": 146,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "boundary.py",
+  "site": 6,
+  "op": "calldrop",
+  "line": 208,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "boundary.py",
+  "site": 10,
+  "op": "notdrop",
+  "line": 193,
+  "status": "error"
+ },
+ {
+  "file": "binding.py",
+  "site": 1,
+  "op": "ifneg",
+  "line": 89,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "binding.py",
+  "site": 5,
+  "op": "cmp",
+  "line": 89,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "binding.py",
+  "site": 9,
+  "op": "boolconst",
+  "line": 67,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 3,
+  "op": "ifneg",
+  "line": 260,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 7,
+  "op": "ifneg",
+  "line": 131,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 11,
+  "op": "ifneg",
+  "line": 143,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 15,
+  "op": "raise2pass",
+  "line": 246,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 19,
+  "op": "cmp",
+  "line": 260,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 23,
+  "op": "calldrop",
+  "line": 305,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 27,
+  "op": "raise2pass",
+  "line": 132,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 31,
+  "op": "raise2pass",
+  "line": 136,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 35,
+  "op": "raise2pass",
+  "line": 144,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 39,
+  "op": "ifneg",
+  "line": 178,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 43,
+  "op": "raise2pass",
+  "line": 262,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 47,
+  "op": "notdrop",
+  "line": 141,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 51,
+  "op": "notdrop",
+  "line": 156,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 55,
+  "op": "cmp",
+  "line": 178,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 59,
+  "op": "cmp",
+  "line": 156,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "lineage.py",
+  "site": 1,
+  "op": "ifneg",
+  "line": 18,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "lineage.py",
+  "site": 5,
+  "op": "cmp",
+  "line": 20,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 3,
+  "op": "ifneg",
+  "line": 66,
+  "status": "error"
+ },
+ {
+  "file": "calibration.py",
+  "site": 7,
+  "op": "boolop",
+  "line": 113,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 11,
+  "op": "raise2pass",
+  "line": 67,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 15,
+  "op": "notdrop",
+  "line": 113,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 19,
+  "op": "cmp",
+  "line": 190,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 23,
+  "op": "boolconst",
+  "line": 106,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 27,
+  "op": "cmp",
+  "line": 153,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 0,
+  "op": "calldrop",
+  "line": 257,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 4,
+  "op": "ifneg",
+  "line": 115,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 8,
+  "op": "ifneg",
+  "line": 316,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 12,
+  "op": "notdrop",
+  "line": 105,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 16,
+  "op": "notdrop",
+  "line": 125,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 20,
+  "op": "boolop",
+  "line": 338,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 24,
+  "op": "notdrop",
+  "line": 98,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 28,
+  "op": "notdrop",
+  "line": 317,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 32,
+  "op": "cmp",
+  "line": 98,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "ambiguity.py",
+  "site": 0,
+  "op": "ifneg",
+  "line": 150,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "ambiguity.py",
+  "site": 4,
+  "op": "cmp",
+  "line": 150,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "ambiguity.py",
+  "site": 8,
+  "op": "ifneg",
+  "line": 211,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "ambiguity.py",
+  "site": 12,
+  "op": "cmp",
+  "line": 161,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "ambiguity.py",
+  "site": 16,
+  "op": "cmp",
+  "line": 195,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 3,
+  "op": "ifneg",
+  "line": 224,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 7,
+  "op": "boolconst",
+  "line": 295,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 11,
+  "op": "ifneg",
+  "line": 354,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 15,
+  "op": "ifneg",
+  "line": 513,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 19,
+  "op": "notdrop",
+  "line": 226,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 23,
+  "op": "cmp",
+  "line": 248,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 27,
+  "op": "boolop",
+  "line": 344,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 31,
+  "op": "boolconst",
+  "line": 381,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 35,
+  "op": "calldrop",
+  "line": 482,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 39,
+  "op": "cmp",
+  "line": 511,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 43,
+  "op": "cmp",
+  "line": 544,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 47,
+  "op": "cmp",
+  "line": 391,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "gate.py",
+  "site": 51,
+  "op": "boolconst",
+  "line": 492,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 1,
+  "op": "calldrop",
+  "line": 134,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 5,
+  "op": "ifneg",
+  "line": 170,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 9,
+  "op": "ifneg",
+  "line": 271,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 13,
+  "op": "ifneg",
+  "line": 346,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 17,
+  "op": "ifneg",
+  "line": 416,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 21,
+  "op": "raise2pass",
+  "line": 96,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 25,
+  "op": "cmp",
+  "line": 166,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 29,
+  "op": "boolop",
+  "line": 173,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 33,
+  "op": "cmp",
+  "line": 271,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 37,
+  "op": "cmp",
+  "line": 335,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 41,
+  "op": "cmp",
+  "line": 346,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 45,
+  "op": "cmp",
+  "line": 361,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 49,
+  "op": "cmp",
+  "line": 416,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 53,
+  "op": "cmp",
+  "line": 170,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 57,
+  "op": "ifneg",
+  "line": 373,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 61,
+  "op": "boolop",
+  "line": 385,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 65,
+  "op": "cmp",
+  "line": 385,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "claim.py",
+  "site": 69,
+  "op": "cmp",
+  "line": 383,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 3,
+  "op": "ifneg",
+  "line": 193,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 7,
+  "op": "ifneg",
+  "line": 238,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 11,
+  "op": "ifneg",
+  "line": 561,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 15,
+  "op": "ifneg",
+  "line": 707,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 19,
+  "op": "raise2pass",
+  "line": 161,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 23,
+  "op": "raise2pass",
+  "line": 194,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 27,
+  "op": "raise2pass",
+  "line": 201,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 31,
+  "op": "cmp",
+  "line": 238,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 35,
+  "op": "cmp",
+  "line": 247,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 39,
+  "op": "ifneg",
+  "line": 403,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 43,
+  "op": "cmp",
+  "line": 561,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 47,
+  "op": "cmp",
+  "line": 587,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 51,
+  "op": "ifneg",
+  "line": 612,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 55,
+  "op": "calldrop",
+  "line": 754,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 59,
+  "op": "cmp",
+  "line": 249,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 63,
+  "op": "boolop",
+  "line": 260,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 67,
+  "op": "boolconst",
+  "line": 336,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 71,
+  "op": "boolconst",
+  "line": 360,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 75,
+  "op": "calldrop",
+  "line": 635,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 79,
+  "op": "cmp",
+  "line": 403,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 83,
+  "op": "raise2pass",
+  "line": 629,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 87,
+  "op": "boolconst",
+  "line": 759,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "handoff.py",
+  "site": 91,
+  "op": "boolop",
+  "line": 534,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "boundary.py",
+  "site": 3,
+  "op": "boolop",
+  "line": 193,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "boundary.py",
+  "site": 7,
+  "op": "notdrop",
+  "line": 146,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "boundary.py",
+  "site": 11,
+  "op": "cmp",
+  "line": 127,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "binding.py",
+  "site": 2,
+  "op": "ifneg",
+  "line": 92,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "binding.py",
+  "site": 6,
+  "op": "cmp",
+  "line": 92,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 0,
+  "op": "ifneg",
+  "line": 229,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 4,
+  "op": "ifneg",
+  "line": 302,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 8,
+  "op": "ifneg",
+  "line": 133,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 12,
+  "op": "ifneg",
+  "line": 225,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 16,
+  "op": "cmp",
+  "line": 251,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 20,
+  "op": "ifneg",
+  "line": 261,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 24,
+  "op": "cmp",
+  "line": 308,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 28,
+  "op": "notdrop",
+  "line": 133,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 32,
+  "op": "boolop",
+  "line": 141,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 36,
+  "op": "ifneg",
+  "line": 154,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 40,
+  "op": "cmp",
+  "line": 225,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 44,
+  "op": "boolconst",
+  "line": 281,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 48,
+  "op": "notdrop",
+  "line": 141,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 52,
+  "op": "raise2pass",
+  "line": 157,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 56,
+  "op": "cmp",
+  "line": 178,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "source.py",
+  "site": 60,
+  "op": "cmp",
+  "line": 156,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "lineage.py",
+  "site": 2,
+  "op": "ifneg",
+  "line": 20,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 0,
+  "op": "ifneg",
+  "line": 88,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 4,
+  "op": "ifneg",
+  "line": 68,
+  "status": "error"
+ },
+ {
+  "file": "calibration.py",
+  "site": 8,
+  "op": "ifneg",
+  "line": 181,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 12,
+  "op": "notdrop",
+  "line": 68,
+  "status": "error"
+ },
+ {
+  "file": "calibration.py",
+  "site": 16,
+  "op": "cmp",
+  "line": 113,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 20,
+  "op": "raise2pass",
+  "line": 191,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 24,
+  "op": "boolconst",
+  "line": 118,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "calibration.py",
+  "site": 28,
+  "op": "cmp",
+  "line": 157,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 1,
+  "op": "ifneg",
+  "line": 98,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 5,
+  "op": "ifneg",
+  "line": 122,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 9,
+  "op": "boolop",
+  "line": 98,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 13,
+  "op": "cmp",
+  "line": 113,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 17,
+  "op": "ifneg",
+  "line": 275,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 21,
+  "op": "boolconst",
+  "line": 60,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 25,
+  "op": "boolconst",
+  "line": 99,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 29,
+  "op": "raise2pass",
+  "line": 318,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "extract.py",
+  "site": 33,
+  "op": "cmp",
+  "line": 114,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "ambiguity.py",
+  "site": 1,
+  "op": "ifneg",
+  "line": 161,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "ambiguity.py",
+  "site": 5,
+  "op": "boolop",
+  "line": 161,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "ambiguity.py",
+  "site": 9,
+  "op": "boolconst",
+  "line": 90,
+  "status": "survived_hulk"
+ },
+ {
+  "file": "ambiguity.py",
+  "site": 13,
+  "op": "cmp",
+  "line": 207,
+  "status": "killed_by_hulk"
+ },
+ {
+  "file": "ambiguity.py",
+  "site": 17,
+  "op": "cmp",
+  "line": 195,
+  "status": "killed_by_hulk"
+ }
+]
