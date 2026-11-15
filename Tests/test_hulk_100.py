@@ -2996,40 +2996,38 @@ def test_boundary_separator_evasion_is_now_closed_for_these_forms(kind):
         assert_permitted_kind(kind)
 
 
-def test_boundary_no_separator_evasion_remains_an_honest_residual():
-    """[EXECUTING] Documented residual of the Q5 remediation (see
-    HMAX_REMEDIATION_ARCHITECTURE.md's Q5 section). "adverseaction" has
-    no separator character and no case signal (unlike "adverseAction",
-    now closed) -- nothing in the string distinguishes where one word
-    ends and the next begins, so tokenization alone cannot split it.
-    Closing this would require substring/fuzzy matching against the
-    forbidden set instead of tokenization, a materially larger and
-    different mechanism than this control -- deliberately not attempted
-    here, and said so directly rather than silently left for someone
-    else to discover.
+def test_boundary_no_separator_evasion_is_now_closed():
+    """[EXECUTING] Formerly the documented residual of the Q5 remediation.
+    "adverseaction" has no separator character and no case signal, so
+    tokenization alone cannot split it. boundary._squashed_hits() now
+    strips every separator and matches the joined form of each
+    multi-word forbidden entry as a substring, so this and its longer
+    variants are refused. Single forbidden words are deliberately not
+    substring-matched; see test_boundary_squashed_match_does_not_flag_
+    ordinary_kinds.
     """
-    assert not is_governed_determination("adverseaction"), (
-        "if this now returns True, someone closed the no-separator case "
-        "too -- update this test's docstring and this session's records"
-    )
-    assert_permitted_kind("adverseaction")  # must NOT raise -- the residual
+    for kind in ["adverseaction", "adverseactionreason", "riskscore", "legalconclusion"]:
+        assert is_governed_determination(kind), kind
+        with pytest.raises(BoundaryViolation):
+            assert_permitted_kind(kind)
+
+
+def test_boundary_squashed_match_does_not_flag_ordinary_kinds():
+    for kind in ["date", "amount", "percentage", "quantity", "duration",
+                 "reference", "transaction", "reaction", "approvals", "legal_term"]:
+        assert not is_governed_determination(kind), kind
+        assert_permitted_kind(kind)
 
 
 def test_boundary_evasion_reaches_actual_claim_construction_end_to_end():
-    """[EXECUTING] Post Q5-remediation, this specifically exercises the
-    one case that remains open (see
-    test_boundary_no_separator_evasion_remains_an_honest_residual):
-    "adverseaction" has no separator and no case signal, so it's still
-    accepted. Confirms that residual is not a boundary.py-only curiosity
-    -- it reaches the actual public CandidateClaim constructor, the one
-    real path every extractor (present or future) uses.
+    """[EXECUTING] The formerly open no-separator case is refused at the
+    public CandidateClaim constructor, the one real path every extractor
+    (present or future) uses.
     """
-    claim = CandidateClaim(
-        kind="adverseaction", value="something", raw="x", span=(0, 1), source_id="s",
-    )
-    assert claim.kind == "adverseaction"
-    claim.seal()
-    claim.verify_seal()  # fully valid, sealed, traceable claim -- for a forbidden determination
+    with pytest.raises(BoundaryViolation):
+        CandidateClaim(
+            kind="adverseaction", value="something", raw="x", span=(0, 1), source_id="s",
+        )
 
 
 def test_boundary_non_breaking_space_is_correctly_caught_as_a_control():
@@ -4112,7 +4110,11 @@ def test_hmax_006_forged_provenance_does_not_change_gate_decision_logic():
     gate_forged = gate_module.ConfidenceGate(require_source=True)  # no confirmation on file
     decision_forged = gate_forged.submit(claim, document=doc)
 
-    assert decision_natural.verdict == decision_forged.verdict == gate_module.VERDICT_REFUSED
+    assert decision_natural.verdict == gate_module.VERDICT_REFUSED
+    # Since HMAX-012 the gate no longer treats the forged label as harmless:
+    # it refuses to believe HUMAN_CONFIRMED without a confirmation on file.
+    assert decision_forged.verdict == gate_module.VERDICT_BLOCKED
+    assert "provenance" in decision_forged.reason
 
 
 def test_hmax_007_state_a_to_b_to_a_cycle_revalidates_the_original_decision():
@@ -4367,24 +4369,19 @@ def test_hmax_011_q1_fix_does_not_false_positive_on_legitimate_extraction_or_con
     assert claim2.value == {"amount": 1300.0, "currency": "USD"}
 
 
-def test_hmax_012_q1_fix_residual_forged_provenance_still_escapes_the_new_check():
-    """[EXECUTING] HMAX-012. Honestly-documented residual of the Q1 fix
-    (see HMAX_REMEDIATION_ARCHITECTURE.md's Q1 section). The new
-    value-vs-raw check is exempted for PROV_HUMAN_CONFIRMED claims,
-    because a real human confirmation legitimately overrides the raw-
-    derived value. This exemption is keyed on `claim.provenance` alone,
-    which HMAX-006 already established is not itself gate-enforced or
-    authenticated -- so forging `provenance = PROV_HUMAN_CONFIRMED`
-    directly (with no real HumanConfirmation on file in the gate) escapes
-    the new check the same way it always could escape the old confidence-
-    based checks, by ALSO forging base_confidence high enough to pass the
-    threshold without needing a real confirmation record.
+def test_hmax_012_forged_provenance_is_now_blocked_by_the_gate():
+    """[EXECUTING] HMAX-012, CLOSED. The Q1 value-vs-raw check (and the
+    HMAX-015 kind/extractor check) in CandidateClaim.verify_against() is
+    skipped for PROV_HUMAN_CONFIRMED claims, because a real confirmation
+    legitimately overrides the extracted value. That skip is keyed on
+    `claim.provenance`, a plain field, so assigning it (with a forged
+    confidence to clear the threshold) used to reach admission with a
+    value that had nothing to do with the cited text.
 
-    This is not a failure of the Q1 fix to do its job -- it composes two
-    separately pre-existing, separately documented weaknesses (forgeable
-    provenance, forgeable confidence) rather than defeating the new check
-    on its own. Recorded honestly as a residual rather than silently
-    left for someone else to discover.
+    ConfidenceGate.submit() now refuses to believe the label: a claim
+    arriving as HUMAN_CONFIRMED is BLOCKED unless a HumanConfirmation is
+    supplied or on file for it, or this gate itself sealed the claim in
+    that state.
     """
     text = "The invoice states $50,000,000.00 as the total due."
     doc = SourceDocument(source_id="hmax-012", text=text, standing=STANDING_RECORD)
@@ -4392,17 +4389,44 @@ def test_hmax_012_q1_fix_residual_forged_provenance_still_escapes_the_new_check(
 
     claim.value = {"amount": 500.0, "currency": "USD"}
     claim.provenance = PROV_HUMAN_CONFIRMED  # forged -- no real confirmation on file
-    claim.base_confidence = 0.99             # forged -- passes threshold without one
+    claim.base_confidence = 0.99
     claim.seal()
 
-    claim.verify_against(doc)  # does NOT raise -- exempted by the forged provenance
+    claim.verify_against(doc)  # still exempt at the claim level; the gate is what closes it
 
     gate = gate_module.ConfidenceGate(require_source=True)
     decision = gate.submit(claim, document=doc)
-    assert decision.verdict == gate_module.VERDICT_ADMITTED, (
-        "documents the residual: composing forged provenance with forged "
-        "confidence still reaches admission despite the Q1 fix"
-    )
+    assert decision.verdict == gate_module.VERDICT_BLOCKED
+    assert "provenance" in decision.reason
+
+
+def test_hmax_012_legitimate_confirmation_and_resubmission_still_work():
+    text = "The invoice states $50,000,000.00 as the total due."
+    doc = SourceDocument(source_id="hmax-012b", text=text, standing=STANDING_RECORD)
+    claim = [c for c in extract_module.extract(doc) if c.kind == "amount"][0]
+    gate = gate_module.ConfidenceGate(require_source=True)
+
+    confirmation = gate_module.HumanConfirmation(
+        claim_id=claim.claim_id, confirmed_value={"amount": 5000000.0, "currency": "USD"},
+        confirmed_by="reviewer", rationale="corrected a misread digit",
+    ).apply()
+    first = gate.submit(claim, document=doc, confirmation=confirmation)
+    assert first.verdict == gate_module.VERDICT_ADMITTED
+    assert claim.provenance == PROV_HUMAN_CONFIRMED
+
+    # Same gate, same unmodified claim: its own earlier confirmation is remembered.
+    again = gate.submit(claim, document=doc)
+    assert again.verdict == gate_module.VERDICT_ADMITTED
+
+    # A different gate has no record of it.
+    other = gate_module.ConfidenceGate(require_source=True).submit(claim, document=doc)
+    assert other.verdict == gate_module.VERDICT_BLOCKED
+
+    # Editing the confirmed claim afterwards breaks the memory (and the seal).
+    claim.value = {"amount": 1.0, "currency": "USD"}
+    claim.seal()
+    edited = gate.submit(claim, document=doc)
+    assert edited.verdict == gate_module.VERDICT_BLOCKED
 
 
 def test_hmax_013_export_mac_has_the_same_process_local_limitation_as_the_decision_mac():
@@ -4443,21 +4467,24 @@ print(json.dumps(pkg.to_dict()))
     proc2 = '''
 import json, sys
 from herald import handoff as handoff_module
-from herald.errors import SealIntegrityError
+from herald.errors import ForeignKeyExportError, SealIntegrityError
 
 payload = json.loads(sys.argv[1])
 try:
     handoff_module.verify_export(payload)
     print("PASSED")
+except ForeignKeyExportError:
+    print("FOREIGN_KEY")
 except SealIntegrityError:
     print("REJECTED")
 '''
     out2 = subprocess.run(
         [sys.executable, "-c", proc2, exported], capture_output=True, text=True, check=True
     )
-    assert out2.stdout.strip() == "REJECTED", (
-        "expected the cross-process export to be rejected -- if this now "
-        "says PASSED, the key may no longer be process-local; re-verify"
+    assert out2.stdout.strip() == "FOREIGN_KEY", (
+        "expected the cross-process v2 export to be rejected as a foreign-key "
+        "export (not as tampering) -- if this now says PASSED, the key may no "
+        "longer be process-local; re-verify"
     )
 
 
@@ -4622,8 +4649,8 @@ def test_hmax_017_diacritic_and_fullwidth_homoglyphs_now_normalized():
     combining marks dropped folds fullwidth and accented variants onto
     their plain-ASCII base. This does NOT close cross-script homoglyphs
     (Cyrillic "е" U+0435, Greek "α" U+03B1 -- no normalization form
-    relates them to Latin letters); that remains an explicit, documented
-    residual requiring a curated confusables table, tracked separately.
+    relates them to Latin letters); that is now handled by the curated
+    _CONFUSABLES table (Cyrillic and Greek), which is not exhaustive.
     """
     from herald.boundary import is_governed_determination, assert_permitted_kind
     from herald.errors import BoundaryViolation
@@ -4640,14 +4667,18 @@ def test_hmax_017_diacritic_and_fullwidth_homoglyphs_now_normalized():
         with pytest.raises(BoundaryViolation):
             assert_permitted_kind(kind)
 
-    # Documented residual, left open: cross-script homoglyphs are not
-    # ASCII-normalizable and are not caught by _fold().
-    cross_script = "еligibility"  # Cyrillic е (U+0435), not Latin e
-    assert not is_governed_determination(cross_script), (
-        "if this now returns True, someone added confusables-table matching -- "
-        "update this test's docstring and this session's records"
-    )
-    assert_permitted_kind(cross_script)  # must NOT raise -- the residual
+    # Cross-script homoglyphs are not ASCII-normalizable; boundary._CONFUSABLES
+    # folds the curated Cyrillic/Greek set onto Latin. Not exhaustive.
+    for cross_script in [
+        "\u0435ligibility",      # Cyrillic e
+        "elig\u0456bility",      # Cyrillic i
+        "adv\u0435rse_\u0430ction",  # Cyrillic e and a in a compound
+        "\u0391uthorization",    # Greek capital Alpha
+        "diagn\u043esis",           # Cyrillic o
+    ]:
+        assert is_governed_determination(cross_script), cross_script
+        with pytest.raises(BoundaryViolation):
+            assert_permitted_kind(cross_script)
 
 
 def test_hmax_018_confirmation_race_on_the_default_dict_lookup_path():

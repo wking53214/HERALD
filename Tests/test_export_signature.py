@@ -117,3 +117,21 @@ def test_the_signing_bytes_are_pinned_by_a_vector_tie_also_checks():
     vector = handoff._signature_input({**payload, "export_mac_version": "3"})
     assert vector == (b'{"admitted":[],"document":{"source_id":"d"},"export_mac_version":"3",'
                       b'"herald":{"version":"v"},"key_id":"ed25519-0000000000000000","refused":[]}')
+
+
+def test_from_dict_loads_a_v3_export_only_with_the_pinned_key():
+    package, key = signed_export()
+    exported = json.loads(json.dumps(package.to_dict()))
+
+    reloaded = handoff.Handoff.from_dict(exported, trusted_keys=pinned(key))
+    assert reloaded.export_mac_version == "3"
+    assert reloaded.admitted == package.admitted
+
+    with pytest.raises(SealIntegrityError):
+        handoff.Handoff.from_dict(exported)  # no key pinned
+    with pytest.raises(SealIntegrityError):
+        handoff.Handoff.from_dict(exported, trusted_keys=pinned(Ed25519PrivateKey.generate()))
+
+    exported["admitted"][0]["value"] = {"amount": 1.0, "currency": "USD"}
+    with pytest.raises(SealIntegrityError):
+        handoff.Handoff.from_dict(exported, trusted_keys=pinned(key))

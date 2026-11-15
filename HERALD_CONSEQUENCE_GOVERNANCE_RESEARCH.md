@@ -1,6 +1,6 @@
 # HERALD Consequence-Aware Epistemic Governance Research
 
-**Status (2026-11-10):** research only. The recommendation below (reject, and keep any prototype outside HERALD's core package) has not been acted on. The prototype still sits inside the `herald` package, so a normal install includes it and the code-hash pin covers it. Nothing on HERALD's normal path calls it; only `Tests/test_consequence_governance_experiment.py` uses it. Moving it out is the owner's decision.
+**Status (2026-11-15):** research only. Following the recommendation below, the prototype was moved out of the `herald` package to `experiments/consequence_governance_experiment.py`: a normal install no longer includes it and the code-hash pin no longer covers it. Nothing on HERALD's normal path calls it; only `Tests/test_consequence_governance_experiment.py` uses it.
 
 ## Executive summary
 
@@ -86,7 +86,7 @@ detect this phrase => block
 
 The isolated prototype lives in:
 
-- `herald/consequence_governance_experiment.py`
+- `experiments/consequence_governance_experiment.py`
 
 It models:
 

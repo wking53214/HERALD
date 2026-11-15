@@ -31,6 +31,17 @@ class SealIntegrityError(HeraldError):
     """A sealed object's recorded hash no longer matches its content."""
 
 
+class ForeignKeyExportError(SealIntegrityError):
+    """A version 2 export was issued by a different process's key.
+
+    Not evidence of tampering: version 2 is an HMAC under a key that exists
+    only in the process that built the export, so no other process can
+    check it. Cross-process use needs a version 3 (Ed25519) export checked
+    against a public key the receiver pins. Subclasses SealIntegrityError,
+    so existing handlers still refuse it.
+    """
+
+
 class BindingError(HeraldError):
     """A consumer's pinned version or code hash does not match this build."""
 

@@ -52,7 +52,7 @@ For a five-minute tour of what HERALD does and refuses to do, run `python -m her
 - It does not decide whether a claim is true.
 - It does not replace an LLM extraction vendor.
 - It does not implement TIE reconstruction or coverage.
-- The consequence-governance work is research. `HERALD_CONSEQUENCE_GOVERNANCE_RESEARCH.md` recommends keeping it out of HERALD's core. Note, however, that the prototype (`herald/consequence_governance_experiment.py`) currently sits inside the `herald` package: a normal install includes it and the code-hash pin covers it. Nothing in the normal path calls it, and it is not part of the export contract.
+- The consequence-governance work is research. `HERALD_CONSEQUENCE_GOVERNANCE_RESEARCH.md` recommends keeping it out of HERALD's core, and the prototype (`experiments/consequence_governance_experiment.py`) now sits outside the `herald` package: it is not installed with HERALD, the code-hash pin does not cover it, and it is not part of the export contract. Only its own test, `Tests/test_consequence_governance_experiment.py`, uses it.
 
 ## 4. What the guarantees do and do not cover
 
@@ -61,6 +61,9 @@ For a five-minute tour of what HERALD does and refuses to do, run `python -m her
 - **Integrity is not truth.** A seal, MAC, digest or signature shows that content was not altered and, for a signature, that a trusted key made it. None of them shows that a claim is true.
 - **Authority is not identity.** A `HumanConfirmation` records the name of the person who confirmed a refused claim. HERALD does not check that the person may confirm claims of that kind. The consuming governance system decides that.
 - **Two export versions.** Version 2 is an HMAC with a process-local key, so it can only be checked in the process that made it. Version 3 is an Ed25519 signature that any process can check with a public key the receiver pins. Version 3 is opt-in: `build` produces version 2 unless a signing key is supplied. HERALD has no key registry, rotation or revocation. See `docs/KEY_MANAGEMENT.md`.
+- **Foreign-key refusal.** Checking a version 2 export in another process raises `ForeignKeyExportError` (a `SealIntegrityError`), which says the export came from a different process's key rather than that it was altered. `Handoff.from_dict(payload, trusted_keys=...)` loads a version 3 export through the same check.
+- **Human confirmation label.** `ConfidenceGate` blocks a claim that arrives labelled `HUMAN_CONFIRMED` unless a confirmation is supplied or on file for it, or that gate itself confirmed it. The label alone is not believed. The check is per gate object and in memory; it does not check that the confirming person was entitled to confirm.
+- **Boundary matching.** Governed kind names are caught after Unicode folding, a curated Cyrillic and Greek lookalike table, and separator-free matching of multi-word entries (`adverseaction`). The lookalike table is not exhaustive, and a single forbidden word hidden inside a longer separator-free word is not caught.
 - **Decision MAC.** Process-local, like version 2. It is tamper-evidence within one process, not tamper-proofing.
 - **Code-hash pin.** Covers the `.py` files in the `herald` package. It does not cover dependencies, the runtime, or configuration. `CONSTITUTION.md` section 7 requires consumers to pin HERALD's version and code hash. No consumer does this yet: CNS's integration harness checks out HERALD's main branch without a pin.
 - **Unknown standing.** The CNS connector treats unknown standing as RETRY. Plain extraction still runs on it.

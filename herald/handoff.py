@@ -76,7 +76,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 
 from . import binding
 from .claim import CandidateClaim, _canonical
-from .errors import BoundaryViolation, HeraldError, SealIntegrityError
+from .errors import BoundaryViolation, ForeignKeyExportError, HeraldError, SealIntegrityError
 from .gate import KEY_ID, VERDICT_ADMITTED, ConfidenceGate, GateDecision, _ISSUER_KEY
 from .source import STANDING_UNKNOWN, SourceDocument
 
@@ -247,8 +247,12 @@ def verify_export(payload: Mapping[str, Any], *,
     if version == EXPORT_MAC_VERSION:
         key_id = payload.get("key_id")
         if key_id != KEY_ID:
-            raise SealIntegrityError(
-                f"export was signed with key {key_id!r}; this process holds {KEY_ID!r}"
+            raise ForeignKeyExportError(
+                f"export was signed with key {key_id!r}; this process holds {KEY_ID!r}. "
+                "A version 2 export can only be verified by the process that built it "
+                "(HMAC under a process-local key), so this is not evidence of tampering "
+                "and cannot be checked here. For cross-process use, build a version 3 "
+                "export (export_signing_key=) and verify it with trusted_keys="
             )
     else:
         # LEGACY, VERIFY-ONLY: version 1 predates key IDs and has none to check.
@@ -472,7 +476,12 @@ class Handoff:
         }
 
     @classmethod
-    def from_dict(cls, payload: Mapping[str, Any]) -> "Handoff":
+    def from_dict(
+        cls,
+        payload: Mapping[str, Any],
+        *,
+        trusted_keys: Optional[Mapping[str, Ed25519PublicKey]] = None,
+    ) -> "Handoff":
         """Reconstruct a Handoff from its to_dict() output (or a JSON round-trip of it).
 
         Calls verify_export() on the payload before constructing anything
@@ -493,8 +502,13 @@ class Handoff:
         back in -- both are computed views on Handoff (a property and a
         method, not stored fields), so there is nothing to reconstruct
         them into.
+
+        trusted_keys -- required for a version 3 export, passed straight to
+        verify_export(). Without it a version 3 payload cannot be loaded
+        at all, so the safe path was closed to exactly the exports meant
+        for cross-process use.
         """
-        verify_export(payload)
+        verify_export(payload, trusted_keys=trusted_keys)
         admitted = tuple(ClaimExport(**e) for e in payload.get("admitted", []))
         refused = tuple(RefusalExport(**r) for r in payload.get("refused", []))
         return cls(
