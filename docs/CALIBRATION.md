@@ -15,30 +15,39 @@ The gate runs against `starter_set()` in `herald/golden_set.py`, with a confiden
 
 | Item | Value |
 |---|---|
-| Cases | 24 |
-| Clear (HERALD should be confident) | 10 |
-| Ambiguous (HERALD must flag) | 14 |
-| Claim kinds covered | amount 10, date 6, duration 4, percent 2, quantity 2 |
-| Claim kinds not covered | reference (the extractor has the kind; the set has no case for it) |
+| Cases | 28 |
+| Clear (HERALD should be confident) | 12 |
+| Ambiguous (HERALD must flag) | 16 |
+| Claim kinds covered | amount 12, date 7, duration 4, percent 2, quantity 2, reference 1 |
+| Claim kinds not covered | none. The reference kind matches only structured ID tokens such as INV-20481, not cross-references such as Section 4.2 |
+| Recorded gaps | 7, in `KNOWN_GAPS` (see below) |
 | Language | English only |
-| Set identity | `herald/golden_set.py` at `4e86a1b`, SHA-256 prefix `dad416159a4c` |
+| Set identity | `herald/golden_set.py`, SHA-256 prefix `1d4da68eeb7c` |
 
 ## Latest run
 
-Run on 2026-11-08 at main `4e86a1b`:
+Run on 2026-11-16 on the calibration batch 1 branch (base `d7054aa`):
 
-- Passed: 24 of 24
+- Passed: 28 of 28
 - False confidence: 0 (blocking)
 - Over-caution: 0 (tracked)
 - No extraction: 0
 - Gate result: not blocking
 
-Re-run 2026-11-10 at main `63ed11b`: same result. The set file still hashes to the prefix `dad416159a4c`, and the case counts by kind match the table above.
+Earlier runs: 24 of 24 on 2026-11-08 (`4e86a1b`) and 2026-11-10 (`63ed11b`), before batch 1 was added.
+
+## Recorded gaps
+
+Seven cases that a human judges ambiguous, or not a record reference, are reported by HERALD with false confidence today. They live in `KNOWN_GAPS`, outside the gating set, and a test asserts each one still fails. When a fix closes one, that test fails and says to move the case into the starter set.
+
+- `probably` and `apparently` are not on the hedge list, so "The payment was probably $1,250." is reported at 0.95 with no flags (two cases), and the same words next to an ID token leave it at 0.92 (two cases).
+- Either-or between two IDs gives each ID 0.92.
+- Standard and disease names shaped like IDs (ISO-8601, COVID-19) are extracted as references at 0.92 (two cases).
 
 ## What this does not establish
 
-- Behavior on text outside the 24 cases, including other kinds, longer documents, and other languages.
+- Behavior on text outside the 28 cases, including other kinds, longer documents, and other languages.
 - Whether the threshold of 0.75 is right for any use. It was chosen for this set.
 - Extraction recall: a claim HERALD never extracts is not counted anywhere.
 
-A set of 24 cases is small. Adding cases, especially for reference claims and for other domains, is the step that would make these numbers mean more.
+A set of 28 cases is small. Adding cases for other domains, and a measure of recall, would make these numbers mean more.

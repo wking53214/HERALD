@@ -18,7 +18,8 @@ from __future__ import annotations
 from typing import List
 
 from .calibration import GoldenCase
-from .extract import KIND_AMOUNT, KIND_DATE, KIND_DURATION, KIND_PERCENT, KIND_QUANTITY
+from .extract import (KIND_AMOUNT, KIND_DATE, KIND_DURATION, KIND_PERCENT, KIND_QUANTITY,
+                      KIND_REFERENCE)
 
 STARTER_SET: List[GoldenCase] = [
     # -- clear cases: HERALD should be confident -----------------------
@@ -88,7 +89,47 @@ STARTER_SET: List[GoldenCase] = [
     GoldenCase("deixis-amount-1",
                "That amount, $1,250, seems to reflect the earlier balance.", True, KIND_AMOUNT,
                "seems plus an unclear referent"),
+
+    # -- batch 1 (2026-11): reference tokens and hedge controls ---------
+    # The reference kind matches structured ID tokens only (for example
+    # INV-20481). It does not read cross-references such as "Section 4.2".
+    GoldenCase("clear-ref-1", "Invoice INV-20481 was paid.", False, KIND_REFERENCE,
+               "structured ID token stated as fact"),
+    GoldenCase("clear-amount-3", "The payment was $1,250.", False, KIND_AMOUNT,
+               "plain declarative; control for the probably/apparently gaps"),
+    GoldenCase("hedge-amount-3", "The fee is roughly $500.", True, KIND_AMOUNT,
+               "roughly: the figure is an estimate"),
+    GoldenCase("modal-date-2", "Closing is likely 2026-03-14.", True, KIND_DATE,
+               "likely: the date is expected, not established"),
 ]
+
+# Cases a human judges ambiguous (or not a record reference) that HERALD
+# currently reports with false confidence. They are kept OUT of the starter
+# set because that set gates CI, and kept HERE so the gap is a recorded
+# assertion rather than a skip or a memory. Each one is asserted to still
+# fail in Tests/test_calibration.py. The day one stops failing, that test
+# fails and tells you to move the case into STARTER_SET.
+KNOWN_GAPS: List[GoldenCase] = [
+    GoldenCase("gap-ref-probably", "The reference is probably INV-20481.", True,
+               KIND_REFERENCE, "probably is not on the hedge list; the guess stays at 0.92"),
+    GoldenCase("gap-ref-either", "INV-20481 or INV-20482 was disputed.", True,
+               KIND_REFERENCE, "either-or: two IDs, which one is unclear; each gets 0.92"),
+    GoldenCase("gap-ref-apparently", "TKT-9921, apparently a duplicate.", True,
+               KIND_REFERENCE, "apparently is not on the hedge list"),
+    GoldenCase("gap-ref-lookalike-1", "See ISO-8601 for the format.", True,
+               KIND_REFERENCE, "a standard name that looks like an ID, not a record reference"),
+    GoldenCase("gap-ref-lookalike-2", "COVID-19 delayed the shipment.", True,
+               KIND_REFERENCE, "a disease name that looks like an ID, not a record reference"),
+    GoldenCase("gap-amount-probably", "The payment was probably $1,250.", True,
+               KIND_AMOUNT, "probably is not on the hedge list; reported at 0.95"),
+    GoldenCase("gap-amount-apparently", "The payment was apparently $1,250.", True,
+               KIND_AMOUNT, "apparently is not on the hedge list; reported at 0.95"),
+]
+
+
+def known_gaps() -> List[GoldenCase]:
+    """A fresh copy of the recorded gaps."""
+    return list(KNOWN_GAPS)
 
 
 def starter_set() -> List[GoldenCase]:
