@@ -101,6 +101,14 @@ STARTER_SET: List[GoldenCase] = [
                "roughly: the figure is an estimate"),
     GoldenCase("modal-date-2", "Closing is likely 2026-03-14.", True, KIND_DATE,
                "likely: the date is expected, not established"),
+    GoldenCase("hedge-ref-1", "The reference is probably INV-20481.", True, KIND_REFERENCE,
+               "probably: the ID is a guess, not an observation"),
+    GoldenCase("hedge-ref-2", "TKT-9921, apparently a duplicate.", True, KIND_REFERENCE,
+               "apparently: the ticket's status is secondhand"),
+    GoldenCase("hedge-amount-4", "The payment was probably $1,250.", True, KIND_AMOUNT,
+               "probably: the figure is a guess"),
+    GoldenCase("hedge-amount-5", "The payment was apparently $1,250.", True, KIND_AMOUNT,
+               "apparently: the figure is secondhand"),
 ]
 
 # Cases a human judges ambiguous (or not a record reference) that HERALD
@@ -110,20 +118,12 @@ STARTER_SET: List[GoldenCase] = [
 # fail in Tests/test_calibration.py. The day one stops failing, that test
 # fails and tells you to move the case into STARTER_SET.
 KNOWN_GAPS: List[GoldenCase] = [
-    GoldenCase("gap-ref-probably", "The reference is probably INV-20481.", True,
-               KIND_REFERENCE, "probably is not on the hedge list; the guess stays at 0.92"),
     GoldenCase("gap-ref-either", "INV-20481 or INV-20482 was disputed.", True,
                KIND_REFERENCE, "either-or: two IDs, which one is unclear; each gets 0.92"),
-    GoldenCase("gap-ref-apparently", "TKT-9921, apparently a duplicate.", True,
-               KIND_REFERENCE, "apparently is not on the hedge list"),
     GoldenCase("gap-ref-lookalike-1", "See ISO-8601 for the format.", True,
                KIND_REFERENCE, "a standard name that looks like an ID, not a record reference"),
     GoldenCase("gap-ref-lookalike-2", "COVID-19 delayed the shipment.", True,
                KIND_REFERENCE, "a disease name that looks like an ID, not a record reference"),
-    GoldenCase("gap-amount-probably", "The payment was probably $1,250.", True,
-               KIND_AMOUNT, "probably is not on the hedge list; reported at 0.95"),
-    GoldenCase("gap-amount-apparently", "The payment was apparently $1,250.", True,
-               KIND_AMOUNT, "apparently is not on the hedge list; reported at 0.95"),
 ]
 
 
