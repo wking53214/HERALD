@@ -17,7 +17,7 @@ already enforces, applied to a dependency instead of a cassette.
 
 WHAT THE CODE HASH COVERS
 --------------------------
-Every .py file in the package, by content, in sorted path order. Tests
+Every .py file in the package and its subpackages, by relative path and content, in sorted path order. Tests
 are excluded: a new test does not change behaviour, and making test
 authorship trigger a re-pin across every consuming project would teach
 people to stop writing tests.
@@ -32,35 +32,50 @@ from typing import Dict, List, Optional
 
 from .errors import BindingError
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 
 _PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-def _package_files() -> List[str]:
-    return sorted(
-        os.path.join(_PACKAGE_DIR, name)
-        for name in os.listdir(_PACKAGE_DIR)
-        if name.endswith(".py")
-    )
+def _package_files(package_dir: Optional[str] = None) -> List[str]:
+    """Every .py file in the package and its subpackages, as sorted relative
+    paths with "/" separators. Recursive, so a module added in a nested
+    folder is covered. Cache folders are skipped; they hold no source."""
+    root = package_dir or _PACKAGE_DIR
+    found: List[str] = []
+    for folder, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if d != "__pycache__" and not d.startswith(".")]
+        for name in files:
+            if name.endswith(".py"):
+                rel = os.path.relpath(os.path.join(folder, name), root)
+                found.append(rel.replace(os.sep, "/"))
+    return sorted(found)
 
 
-def code_hash() -> str:
-    """SHA-256 over the package's own source, path-ordered and content-keyed."""
+def code_hash(package_dir: Optional[str] = None) -> str:
+    """SHA-256 over the package's own source, path-ordered and content-keyed.
+
+    The relative path of each file is part of the input, so moving a module
+    changes the hash even if its text does not. Outside the boundary: files
+    that are not .py (data, configuration), installed dependencies, and the
+    Python runtime. package_dir exists so tests can hash a copy."""
+    root = package_dir or _PACKAGE_DIR
     digest = hashlib.sha256()
-    for path in _package_files():
-        digest.update(os.path.basename(path).encode("utf-8"))
-        with open(path, "rb") as handle:
+    for rel in _package_files(root):
+        digest.update(rel.encode("utf-8"))
+        with open(os.path.join(root, rel), "rb") as handle:
             digest.update(handle.read())
     return digest.hexdigest()
 
 
-def file_hashes() -> Dict[str, str]:
-    """Per-file digests, so an upgrade diff can name what actually moved."""
+def file_hashes(package_dir: Optional[str] = None) -> Dict[str, str]:
+    """Per-file digests keyed by relative path, so an upgrade diff can name
+    what actually moved."""
+    root = package_dir or _PACKAGE_DIR
     out: Dict[str, str] = {}
-    for path in _package_files():
-        with open(path, "rb") as handle:
-            out[os.path.basename(path)] = hashlib.sha256(handle.read()).hexdigest()
+    for rel in _package_files(root):
+        with open(os.path.join(root, rel), "rb") as handle:
+            out[rel] = hashlib.sha256(handle.read()).hexdigest()
     return out
 
 
@@ -80,20 +95,44 @@ class Binding:
     pinned_hash: Optional[str] = None
 
     def verify(self) -> None:
-        """Raise BindingError if this build is not what the consumer pinned."""
+        """Raise BindingError if this build is not what the consumer pinned.
+
+        Both the version and the code hash are required, as CONSTITUTION.md
+        section 7 says. A pin with no hash is refused here rather than
+        accepted as a weaker pin: a consumer that records only a version
+        cannot detect changed code under the same version number.
+        """
         if self.version != VERSION:
             raise BindingError(
                 f"{self.consumer}: pinned HERALD {self.version}, running {VERSION}. "
                 "Upgrading is an explicit act: re-run your calibration set, then re-pin."
             )
         if self.pinned_hash is None:
-            return
+            raise BindingError(
+                f"{self.consumer}: no code hash pinned. A version-only pin does not "
+                "detect changed code; pin the code hash too (herald.binding.current_pin "
+                "records both)."
+            )
         actual = code_hash()
         if actual != self.pinned_hash:
             raise BindingError(
                 f"{self.consumer}: HERALD {VERSION} source changed since pinning "
                 f"(pinned {self.pinned_hash[:12]}, running {actual[:12]}). "
                 "Same version, different code. Re-validate before re-pinning."
+            )
+
+    def verify_version_only_LEGACY(self) -> None:
+        """The old, weaker check: version only, any code hash accepted.
+
+        Kept so an existing consumer can move off it deliberately. It is not
+        used by build(), read() or require_pin(), and it is named so that
+        calling it cannot be mistaken for the required check. Do not use it
+        for a consumer that handles consequential claims.
+        """
+        if self.version != VERSION:
+            raise BindingError(
+                f"{self.consumer}: pinned HERALD {self.version}, running {VERSION}. "
+                "Upgrading is an explicit act: re-run your calibration set, then re-pin."
             )
 
     def is_hash_pinned(self) -> bool:
