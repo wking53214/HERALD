@@ -3,6 +3,7 @@
 import pytest
 
 from herald import calibration, starter_set
+from herald.golden_set import known_gaps
 from herald.calibration import (
     VERDICT_FALSE_CONFIDENCE, VERDICT_OVER_CAUTION, VERDICT_PASS,
     CalibrationReport, GoldenCase, run,
@@ -75,3 +76,24 @@ def test_starter_set_covers_both_sides():
     cases = starter_set()
     assert sum(1 for c in cases if c.ambiguous) >= 5
     assert sum(1 for c in cases if not c.ambiguous) >= 5
+
+
+def test_every_recorded_gap_still_shows_false_confidence():
+    """A recorded gap is an assertion. When a fix closes one, this fails and
+    says which case to move from KNOWN_GAPS into STARTER_SET."""
+    for case in known_gaps():
+        verdict = calibration.score_case(case).verdict
+        assert verdict == VERDICT_FALSE_CONFIDENCE, (
+            f"{case.case_id} no longer shows false confidence ({verdict}); "
+            "the gap is closed, so move this case into STARTER_SET")
+
+
+def test_known_gaps_are_distinct_from_the_starter_set_and_carry_reasons():
+    gap_ids = {c.case_id for c in known_gaps()}
+    assert len(gap_ids) == len(known_gaps())
+    assert not gap_ids & {c.case_id for c in starter_set()}
+    assert all(c.note.strip() and c.ambiguous for c in known_gaps())
+
+
+def test_reference_kind_is_now_calibrated():
+    assert any(c.expect_kind == "reference" for c in starter_set())
