@@ -80,20 +80,44 @@ class Binding:
     pinned_hash: Optional[str] = None
 
     def verify(self) -> None:
-        """Raise BindingError if this build is not what the consumer pinned."""
+        """Raise BindingError if this build is not what the consumer pinned.
+
+        Both the version and the code hash are required, as CONSTITUTION.md
+        section 7 says. A pin with no hash is refused here rather than
+        accepted as a weaker pin: a consumer that records only a version
+        cannot detect changed code under the same version number.
+        """
         if self.version != VERSION:
             raise BindingError(
                 f"{self.consumer}: pinned HERALD {self.version}, running {VERSION}. "
                 "Upgrading is an explicit act: re-run your calibration set, then re-pin."
             )
         if self.pinned_hash is None:
-            return
+            raise BindingError(
+                f"{self.consumer}: no code hash pinned. A version-only pin does not "
+                "detect changed code; pin the code hash too (herald.binding.current_pin "
+                "records both)."
+            )
         actual = code_hash()
         if actual != self.pinned_hash:
             raise BindingError(
                 f"{self.consumer}: HERALD {VERSION} source changed since pinning "
                 f"(pinned {self.pinned_hash[:12]}, running {actual[:12]}). "
                 "Same version, different code. Re-validate before re-pinning."
+            )
+
+    def verify_version_only_LEGACY(self) -> None:
+        """The old, weaker check: version only, any code hash accepted.
+
+        Kept so an existing consumer can move off it deliberately. It is not
+        used by build(), read() or require_pin(), and it is named so that
+        calling it cannot be mistaken for the required check. Do not use it
+        for a consumer that handles consequential claims.
+        """
+        if self.version != VERSION:
+            raise BindingError(
+                f"{self.consumer}: pinned HERALD {self.version}, running {VERSION}. "
+                "Upgrading is an explicit act: re-run your calibration set, then re-pin."
             )
 
     def is_hash_pinned(self) -> bool:

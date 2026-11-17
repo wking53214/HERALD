@@ -28,11 +28,27 @@ def test_same_version_different_code_refuses():
     assert "source changed" in str(exc.value)
 
 
-def test_version_only_pin_is_allowed_but_reports_as_weaker():
+def test_version_only_pin_is_refused_by_the_ordinary_check():
     pin = Binding("resume_os", VERSION)
-    pin.verify()
+    with pytest.raises(BindingError) as exc:
+        pin.verify()
+    assert "no code hash pinned" in str(exc.value)
     assert not pin.is_hash_pinned()
     assert current_pin("resume_os").is_hash_pinned()
+
+
+def test_version_only_legacy_check_is_separate_and_named_as_such():
+    Binding("resume_os", VERSION).verify_version_only_LEGACY()
+    with pytest.raises(BindingError):
+        Binding("resume_os", "0.0.1").verify_version_only_LEGACY()
+
+
+def test_version_only_pin_is_refused_by_build_and_read():
+    from herald import handoff
+    from herald.source import SourceDocument, STANDING_RECORD
+    doc = SourceDocument(source_id="d", text="Paid $5.00 today.", standing=STANDING_RECORD)
+    with pytest.raises(BindingError):
+        handoff.read(doc, binding_pin=Binding("c", VERSION), in_process_export=True)
 
 
 def test_file_hashes_name_what_moved():
