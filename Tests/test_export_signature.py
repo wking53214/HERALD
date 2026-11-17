@@ -26,7 +26,7 @@ def doc(text=TEXT):
 
 def signed_export(key=None):
     key = key or Ed25519PrivateKey.generate()
-    return handoff.read(doc(), export_signing_key=key), key
+    return handoff.read(doc(), export_signing_key=key, legacy_v3_export=True), key
 
 
 def pinned(key):
@@ -67,7 +67,7 @@ def test_an_altered_admitted_value_is_refused_even_with_the_right_key():
 def test_a_signature_by_another_key_is_refused_even_under_the_pinned_key_label():
     package, key = signed_export()
     other = Ed25519PrivateKey.generate()
-    forged = handoff.read(doc(), export_signing_key=other).to_dict()
+    forged = handoff.read(doc(), export_signing_key=other, legacy_v3_export=True).to_dict()
     forged["key_id"] = handoff.export_key_id(key.public_key())    # claim the pinned key's label
     with pytest.raises(SealIntegrityError, match="altered after it was signed"):
         handoff.verify_export(forged, trusted_keys=pinned(key))

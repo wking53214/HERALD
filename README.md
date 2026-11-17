@@ -9,7 +9,7 @@ HERALD reads a document and uses fixed text patterns (not AI) to pull out six ki
 - **ALPHA / OMEGA:** CNS's names for a check at the entry point and a check at the exit point.
 - **Admitted:** passed on to governance. It does not mean approved.
 
-**Release status:** version 0.5.0 in code. **No tag and no GitHub Release exist.** Tagging is the owner's decision. Apache-2.0, copyright William N. King (see `LICENSE` and `NOTICE`).
+**Release status:** version 0.6.0 in code. **No tag and no GitHub Release exist.** Tagging is the owner's decision. Apache-2.0, copyright William N. King (see `LICENSE` and `NOTICE`).
 
 ## 1. Where this fits in ≡TACK
 
@@ -28,7 +28,7 @@ Optional: the CNS connector can run ALPHA, the source gate (check_source),
 before extraction. handoff.read() does not call it.
 ```
 
-**What HERALD hands on:** admitted claims and refused claims, each with its reason and provenance, packaged as a signed `Handoff`. TIE's intake reads that export. Cross-process verification requires a version 3 Ed25519 export and a public key the receiver pins independently. The export is signed (version 3) by default. The version 2 HMAC export is process-local, cannot establish that boundary, and must be asked for by name with `in_process_export=True` (see section 4).
+**What HERALD hands on:** admitted claims and refused claims, each with its reason and provenance, packaged as a signed `Handoff`. TIE's intake reads that export. Cross-process verification requires a signed Ed25519 export (version 4, or the older version 3) and a public key the receiver pins independently. The export is signed by default (version 4). The version 2 HMAC export is process-local, cannot establish that boundary, and must be asked for by name with `in_process_export=True` (see section 4).
 
 **What HERALD does not own:** truth of a claim, permission to act, recording evidence (TIE), admission of a root artifact (Conservation_Kernel), the admission door (Governance_Gateway), the store (CCC), and the shared gate contract (CNS). "Admitted" means only "moves on to governance."
 
@@ -60,7 +60,7 @@ For a five-minute tour of what HERALD does and refuses to do, run `python -m her
 - **Handoff contents.** Claims that fail integrity verification cannot be admitted. Low-confidence claims remain refused unless the required human confirmation is supplied. Refused claims are retained in the signed handoff with their reasons. They are never presented as admitted claims.
 - **Integrity is not truth.** A seal, MAC, digest or signature shows that content was not altered and, for a signature, that a trusted key made it. None of them shows that a claim is true.
 - **Authority is not identity.** A `HumanConfirmation` records the name of the person who confirmed a refused claim. By default HERALD does not check that the person may confirm claims of that kind. A gate built with `authorized_confirmers=[...]` blocks a confirmation signed by anyone not on the list. That is a name match, not authentication: the consuming governance system still decides whether the name is really that person.
-- **Two export versions.** Version 2 is an HMAC with a process-local key, so it can only be checked in the process that made it. Version 3 is an Ed25519 signature that any process can check with a public key the receiver pins. Version 3 is the default: `build` and `read` refuse to produce an export unless given `export_signing_key=` (version 3) or `in_process_export=True` (version 2, asked for by name). This changed in 0.4.0; before it, a call with no key quietly produced version 2. HERALD has no key registry, rotation or revocation. See `docs/KEY_MANAGEMENT.md`.
+- **Two export versions.** Version 2 is an HMAC with a process-local key, so it can only be checked in the process that made it. Version 3 is an Ed25519 signature that any process can check with a public key the receiver pins. Signed is the default: `build` and `read` refuse to produce an export unless given `export_signing_key=` plus `audience=` (version 4) or `in_process_export=True` (version 2, asked for by name). Version 3 (no audience) needs `legacy_v3_export=True` and is being phased out by TIE. Version 4 signs a unique handoff ID, the signer's own signing time, the audience (who it is for, for example "TIE") and a schema label, so a receiver can refuse an export meant for someone else, an old one, or one it has already taken in. The signing time is the signer's claim, not an independently trusted clock. HERALD signs these; the receiver enforces them, and keeps the memory of handoff IDs it has seen. Before 0.4.0 a call with no key quietly produced version 2. HERALD has no key registry, rotation or revocation. See `docs/KEY_MANAGEMENT.md`.
 - **Foreign-key refusal.** Checking a version 2 export in another process raises `ForeignKeyExportError` (a `SealIntegrityError`), which says the export came from a different process's key rather than that it was altered. `Handoff.from_dict(payload, trusted_keys=...)` loads a version 3 export through the same check.
 - **Human confirmation label.** `ConfidenceGate` blocks a claim that arrives labelled `HUMAN_CONFIRMED` unless a confirmation is supplied or on file for it, or that gate itself confirmed it. The label alone is not believed. The check is per gate object and in memory; it does not check that the confirming person was entitled to confirm.
 - **Boundary matching.** Governed kind names are caught after Unicode folding, a curated Cyrillic and Greek lookalike table, and separator-free matching of multi-word entries (`adverseaction`). The lookalike table is not exhaustive, and a single forbidden word hidden inside a longer separator-free word is not caught.
@@ -93,10 +93,10 @@ HERALD works with CNS absent. Its tests cover both cases.
 
 | Item | State |
 |---|---|
-| Version | 0.5.0 (`pyproject.toml` and `herald/binding.py` agree) |
+| Version | 0.6.0 (`pyproject.toml` and `herald/binding.py` agree) |
 | Tag and GitHub Release | None. Tagging is the owner's decision. |
-| Tests, without CNS | 472 passed, 0 failed. Clean venv, cns not installed. Measured 2026-11-16 on the PR branch for 0.5.0 (not yet CI-confirmed at the merge commit). |
-| Tests, with CNS | 500 passed, 0 failed. Measured 2026-11-16 on the PR branch with CNS 4.1.0 installed. The `cns` CI job is the checked result once the PR is merged. |
+| Tests, without CNS | 484 passed, 0 failed. Clean venv, cns not installed. Measured 2026-11-16 on the PR branch for 0.6.0. |
+| Tests, with CNS | 512 passed, 0 failed. Measured 2026-11-16 on the PR branch with CNS 4.1.0 installed. The `cns` CI job is the checked result once the PR is merged. |
 | Test command | `python -m pytest Tests`. `conftest.py` skips the connector tests when cns is absent and the absence tests when it is present. |
 | Lint and security | ruff 0.15.22 clean (re-run 2026-11-16 before PR #49 merged; the CI lint step also passed at `5540c6e`). bandit at the CI threshold (`-ll`, medium and above) clean. One low-severity finding, `calibration.py`: the constant `VERDICT_PASS` is flagged as a possible password string. Measured 2026-11-08 at `392dfd0`; re-checked 2026-11-10 at `63ed11b` with the same result. |
 | CI on main | Green at `5540c6e` on 2026-11-16: `test` (Python 3.12) and `cns` (Python 3.11 and 3.12). The CI matrix is Python 3.11, 3.12 and 3.13 from this PR onward; before it, `test` ran on 3.12 only and `cns` on 3.11 and 3.12. Python 3.10 is unsupported (`requires-python >=3.11`). |
@@ -126,7 +126,7 @@ git clone https://github.com/wking53214/HERALD.git && cd HERALD
 pip install .
 ```
 
-The example below reads one source and produces a version 3 export (Ed25519, the default form) and, asked for by name, a version 2 export (checkable by any process that pins the public key; the version 2 form is process-local). Both admit the claims, because the source is passed to the strict gate that `handoff.read()` uses by default.
+The example below reads one source and produces a version 4 export (Ed25519 with identity block, the default form) and, asked for by name, a version 2 export (checkable by any process that pins the public key; the version 2 form is process-local). Both admit the claims, because the source is passed to the strict gate that `handoff.read()` uses by default.
 
 ```python
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -141,7 +141,7 @@ doc = SourceDocument(
 )
 
 key = Ed25519PrivateKey.generate()                  # in practice, an operator-held key file
-v3 = handoff.read(doc, export_signing_key=key)      # version 3: Ed25519, cross-process
+v4 = handoff.read(doc, export_signing_key=key, audience="TIE")   # version 4: Ed25519, cross-process, addressed to TIE
 v2 = handoff.read(doc, in_process_export=True)      # version 2: HMAC, this process only, asked for by name
 ```
 

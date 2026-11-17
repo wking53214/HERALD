@@ -66,6 +66,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
@@ -90,6 +91,12 @@ EXPORT_MAC_VERSION = "2"
 #: Version 3: an Ed25519 signature by a configured export key, verifiable in ANY process that holds the public key.
 #: Version 2 stays in-process only (HMAC over a process-local key). See `verify_export`.
 EXPORT_SIGNATURE_VERSION = "3"
+#: Version 4: the same Ed25519 signature, over a payload that also carries a signed identity block: a unique
+#: handoff ID, the signer's own signing time, the audience the export is addressed to, and a schema label.
+#: This is the default signed form since 0.6.0. Version 3 is produced only when asked for by name
+#: (legacy_v3_export=True) and is on a sunset at the receiver (TIE).
+EXPORT_SIGNATURE_VERSION_V4 = "4"
+EXPORT_SCHEMA_V4 = "herald-handoff/4"
 #: LEGACY, VERIFY-ONLY. Version 1 exports carry no key ID. Still checkable, never produced.
 LEGACY_EXPORT_MAC_VERSION = "1"
 NO_FLAG_RECORDED = "NO_FLAG_RECORDED"
@@ -106,6 +113,7 @@ def _export_mac_payload(
     admitted: Sequence[Mapping[str, Any]],
     refused: Sequence[Mapping[str, Any]],
     key_id: Optional[str] = None,
+    identity: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Build the versioned, complete payload authenticated by export_mac.
 
@@ -123,6 +131,8 @@ def _export_mac_payload(
     }
     if key_id is not None:
         payload["key_id"] = key_id
+    if identity is not None:
+        payload["identity"] = dict(identity)
     return payload
 
 
@@ -177,14 +187,31 @@ def export_public_pem(private_key: Ed25519PrivateKey) -> bytes:
 
 
 def _signature_input(payload: Mapping[str, Any]) -> bytes:
-    """The exact bytes a v3 signature covers: the canonical JSON of the payload, which includes the key ID.
+    """The exact bytes a signature covers: the canonical JSON of the payload, which includes the key ID.
+
+    For version 4 the payload also includes the identity block (handoff ID, signing time, audience, schema).
+    Version 3 bytes are unchanged.
 
     TIE recomputes these bytes independently (tie.evidence.herald_intake). The rule is: json.dumps with sorted keys
     and separators (",", ":"), ensure_ascii on. Any change here is a format change and needs a new version."""
+    version = payload.get("export_mac_version", EXPORT_SIGNATURE_VERSION)
+    identity = payload.get("identity") if version == EXPORT_SIGNATURE_VERSION_V4 else None
     return _canonical(_export_mac_payload(
-        EXPORT_SIGNATURE_VERSION, payload["document"], payload["herald"], payload["admitted"], payload["refused"],
-        payload["key_id"],
+        version, payload["document"], payload["herald"], payload["admitted"], payload["refused"],
+        payload["key_id"], identity,
     )).encode("utf-8")
+
+
+def _check_identity(identity: Any) -> None:
+    """A version 4 export must carry a well-formed identity block. Receivers decide what to do with the values."""
+    if not isinstance(identity, Mapping):
+        raise SealIntegrityError("a version 4 export has no identity block")
+    for name in ("handoff_id", "signed_at", "audience", "schema"):
+        value = identity.get(name)
+        if not isinstance(value, str) or not value.strip():
+            raise SealIntegrityError(f"a version 4 export's identity block has no {name}")
+    if identity["schema"] != EXPORT_SCHEMA_V4:
+        raise SealIntegrityError(f"unsupported export schema {identity['schema']!r}")
 
 
 def _verify_signature(payload: Mapping[str, Any], claimed: Any,
@@ -192,7 +219,7 @@ def _verify_signature(payload: Mapping[str, Any], claimed: Any,
     """Check a v3 export against the caller's pinned public keys. The caller decides whom to trust, not the export."""
     if not trusted_keys:
         raise SealIntegrityError(
-            "a version 3 export is verified with trusted_keys (the export key's public key), not in-process")
+            "a signed (version 3 or 4) export is verified with trusted_keys (the export key's public key), not in-process")
     key_id = payload.get("key_id")
     key = trusted_keys.get(key_id) if isinstance(key_id, str) else None
     if key is None:
@@ -232,6 +259,10 @@ def verify_export(payload: Mapping[str, Any], *,
     """
     claimed = payload.get("export_mac")
     version = payload.get("export_mac_version")
+    if version == EXPORT_SIGNATURE_VERSION_V4:
+        _check_identity(payload.get("identity"))
+        _verify_signature(payload, claimed, trusted_keys)
+        return
     if version == EXPORT_SIGNATURE_VERSION:
         _verify_signature(payload, claimed, trusted_keys)
         return
@@ -381,6 +412,8 @@ class Handoff:
     export_mac: Optional[str] = None
     export_mac_version: str = EXPORT_MAC_VERSION
     key_id: Optional[str] = KEY_ID
+    #: Version 4 only: the signed identity block (handoff_id, signed_at, audience, schema). None for 2 and 3.
+    identity: Optional[Dict[str, Any]] = None
 
     # -- co-occurrence -------------------------------------------------
 
@@ -473,6 +506,7 @@ class Handoff:
             "export_mac": self.export_mac,
             "export_mac_version": self.export_mac_version,
             "key_id": self.key_id,
+            **({"identity": dict(self.identity)} if self.identity is not None else {}),
         }
 
     @classmethod
@@ -520,6 +554,7 @@ class Handoff:
             export_mac=payload.get("export_mac"),
             export_mac_version=payload["export_mac_version"],
             key_id=payload.get("key_id"),
+            identity=dict(payload["identity"]) if payload.get("identity") is not None else None,
         )
 
     def render(self) -> str:
@@ -559,12 +594,23 @@ def build(
     binding_pin: Optional["binding.Binding"] = None,
     export_signing_key: Optional[Ed25519PrivateKey] = None,
     in_process_export: bool = False,
+    audience: Optional[str] = None,
+    legacy_v3_export: bool = False,
 ) -> Handoff:
     """Assemble the handoff for one document.
 
-    export_signing_key -- the Ed25519 key that signs the export (version 3).
-        This is the default form: a signed export that any process holding
-        the public key can check, and the only form TIE accepts.
+    export_signing_key -- the Ed25519 key that signs the export. This is the
+        default form: a signed export that any process holding the public
+        key can check, and the only form TIE accepts. With audience= it is a
+        version 4 export; with legacy_v3_export=True it is version 3.
+    audience -- who this export is addressed to, for example "TIE". Signed
+        into a version 4 export, so a receiver can refuse an export that was
+        meant for someone else. Required for a signed export unless
+        legacy_v3_export=True. Together with the signed handoff ID and
+        signing time it lets a receiver detect replay and stale exports.
+    legacy_v3_export -- ask by name for the older version 3 export, which
+        has no audience, handoff ID or signing time. Receivers are phasing
+        it out.
     in_process_export -- ask by name for the version 2 export instead. It
         is signed with a key that exists only in this process, so only this
         process can check it. For tests and single-process use. Without
@@ -592,6 +638,17 @@ def build(
         )
     if export_signing_key is not None and in_process_export:
         raise HandoffError("pass export_signing_key= or in_process_export=True, not both")
+    if export_signing_key is not None and not legacy_v3_export and not (audience and audience.strip()):
+        raise HandoffError(
+            "a signed export needs audience=, the name of the receiver it is addressed to "
+            "(for example \"TIE\"), so the receiver can refuse an export meant for someone else. "
+            "To produce the older version 3 export, which has no audience, pass legacy_v3_export=True."
+        )
+    if export_signing_key is not None and legacy_v3_export and audience:
+        raise HandoffError("a version 3 export has no audience; drop legacy_v3_export or drop audience")
+    if export_signing_key is None and (audience or legacy_v3_export):
+        raise HandoffError("audience= and legacy_v3_export apply only to a signed export (export_signing_key=)")
+
     if binding_pin is not None:
         binding_pin.verify()
 
@@ -739,10 +796,31 @@ def build(
     admitted_dicts = [e.to_dict() for e in admitted]
     refused_dicts = [r.to_dict() for r in refused]
     if export_signing_key is not None:
-        # Version 3: an Ed25519 signature that any process holding the public key can check.
         key_id = export_key_id(export_signing_key.public_key())
-        payload = _export_mac_payload(EXPORT_SIGNATURE_VERSION, document_dict, herald_dict, admitted_dicts,
-                                      refused_dicts, key_id)
+        if legacy_v3_export:
+            # Version 3: an Ed25519 signature that any process holding the public key can check.
+            payload = _export_mac_payload(EXPORT_SIGNATURE_VERSION, document_dict, herald_dict, admitted_dicts,
+                                          refused_dicts, key_id)
+            signature = export_signing_key.sign(_signature_input(payload)).hex()
+            return Handoff(
+                document=document_dict,
+                herald=herald_dict,
+                admitted=tuple(admitted),
+                refused=tuple(refused),
+                export_mac=signature,
+                export_mac_version=EXPORT_SIGNATURE_VERSION,
+                key_id=key_id,
+            )
+        # Version 4: the same signature over a payload that also names this handoff, when the signer made it,
+        # and who it is for. The signing time is the signer's own claim, not an independently trusted clock.
+        identity = {
+            "handoff_id": "hid-" + uuid.uuid4().hex,
+            "signed_at": _utc_now(),
+            "audience": audience.strip(),
+            "schema": EXPORT_SCHEMA_V4,
+        }
+        payload = _export_mac_payload(EXPORT_SIGNATURE_VERSION_V4, document_dict, herald_dict, admitted_dicts,
+                                      refused_dicts, key_id, identity)
         signature = export_signing_key.sign(_signature_input(payload)).hex()
         return Handoff(
             document=document_dict,
@@ -750,8 +828,9 @@ def build(
             admitted=tuple(admitted),
             refused=tuple(refused),
             export_mac=signature,
-            export_mac_version=EXPORT_SIGNATURE_VERSION,
+            export_mac_version=EXPORT_SIGNATURE_VERSION_V4,
             key_id=key_id,
+            identity=identity,
         )
     export_mac = _sign_export(
         EXPORT_MAC_VERSION, document_dict, herald_dict, admitted_dicts, refused_dicts, KEY_ID
@@ -774,6 +853,8 @@ def read(
     binding_pin: Optional["binding.Binding"] = None,
     export_signing_key: Optional[Ed25519PrivateKey] = None,
     in_process_export: bool = False,
+    audience: Optional[str] = None,
+    legacy_v3_export: bool = False,
 ) -> Handoff:
     """The whole path in one call: extract, gate, package.
 
@@ -794,4 +875,4 @@ def read(
     controller = gate_instance or ConfidenceGate(require_source=True)
     decisions = controller.submit_all(claims, document=document)
     return build(claims, decisions, document, binding_pin=binding_pin, export_signing_key=export_signing_key,
-                 in_process_export=in_process_export)
+                 in_process_export=in_process_export, audience=audience, legacy_v3_export=legacy_v3_export)
