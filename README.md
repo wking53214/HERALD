@@ -96,7 +96,7 @@ HERALD works with CNS absent. Its tests cover both cases.
 | Version | 0.3.1 (`pyproject.toml` and `herald/binding.py` agree) |
 | Tag and GitHub Release | None. Tagging is the owner's decision. |
 | Tests, without CNS | 461 passed, 0 failed. Clean venv, cns not installed. Measured 2026-11-16 at `5540c6e` (main after PR #49). The `test` CI job passed on the same commit. |
-| Tests, with CNS | The `cns` CI job passed at `5540c6e` on Python 3.11 and 3.12 (it installs the cns extra and requires the connector tests to run). No test count was recorded for it. |
+| Tests, with CNS | 489 passed, 0 failed. Measured 2026-11-16 at `5540c6e` with CNS 4.1.0 installed from CNS main (28 more tests than without CNS). The `cns` CI job also passed at `5540c6e` on Python 3.11 and 3.12. |
 | Test command | `python -m pytest Tests`. `conftest.py` skips the connector tests when cns is absent and the absence tests when it is present. |
 | Lint and security | ruff 0.15.22 clean (re-run 2026-11-16 before PR #49 merged; the CI lint step also passed at `5540c6e`). bandit at the CI threshold (`-ll`, medium and above) clean. One low-severity finding, `calibration.py`: the constant `VERDICT_PASS` is flagged as a possible password string. Measured 2026-11-08 at `392dfd0`; re-checked 2026-11-10 at `63ed11b` with the same result. |
 | CI on main | Green at `5540c6e` on 2026-11-16: `test` (Python 3.12) and `cns` (Python 3.11 and 3.12). Python 3.10 and 3.13 are not in the CI matrix. |
