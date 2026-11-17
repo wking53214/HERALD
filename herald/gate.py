@@ -379,8 +379,16 @@ class ConfidenceGate:
         default_threshold: float = DEFAULT_THRESHOLD,
         thresholds: Optional[Mapping[str, float]] = None,
         require_source: bool = False,
+        authorized_confirmers: Optional[Iterable[str]] = None,
     ):
         """
+        authorized_confirmers -- optional allowlist of people entitled to
+            confirm claims at this gate. When given, a confirmation signed
+            by anyone else is BLOCKED. When None (the default) HERALD
+            records who confirmed but does not judge whether they were
+            entitled, as before. This is a name match, not authentication:
+            it narrows who may be named, and the consuming governance
+            system still decides whether the name is really that person.
         require_source -- when True, a claim submitted without its source
             document is BLOCKED rather than judged on confidence alone.
             Off by default so the simple path still works, but any consumer
@@ -393,6 +401,10 @@ class ConfidenceGate:
         self.default_threshold = default_threshold
         self.thresholds: Dict[str, float] = dict(thresholds or {})
         self.require_source = require_source
+        self.authorized_confirmers = (
+            None if authorized_confirmers is None
+            else frozenset(n.strip().casefold() for n in authorized_confirmers)
+        )
         self._confirmations: Dict[str, HumanConfirmation] = {}
         # claim_id -> content_hash of the claim as this gate last confirmed
         # it. The only evidence, besides a confirmation passed in or on
@@ -553,6 +565,16 @@ class ConfidenceGate:
                 return self._decide(
                     VERDICT_BLOCKED, threshold, f"confirmation: {exc}", claim,
                     source_verified=source_verified,
+                )
+            if (
+                self.authorized_confirmers is not None
+                and confirmation.confirmed_by.strip().casefold() not in self.authorized_confirmers
+            ):
+                return self._decide(
+                    VERDICT_BLOCKED, threshold,
+                    f"confirmation: {confirmation.confirmed_by!r} is not on this "
+                    "gate's list of authorized confirmers",
+                    claim, source_verified=source_verified,
                 )
             confirmation.verify()
             claim.provenance = PROV_HUMAN_CONFIRMED
