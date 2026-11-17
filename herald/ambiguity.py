@@ -24,7 +24,7 @@ gets no vote on the deterministic ones.
 
 CATEGORIES
 -----------
-HEDGE        -- approximately, roughly, about, seems, appears
+HEDGE        -- approximately, roughly, about, seems, appears, probably, apparently
 MODAL        -- may, might, could, should, would
 CONDITIONAL  -- unless, subject to, as applicable, where appropriate
 VAGUE_QUANT  -- some, several, many, most, few
@@ -65,7 +65,7 @@ DEDUCTION: Dict[str, float] = {
 }
 
 _PATTERNS: List[Tuple[str, str]] = [
-    (HEDGE, r"\b(approximate(?:ly)?|roughly|about|around|circa|seem(?:s|ed)?|appear(?:s|ed)?|estimated|ballpark|give or take)\b"),
+    (HEDGE, r"\b(approximate(?:ly)?|roughly|about|around|circa|seem(?:s|ed)?|appear(?:s|ed)?|probably|apparently|estimated|ballpark|give or take)\b"),
     (MODAL, r"\b(may|might|could|should|would|possibly|potentially|likely|presumably)\b"),
     (CONDITIONAL, r"\b(unless|subject to|as applicable|where appropriate|if applicable|contingent upon|provided that|to the extent)\b"),
     (VAGUE_QUANT, r"\b(some|several|many|most|few|numerous|various|a number of|multiple)\b"),
