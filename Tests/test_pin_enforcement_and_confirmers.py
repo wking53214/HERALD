@@ -73,3 +73,43 @@ def test_no_allowlist_keeps_old_behaviour():
     claim = _refused_claim()
     ok = gate.submit(claim, confirmation=_confirm(claim, "anyone"))
     assert ok.verdict == VERDICT_ADMITTED
+
+
+# Signed export is the default (0.4.0)
+
+def _doc():
+    from herald.source import SourceDocument, STANDING_RECORD
+    return SourceDocument(source_id="d1", text="The borrower paid $1,250.00 on 2026-03-14.",
+                          medium="document", standing=STANDING_RECORD)
+
+
+def test_read_without_key_or_opt_in_is_refused_with_a_useful_message():
+    from herald import handoff
+    from herald.handoff import HandoffError
+    with pytest.raises(HandoffError, match="export_signing_key"):
+        handoff.read(_doc())
+    with pytest.raises(HandoffError, match="in_process_export"):
+        handoff.read(_doc())
+
+
+def test_signed_export_is_version_3_and_loads_with_pinned_key():
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from herald import handoff
+    key = Ed25519PrivateKey.generate()
+    pkg = handoff.read(_doc(), export_signing_key=key)
+    assert pkg.export_mac_version == "3"
+    trusted = {handoff.export_key_id(key.public_key()): key.public_key()}
+    handoff.Handoff.from_dict(pkg.to_dict(), trusted_keys=trusted)
+
+
+def test_in_process_export_is_version_2_when_asked_for_by_name():
+    from herald import handoff
+    assert handoff.read(_doc(), in_process_export=True).export_mac_version == "2"
+
+
+def test_asking_for_both_forms_is_refused():
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from herald import handoff
+    from herald.handoff import HandoffError
+    with pytest.raises(HandoffError, match="not both"):
+        handoff.read(_doc(), export_signing_key=Ed25519PrivateKey.generate(), in_process_export=True)

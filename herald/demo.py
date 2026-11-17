@@ -97,7 +97,7 @@ def main() -> None:
     print(f"\n  {len(boundary.governed_determinations())} determinations currently forbidden")
 
     _rule("8. The handoff: what a consuming system actually receives")
-    package = handoff_module.build(claims, decisions, document)
+    package = handoff_module.build(claims, decisions, document, in_process_export=True)
     print(package.render())
     print("\n  co-occurrence groups (written together, relationship NOT asserted):")
     for bundle_id, members in package.bundles.items():
