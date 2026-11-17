@@ -201,7 +201,7 @@ SPECS: List[ExtractorSpec] = [
             # digits after the mandatory leading one is far beyond any
             # real currency amount and keeps worst-case backtracking
             # trivial regardless of input length.
-            r"(?:(?P<sym>[$\u00a3\u20ac\u00a5])\s?)(?P<num>\d[\d,]{0,24}(?:\.\d+)?)\s?(?P<suffix>k|m|bn|b)?\b"
+            r"(?:(?P<sym>[$\u00a3\u20ac\u00a5])\s?)(?P<num>\d[\d,]{0,24}(?:\.\d+)?)(?:\s?(?P<suffix>k|m|bn|b))?\b"
             r"|(?P<num2>\d[\d,]{0,24}(?:\.\d+)?)\s?(?P<code>USD|GBP|EUR|JPY|CAD|AUD)\b",
             re.IGNORECASE,
         ),
