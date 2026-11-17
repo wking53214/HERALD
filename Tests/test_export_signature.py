@@ -102,7 +102,7 @@ def test_a_non_ed25519_key_is_refused_for_signing_and_for_verifying(tmp_path):
 
 def test_the_version_2_export_stays_unverifiable_in_another_process(tmp_path):
     """Documented limit, asserted: the HMAC export still needs this process's key, so a fresh process refuses it."""
-    (tmp_path / "hmac.json").write_text(json.dumps(handoff.read(doc()).to_dict()))
+    (tmp_path / "hmac.json").write_text(json.dumps(handoff.read(doc(), in_process_export=True).to_dict()))
     script = ("import json,sys\nfrom herald import handoff\n"
               "from herald.errors import SealIntegrityError\n"
               "try:\n handoff.verify_export(json.load(open(sys.argv[1])))\n"

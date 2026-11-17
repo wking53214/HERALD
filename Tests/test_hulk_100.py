@@ -716,7 +716,7 @@ def test_fix_regression_handoff_no_longer_accepts_state_b_under_state_as_authori
     claim.verify_seal()  # must NOT raise -- STATE B is internally valid on its own
 
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision_a], doc)
+        handoff_module.build([claim], [decision_a], doc, in_process_export=True)
 
     decision_fields = {f.name for f in dataclasses.fields(type(decision_a))}
     assert "authorized_content_hash" in decision_fields, (
@@ -758,7 +758,7 @@ def test_expected_secure_behavior_handoff_should_reject_state_b_under_state_as_a
     assert claim.content_hash != authorized_hash
 
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision_a], doc)
+        handoff_module.build([claim], [decision_a], doc, in_process_export=True)
 
 
 # ---------------------------------------------------------------------------
@@ -834,7 +834,7 @@ def test_replay_state_a_authorization_against_state_b_claim():
     # pytest.raises rather than a bare call, because the correct outcome
     # is now an exception, not a returned package to inspect.
     with pytest.raises(HandoffError) as exc_info:
-        handoff_module.build([claim], [decision_a], doc)
+        handoff_module.build([claim], [decision_a], doc, in_process_export=True)
 
     handoff_compared_state = True  # it raised -- the divergence was caught
     decision_a_was_replayed = False  # the replay attempt was rejected, not admitted
@@ -914,7 +914,7 @@ def test_authorization_continuity_01_clean_state_a_handoff_is_accepted():
     """
     doc, claim, decision = _fresh_claim_and_decision()
     assert decision.verdict == VERDICT_ADMITTED  # fixture sanity
-    package = handoff_module.build([claim], [decision], doc)
+    package = handoff_module.build([claim], [decision], doc, in_process_export=True)
     assert len(package.admitted) == 1
     assert not package.refused
     assert package.admitted[0].value == claim.value
@@ -931,7 +931,7 @@ def test_authorization_continuity_02_mutate_without_reseal_is_rejected():
     assert decision.verdict == VERDICT_ADMITTED  # fixture sanity
     claim.value = {"amount": 999999.0, "currency": "USD"}  # no claim.seal() call
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
 
 
 def test_authorization_continuity_03_mutate_and_reseal_is_rejected():
@@ -948,7 +948,7 @@ def test_authorization_continuity_03_mutate_and_reseal_is_rejected():
     claim.seal()
     claim.verify_seal()  # sanity: B is internally valid on its own
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
 
 
 @pytest.mark.parametrize(
@@ -982,7 +982,7 @@ def test_authorization_continuity_04_to_08_per_field_mutation_is_rejected(field,
     setattr(claim, field, new_value)
     claim.seal()
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
 
 
 def test_authorization_continuity_09_independently_created_state_b_is_rejected():
@@ -1008,7 +1008,7 @@ def test_authorization_continuity_09_independently_created_state_b_is_rejected()
     assert claim_b.content_hash != claim_a.content_hash
 
     with pytest.raises(HandoffError):
-        handoff_module.build([claim_b], [decision_a], doc)
+        handoff_module.build([claim_b], [decision_a], doc, in_process_export=True)
 
 
 def test_authorization_continuity_10_same_claim_id_different_content_hash_is_rejected():
@@ -1026,7 +1026,7 @@ def test_authorization_continuity_10_same_claim_id_different_content_hash_is_rej
     assert claim.content_hash != decision.authorized_content_hash  # content: does not
 
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
 
 
 def test_authorization_continuity_11_refused_claim_remains_refused():
@@ -1045,7 +1045,7 @@ def test_authorization_continuity_11_refused_claim_remains_refused():
         "fixture sanity: this sentence must actually be refused for this "
         "test to mean anything"
     )
-    package = handoff_module.build([claim], [decision], doc)
+    package = handoff_module.build([claim], [decision], doc, in_process_export=True)
     assert not package.admitted
     assert len(package.refused) == 1
     assert package.refused[0].reason == decision.reason
@@ -1115,14 +1115,14 @@ def test_policy_drift_what_a_gate_decision_actually_binds_to():
     # about. Updated to reflect the new signature rather than the old one.
     import inspect
     build_params = list(inspect.signature(handoff_module.build).parameters)
-    assert build_params == ["claims", "decisions", "document", "binding_pin", "export_signing_key"], (
+    assert build_params == ["claims", "decisions", "document", "binding_pin", "export_signing_key", "in_process_export"], (
         f"handoff.build() now accepts {build_params}; if a policy/gate "
         "argument was added (distinct from the existing binding_pin), "
         "this test's premise (there is no such argument) needs to be "
         "revisited"
     )
 
-    package = handoff_module.build([claim], [decision_a], doc)
+    package = handoff_module.build([claim], [decision_a], doc, in_process_export=True)
     decision_a_consumed_despite_policy_b = (
         len(package.admitted) == 1 and not package.refused
     )
@@ -1278,12 +1278,14 @@ def test_hulk_claim_id_collision_misroutes_decisions_in_handoff():
     # claim happened to be checked first against the collapsed decision.
     with pytest.raises(HandoffError, match="duplicate claim_id"):
         handoff_module.build(
-            [claim_good, claim_bad], [decision_for_good, decision_for_bad], doc
+            [claim_good, claim_bad], [decision_for_good, decision_for_bad], doc,
+            in_process_export=True,
         )
 
     with pytest.raises(HandoffError, match="duplicate claim_id"):
         handoff_module.build(
-            [claim_good, claim_bad], [decision_for_bad, decision_for_good], doc
+            [claim_good, claim_bad], [decision_for_bad, decision_for_good], doc,
+            in_process_export=True,
         )
 
 
@@ -1312,7 +1314,7 @@ def test_hulk_forged_decision_naive_and_hash_matched_forgery_both_now_rejected()
         threshold=0.75, reason="fabricated -- ConfidenceGate.submit() was never called",
     )
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [forged_naive], doc)
+        handoff_module.build([claim], [forged_naive], doc, in_process_export=True)
 
     forged_sophisticated = GateDecision(
         claim_id=claim.claim_id, verdict=VERDICT_ADMITTED, confidence=0.99,
@@ -1320,7 +1322,7 @@ def test_hulk_forged_decision_naive_and_hash_matched_forgery_both_now_rejected()
         authorized_content_hash=claim.content_hash,
     )
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [forged_sophisticated], doc)
+        handoff_module.build([claim], [forged_sophisticated], doc, in_process_export=True)
 
 
 def test_handoff_deserialization_boundary_now_exists_and_verifies():
@@ -1343,7 +1345,7 @@ def test_handoff_deserialization_boundary_now_exists_and_verifies():
     claims = extract_module.extract(doc)
     gate = ConfidenceGate(require_source=True)
     decisions = gate.submit_all(claims, document=doc)
-    pkg = handoff_module.build(claims, decisions, doc)
+    pkg = handoff_module.build(claims, decisions, doc, in_process_export=True)
     exported = json.loads(json.dumps(pkg.to_dict()))
 
     reconstructed = handoff_module.Handoff.from_dict(exported)
@@ -1685,7 +1687,7 @@ def test_round2_r1_forged_decision_with_matching_hash_is_now_rejected():
     )
 
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [forged], doc)
+        handoff_module.build([claim], [forged], doc, in_process_export=True)
 
 
 # -- ROUND 2: mutate a legitimate decision -----------------------------------
@@ -1700,7 +1702,7 @@ def test_round2_r2_mutating_authorized_content_hash_is_detected():
     doc, claim, decision = _round2_admitted_claim_and_decision("r2-hash")
     decision.authorized_content_hash = "0" * 64
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
 
 
 def test_round2_r2_mutating_claim_id_is_detected_but_by_a_different_mechanism():
@@ -1717,7 +1719,7 @@ def test_round2_r2_mutating_claim_id_is_detected_but_by_a_different_mechanism():
     doc, claim, decision = _round2_admitted_claim_and_decision("r2-claimid")
     decision.claim_id = "clm-different-0000"
     with pytest.raises(HandoffError) as exc_info:
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
     assert "no gate decision on file" in str(exc_info.value)
 
 
@@ -1747,7 +1749,7 @@ def test_round2_r2_mutating_verdict_is_now_detected_and_no_longer_flips_a_refusa
     decision.verdict = VERDICT_ADMITTED  # the entire attack
 
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
 
 
 @pytest.mark.parametrize("field,new_value", [
@@ -1770,7 +1772,7 @@ def test_round2_r2_these_fields_remain_undetected_but_also_remain_inert(field, n
     """
     doc, claim, decision = _round2_admitted_claim_and_decision(f"r2-inert-{field}")
     setattr(decision, field, new_value)
-    package = handoff_module.build([claim], [decision], doc)  # must NOT raise
+    package = handoff_module.build([claim], [decision], doc, in_process_export=True)  # must NOT raise
     assert len(package.admitted) == 1
     assert package.admitted[0].value == claim.value
 
@@ -1786,7 +1788,7 @@ def test_round2_r2_mutating_the_signoff_record_is_now_detected(field, new_value)
     doc, claim, decision = _round2_admitted_claim_and_decision(f"r2-signoff-{field}")
     setattr(decision, field, new_value)
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
 
 
 def test_round2_r2_mutating_threshold_is_now_detected():
@@ -1799,7 +1801,7 @@ def test_round2_r2_mutating_threshold_is_now_detected():
     doc, claim, decision = _round2_admitted_claim_and_decision("r2-threshold-now-bound")
     decision.threshold = 0.99
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
 
 
 def test_round2_r2_mutating_reason_is_now_detected_and_no_longer_propagates():
@@ -1823,7 +1825,7 @@ def test_round2_r2_mutating_reason_is_now_detected_and_no_longer_propagates():
 
     decision.reason = "TAMPERED: this claim was actually fine, trust me"
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
 
 
 # -- ROUND 3: decision object substitution -----------------------------------
@@ -1839,7 +1841,7 @@ def test_round2_r3_substituted_claim_with_different_claim_id_is_rejected():
     ).seal()
     assert claim_b.claim_id != claim_a.claim_id
     with pytest.raises(HandoffError):
-        handoff_module.build([claim_b], [decision_a], doc)
+        handoff_module.build([claim_b], [decision_a], doc, in_process_export=True)
 
 
 def test_round2_r3_substituted_claim_with_same_claim_id_different_content_is_rejected():
@@ -1853,7 +1855,7 @@ def test_round2_r3_substituted_claim_with_same_claim_id_different_content_is_rej
         provenance=PROV_EXTRACTED, base_confidence=0.95,
     ).seal()
     with pytest.raises(HandoffError):
-        handoff_module.build([claim_b], [decision_a], doc)
+        handoff_module.build([claim_b], [decision_a], doc, in_process_export=True)
 
 
 def test_round2_r3_substituted_claim_with_same_content_hash_different_object_is_accepted():
@@ -1884,7 +1886,7 @@ def test_round2_r3_substituted_claim_with_same_content_hash_different_object_is_
     assert claim_b is not claim_a
     assert claim_b.content_hash == claim_a.content_hash
 
-    package = handoff_module.build([claim_b], [decision_a], doc)
+    package = handoff_module.build([claim_b], [decision_a], doc, in_process_export=True)
     assert len(package.admitted) == 1
 
 
@@ -1904,7 +1906,7 @@ def test_round2_r4_persisted_decision_replayed_against_a_fresh_independent_claim
         provenance=PROV_EXTRACTED, base_confidence=0.95,
     ).seal()
     with pytest.raises(HandoffError):
-        handoff_module.build([claim_b], [decision_a_copy], doc)
+        handoff_module.build([claim_b], [decision_a_copy], doc, in_process_export=True)
 
 
 def test_round2_r4_mutate_reseal_replay_regression_still_rejected():
@@ -1917,7 +1919,7 @@ def test_round2_r4_mutate_reseal_replay_regression_still_rejected():
     claim.raw = "$8,888.00"
     claim.seal()
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
 
 
 # -- ROUND 5: policy drift, re-verified with the fix in place ----------------
@@ -1965,7 +1967,7 @@ def test_round2_r5_policy_binding_status_unchanged_by_the_fix():
     assert not any("config" in n for n in fields)
     assert not any("version" in n or "herald" in n for n in fields)
 
-    package = handoff_module.build([claim], [decision_a], doc)  # gate_b irrelevant to this call
+    package = handoff_module.build([claim], [decision_a], doc, in_process_export=True)  # gate_b irrelevant to this call
     assert len(package.admitted) == 1
     assert gate_b.default_threshold == 0.90  # exists, distinct, and inert to the call above
 
@@ -2038,7 +2040,7 @@ def test_round2_r7_mutating_a_legitimate_decision_in_place_no_longer_enables_for
     decision_a.claim_id = claim_b.claim_id
 
     with pytest.raises(HandoffError):
-        handoff_module.build([claim_b], [decision_a], doc)
+        handoff_module.build([claim_b], [decision_a], doc, in_process_export=True)
 
 
 def test_round2_r7_freezing_alone_would_not_be_sufficient():
@@ -2082,7 +2084,7 @@ def test_round2_r8_full_pipeline_reaches_handoff_without_binding_verify_ever_run
     doc = SourceDocument(source_id="r8-nobinding", text="Paid $1,250.00 today.", standing=STANDING_RECORD)
     claims = extract_module.extract(doc)
     decisions = ConfidenceGate(require_source=True).submit_all(claims, document=doc)
-    package = handoff_module.build(claims, decisions, doc)
+    package = handoff_module.build(claims, decisions, doc, in_process_export=True)
     assert package.admitted, "ENFORCEMENT-BOUNDARY FAILURE: full pipeline completed with no Binding check"
 
     import inspect
@@ -2117,7 +2119,7 @@ def test_round2_r9_mutate_claim_and_adapt_decisions_hash_no_longer_bypasses():
     decision.authorized_content_hash = claim.content_hash  # attacker adapts, but cannot re-sign
 
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
 
 
 def test_round2_r9_fully_fabricated_claim_and_decision_no_longer_has_an_ancestor_to_skip():
@@ -2143,7 +2145,7 @@ def test_round2_r9_fully_fabricated_claim_and_decision_no_longer_has_an_ancestor
     )
     doc = SourceDocument(source_id="nowhere", text="irrelevant filler", standing=STANDING_RECORD)
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [forged], doc)
+        handoff_module.build([claim], [forged], doc, in_process_export=True)
 
 
 def test_round2_r9_unrelated_field_tampering_that_leaves_the_hash_alone_is_still_rejected():
@@ -2168,7 +2170,7 @@ def test_round2_r9_unrelated_field_tampering_that_leaves_the_hash_alone_is_still
     decision.confidence = 0.01  # decoy mutation, not MAC-covered
 
     with pytest.raises(HandoffError) as exc_info:
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
     assert "does not match the state this decision authorized" in str(exc_info.value), (
         "expected this to be caught by the content_hash comparison, not the MAC check"
     )
@@ -2207,7 +2209,7 @@ def test_round3_A_legitimate_authorization_succeeds():
     """
     doc, claim, decision = _round3_admitted_claim_and_decision("A")
     assert decision.authorization_mac is not None
-    package = handoff_module.build([claim], [decision], doc)
+    package = handoff_module.build([claim], [decision], doc, in_process_export=True)
     assert len(package.admitted) == 1
     assert package.admitted[0].value == claim.value
 
@@ -2226,7 +2228,7 @@ def test_round3_B_forged_decision_without_gate_invocation_is_rejected():
         threshold=0.75, reason="forged", authorized_content_hash=claim.content_hash,
     )
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [forged], doc)
+        handoff_module.build([claim], [forged], doc, in_process_export=True)
 
 
 def test_round3_C_changed_verdict_is_rejected():
@@ -2243,7 +2245,7 @@ def test_round3_C_changed_verdict_is_rejected():
     assert decision.verdict == VERDICT_REFUSED
     decision.verdict = VERDICT_ADMITTED
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
 
 
 def test_round3_D_changed_authorized_content_hash_is_rejected():
@@ -2254,7 +2256,7 @@ def test_round3_D_changed_authorized_content_hash_is_rejected():
     doc, claim, decision = _round3_admitted_claim_and_decision("D")
     decision.authorized_content_hash = "0" * 64
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
 
 
 def test_round3_E_changed_claim_id_is_rejected():
@@ -2266,7 +2268,7 @@ def test_round3_E_changed_claim_id_is_rejected():
     doc, claim, decision = _round3_admitted_claim_and_decision("E")
     decision.claim_id = "clm-different-0000"
     with pytest.raises(HandoffError) as exc_info:
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
     assert "no gate decision on file" in str(exc_info.value)
 
 
@@ -2286,7 +2288,7 @@ def test_round3_F_reason_is_established_as_security_bound_and_rejected_on_change
     assert decision.verdict == VERDICT_REFUSED
     decision.reason = "TAMPERED: trust me, this one is fine"
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
 
 
 def test_round3_G_changed_threshold_is_rejected():
@@ -2296,7 +2298,7 @@ def test_round3_G_changed_threshold_is_rejected():
     doc, claim, decision = _round3_admitted_claim_and_decision("G")
     decision.threshold = 0.99
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
 
 
 def test_round3_H_replay_against_mutated_and_resealed_claim_is_rejected():
@@ -2309,7 +2311,7 @@ def test_round3_H_replay_against_mutated_and_resealed_claim_is_rejected():
     claim.raw = "$999.00"
     claim.seal()
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
 
 
 def test_round3_I_replay_against_independent_claim_is_rejected():
@@ -2324,7 +2326,7 @@ def test_round3_I_replay_against_independent_claim_is_rejected():
         provenance=PROV_EXTRACTED, base_confidence=0.95,
     ).seal()
     with pytest.raises(HandoffError):
-        handoff_module.build([claim_b], [decision_a], doc)
+        handoff_module.build([claim_b], [decision_a], doc, in_process_export=True)
 
 
 def test_round3_J_serialize_deserialize_legitimate_authorization_still_works():
@@ -2338,7 +2340,7 @@ def test_round3_J_serialize_deserialize_legitimate_authorization_still_works():
     assert "authorization_mac" in payload
     reconstructed = GateDecision(**payload)
     assert reconstructed == decision
-    package = handoff_module.build([claim], [reconstructed], doc)
+    package = handoff_module.build([claim], [reconstructed], doc, in_process_export=True)
     assert len(package.admitted) == 1
 
 
@@ -2351,7 +2353,7 @@ def test_round3_K_tampered_serialized_authorization_is_rejected():
     payload["verdict"] = VERDICT_REFUSED if payload["verdict"] == VERDICT_ADMITTED else VERDICT_ADMITTED
     tampered = GateDecision(**payload)
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [tampered], doc)
+        handoff_module.build([claim], [tampered], doc, in_process_export=True)
 
 
 def test_round3_L_manufacturing_a_valid_authorization_from_public_fields_alone_fails():
@@ -2379,7 +2381,7 @@ def test_round3_L_manufacturing_a_valid_authorization_from_public_fields_alone_f
             authorized_content_hash=claim.content_hash, authorization_mac=guessed_mac,
         )
         with pytest.raises(HandoffError):
-            handoff_module.build([claim], [forged], doc)
+            handoff_module.build([claim], [forged], doc, in_process_export=True)
 
 
 def test_round3_M_authorization_from_configuration_a_claimed_under_configuration_b_is_rejected():
@@ -2392,7 +2394,7 @@ def test_round3_M_authorization_from_configuration_a_claimed_under_configuration
     assert decision_a.threshold == 0.75
     decision_a.threshold = 0.90  # claiming a different policy authorized this
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision_a], doc)
+        handoff_module.build([claim], [decision_a], doc, in_process_export=True)
 
 
 def test_round3_N_reuse_across_a_simulated_process_boundary_is_rejected():
@@ -2413,7 +2415,7 @@ def test_round3_N_reuse_across_a_simulated_process_boundary_is_rejected():
     try:
         gate_module._ISSUER_KEY = b"a-different-processs-issuer-key"
         with pytest.raises(HandoffError):
-            handoff_module.build([claim], [decision], doc)
+            handoff_module.build([claim], [decision], doc, in_process_export=True)
     finally:
         gate_module._ISSUER_KEY = original_key  # restore -- process-global state
 
@@ -2435,7 +2437,7 @@ def test_round3_crypto_1_one_byte_flip_in_a_valid_mac_is_rejected():
     decision.authorization_mac = flipped_char + original_mac[1:]
     assert decision.authorization_mac != original_mac
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
 
 
 def test_round3_crypto_2_copy_authorization_a_substitute_claim_b_is_rejected():
@@ -2450,7 +2452,7 @@ def test_round3_crypto_2_copy_authorization_a_substitute_claim_b_is_rejected():
         provenance=PROV_EXTRACTED, base_confidence=0.95,
     ).seal()
     with pytest.raises(HandoffError):
-        handoff_module.build([claim_b], [decision_a], doc)
+        handoff_module.build([claim_b], [decision_a], doc, in_process_export=True)
 
 
 def test_round3_crypto_3_copy_mac_from_a_change_verdict_is_rejected():
@@ -2463,7 +2465,7 @@ def test_round3_crypto_3_copy_mac_from_a_change_verdict_is_rejected():
     decision.verdict = "SOMETHING_ELSE_ENTIRELY"
     assert decision.authorization_mac == kept_mac  # the MAC itself, untouched
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
 
 
 def test_round3_crypto_4_copy_mac_from_a_change_policy_identity_is_rejected():
@@ -2475,7 +2477,7 @@ def test_round3_crypto_4_copy_mac_from_a_change_policy_identity_is_rejected():
     decision.threshold = 0.01
     assert decision.authorization_mac == kept_mac
     with pytest.raises(HandoffError):
-        handoff_module.build([claim], [decision], doc)
+        handoff_module.build([claim], [decision], doc, in_process_export=True)
 
 
 # =============================================================================
@@ -3098,7 +3100,7 @@ def test_document_standing_swap_with_byte_identical_text_is_undetected():
     assert doc_real.content_hash == doc_swapped.content_hash  # byte-identical text
 
     with pytest.raises(HandoffError, match="does not match this claim"):
-        handoff_module.build(claims, decisions, doc_swapped)
+        handoff_module.build(claims, decisions, doc_swapped, in_process_export=True)
 
 
 def test_document_swap_to_a_fully_unrelated_document_is_also_undetected():
@@ -3120,7 +3122,7 @@ def test_document_swap_to_a_fully_unrelated_document_is_also_undetected():
     assert doc_unrelated.source_id != doc_real.source_id
 
     with pytest.raises(HandoffError, match="does not match this claim"):
-        handoff_module.build(claims, decisions, doc_unrelated)
+        handoff_module.build(claims, decisions, doc_unrelated, in_process_export=True)
 
 
 def test_claim_verify_against_would_not_catch_a_standing_only_swap():
@@ -3227,7 +3229,7 @@ def test_hmax_021_build_snapshots_the_document_once_closing_the_intra_call_tocto
 
     flipper = threading.Thread(target=flip)
     flipper.start()
-    package = handoff_module.build(claims, decisions, doc)
+    package = handoff_module.build(claims, decisions, doc, in_process_export=True)
     flipper.join()
 
     assert package.admitted[0].standing == STANDING_ATTESTATION, (
@@ -3254,7 +3256,7 @@ def test_handoff_read_the_documented_safe_path_is_not_vulnerable_to_this():
     already does), just not the single-call convenience path.
     """
     doc = SourceDocument(source_id="via-read", text="Paid $1,250.00 today.", standing=STANDING_ATTESTATION)
-    package = handoff_module.read(doc)
+    package = handoff_module.read(doc, in_process_export=True)
     assert package.document["standing"] == STANDING_ATTESTATION
     for export in package.admitted:
         assert export.standing == STANDING_ATTESTATION
@@ -3417,7 +3419,7 @@ def test_bundle_id_is_a_bare_sentence_index_not_scoped_to_any_document():
     dec_a = gate.submit_all(claims_a, document=doc_a)
     dec_b = gate.submit_all(claims_b, document=doc_b)
     with pytest.raises(handoff_module.HandoffError, match="does not match this claim"):
-        handoff_module.build(claims_a + claims_b, dec_a + dec_b, doc_a)
+        handoff_module.build(claims_a + claims_b, dec_a + dec_b, doc_a, in_process_export=True)
 
 
 def test_bundle_of_returns_a_sibling_from_a_completely_different_document():
@@ -3441,7 +3443,7 @@ def test_bundle_of_returns_a_sibling_from_a_completely_different_document():
     dec_a = gate.submit_all(claims_a, document=doc_a)
     dec_b = gate.submit_all(claims_b, document=doc_b)
     with pytest.raises(handoff_module.HandoffError, match="does not match this claim"):
-        handoff_module.build(claims_a + claims_b, dec_a + dec_b, doc_a)
+        handoff_module.build(claims_a + claims_b, dec_a + dec_b, doc_a, in_process_export=True)
 
 
 def test_bundle_id_collapses_an_entire_unpunctuated_document_into_one_group():
@@ -3649,7 +3651,7 @@ def test_handoff_to_dict_now_carries_export_mac():
     """
     doc = SourceDocument(source_id="hulk-handoff-1", text="Paid $1,250.00 today.",
                           standing=STANDING_RECORD)
-    pkg = handoff_module.read(doc)
+    pkg = handoff_module.read(doc, in_process_export=True)
     exported = pkg.to_dict()
     assert exported.get("export_mac"), "expected export_mac to be present and non-empty"
     handoff_module.verify_export(exported)  # does not raise
@@ -3723,7 +3725,7 @@ def test_tampering_an_admitted_value_after_export_is_now_caught_by_verify_export
     """
     doc = SourceDocument(source_id="hulk-handoff-3", text="Paid $1,250.00 today.",
                           standing=STANDING_RECORD)
-    pkg = handoff_module.read(doc)
+    pkg = handoff_module.read(doc, in_process_export=True)
     exported = pkg.to_dict()
     handoff_module.verify_export(exported)  # the genuine export passes
 
@@ -3759,7 +3761,7 @@ def test_herald_metadata_block_forgery_is_now_caught_by_verify_export():
     """
     doc = SourceDocument(source_id="hulk-handoff-4", text="Paid $1,250.00 today.",
                           standing=STANDING_RECORD)
-    pkg = handoff_module.read(doc)
+    pkg = handoff_module.read(doc, in_process_export=True)
     exported = pkg.to_dict()
     handoff_module.verify_export(exported)  # the genuine export passes
 
@@ -3812,17 +3814,17 @@ def test_binding_can_now_be_passed_to_read_and_build_and_is_enforced():
 
     mismatched = Binding(consumer="test-consumer", version="0.0.1", pinned_hash=None)
     with pytest.raises(BindingError):
-        handoff_module.build([claim], [decision], doc, binding_pin=mismatched)
+        handoff_module.build([claim], [decision], doc, binding_pin=mismatched, in_process_export=True)
 
     # And the same mismatched pin passed to read() rejects before
     # extraction ever runs -- confirmed by using a document that would
     # otherwise extract cleanly.
     with pytest.raises(BindingError):
-        handoff_module.read(doc, binding_pin=mismatched)
+        handoff_module.read(doc, binding_pin=mismatched, in_process_export=True)
 
     # A pin that actually matches this build does not interfere.
     real_pin = current_pin("test-consumer")
-    pkg = handoff_module.build([claim], [decision], doc, binding_pin=real_pin)
+    pkg = handoff_module.build([claim], [decision], doc, binding_pin=real_pin, in_process_export=True)
     assert len(pkg.admitted) == 1
 
 
@@ -3845,7 +3847,7 @@ def test_document_standing_forgery_is_now_caught_by_verify_export():
     """
     doc = SourceDocument(source_id="hulk-standing-test", text="Paid $1,250.00 today.",
                           standing=STANDING_ATTESTATION)
-    pkg = handoff_module.read(doc)
+    pkg = handoff_module.read(doc, in_process_export=True)
     exported = pkg.to_dict()
     assert exported["document"]["standing"] == "attestation"
     handoff_module.verify_export(exported)  # the genuine export passes
@@ -3888,7 +3890,7 @@ def test_refused_claims_now_export_their_bundle_id_too():
     claims = extract_module.extract(doc)
     gate = ConfidenceGate(require_source=True)
     decisions = gate.submit_all(claims, document=doc)
-    pkg = handoff_module.build(claims, decisions, doc)
+    pkg = handoff_module.build(claims, decisions, doc, in_process_export=True)
     assert len(pkg.refused) == 2 and not pkg.admitted, (
         "test setup expects both claims hedged into refusal; if this "
         "fails, re-verify the sentence still produces that split"
@@ -3971,7 +3973,7 @@ def test_hmax_gateway_default_path_admits_a_claim_with_no_real_document_at_all()
         standing=STANDING_RECORD,
     )
     with pytest.raises(handoff_module.HandoffError, match="does not match this claim"):
-        handoff_module.build([fake_claim], [decision], placeholder_doc)
+        handoff_module.build([fake_claim], [decision], placeholder_doc, in_process_export=True)
 
 
 def test_hmax_gateway_require_source_true_correctly_blocks_the_naive_version():
@@ -4152,7 +4154,7 @@ def test_hmax_007_state_a_to_b_to_a_cycle_revalidates_the_original_decision():
     assert claim.content_hash == decision_A.authorized_content_hash
 
     decision_A.verify_against(claim)  # does not raise -- the detour left no trace
-    pkg = handoff_module.build([claim], [decision_A], doc)
+    pkg = handoff_module.build([claim], [decision_A], doc, in_process_export=True)
     assert len(pkg.admitted) == 1
 
 
@@ -4458,7 +4460,7 @@ doc = SourceDocument(source_id="hmax-013", text="Paid $500.00 today.", standing=
 claims = extract_module.extract(doc)
 gate = ConfidenceGate(require_source=True)
 decisions = gate.submit_all(claims, document=doc)
-pkg = handoff_module.build(claims, decisions, doc)
+pkg = handoff_module.build(claims, decisions, doc, in_process_export=True)
 print(json.dumps(pkg.to_dict()))
 '''
     out1 = subprocess.run([sys.executable, "-c", proc1], capture_output=True, text=True, check=True)
@@ -4535,7 +4537,7 @@ def test_hmax_014_collision_detected_even_when_both_claims_are_individually_vali
     assert dec_b.verdict == gate_module.VERDICT_ADMITTED
 
     with pytest.raises(HandoffError, match="duplicate claim_id"):
-        handoff_module.build([claim_a, claim_b], [dec_a, dec_b], doc)
+        handoff_module.build([claim_a, claim_b], [dec_a, dec_b], doc, in_process_export=True)
 
 
 def test_hmax_015_kind_extractor_mismatch_is_now_caught():

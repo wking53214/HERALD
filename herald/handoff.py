@@ -558,8 +558,18 @@ def build(
     document: SourceDocument,
     binding_pin: Optional["binding.Binding"] = None,
     export_signing_key: Optional[Ed25519PrivateKey] = None,
+    in_process_export: bool = False,
 ) -> Handoff:
     """Assemble the handoff for one document.
+
+    export_signing_key -- the Ed25519 key that signs the export (version 3).
+        This is the default form: a signed export that any process holding
+        the public key can check, and the only form TIE accepts.
+    in_process_export -- ask by name for the version 2 export instead. It
+        is signed with a key that exists only in this process, so only this
+        process can check it. For tests and single-process use. Without
+        either argument, build() refuses rather than quietly producing an
+        export no other process could verify.
 
     Requires the decisions alongside the claims, rather than re-judging
     here, so that what leaves is exactly what the gate decided and not a
@@ -572,6 +582,16 @@ def build(
         way to know a consumer's pin unless handed one; read(), the
         default entry point, takes the same parameter for the same reason.
     """
+    if export_signing_key is None and not in_process_export:
+        raise HandoffError(
+            "no export signing key given. A signed (version 3) export needs "
+            "export_signing_key=, an Ed25519 key you created and keep (see "
+            "docs/KEY_MANAGEMENT.md). If this export will only ever be checked "
+            "inside this same process, pass in_process_export=True to ask for "
+            "the version 2 export by name."
+        )
+    if export_signing_key is not None and in_process_export:
+        raise HandoffError("pass export_signing_key= or in_process_export=True, not both")
     if binding_pin is not None:
         binding_pin.verify()
 
@@ -753,6 +773,7 @@ def read(
     gate_instance: Optional[ConfidenceGate] = None,
     binding_pin: Optional["binding.Binding"] = None,
     export_signing_key: Optional[Ed25519PrivateKey] = None,
+    in_process_export: bool = False,
 ) -> Handoff:
     """The whole path in one call: extract, gate, package.
 
@@ -772,4 +793,5 @@ def read(
     claims = extract_module.extract(document)
     controller = gate_instance or ConfidenceGate(require_source=True)
     decisions = controller.submit_all(claims, document=document)
-    return build(claims, decisions, document, binding_pin=binding_pin, export_signing_key=export_signing_key)
+    return build(claims, decisions, document, binding_pin=binding_pin, export_signing_key=export_signing_key,
+                 in_process_export=in_process_export)

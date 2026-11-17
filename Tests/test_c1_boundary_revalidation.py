@@ -66,7 +66,7 @@ def test_c1_legitimate_human_override_still_succeeds():
     decision = gate.submit(claim, document=document, confirmation=confirmation)
     assert decision.verdict == VERDICT_ADMITTED
 
-    package = handoff_module.build([claim], [decision], document)
+    package = handoff_module.build([claim], [decision], document, in_process_export=True)
     assert len(package.admitted) == 1
     export = package.admitted[0]
     assert export.reading == "HUMAN_CONFIRMED"
@@ -93,7 +93,7 @@ def test_c1_governed_kind_is_refused_at_the_export_boundary():
     decision = gate.submit(claim, document=document)
 
     with pytest.raises(HandoffError, match="not in a valid state"):
-        handoff_module.build([claim], [decision], document)
+        handoff_module.build([claim], [decision], document, in_process_export=True)
 
 
 def test_c1_authority_escalation_is_refused_at_the_export_boundary():
@@ -108,7 +108,7 @@ def test_c1_authority_escalation_is_refused_at_the_export_boundary():
     decision = gate.submit(claim, document=document)
 
     with pytest.raises(HandoffError, match="not in a valid state"):
-        handoff_module.build([claim], [decision], document)
+        handoff_module.build([claim], [decision], document, in_process_export=True)
 
 
 def test_c1_forbid_now_reaches_a_claim_already_in_flight():
@@ -130,7 +130,7 @@ def test_c1_forbid_now_reaches_a_claim_already_in_flight():
     assert boundary.is_governed_determination("c1_probe_grade")
 
     with pytest.raises(HandoffError, match="not in a valid state"):
-        handoff_module.build([claim], [decision], document)
+        handoff_module.build([claim], [decision], document, in_process_export=True)
 
 
 # -- confirmations re-validated at consumption ---------------------------
@@ -209,7 +209,7 @@ def test_c1_honest_read_path_is_unchanged():
     claims that satisfy their own rules, so re-validating changes no
     outcome."""
     document = _doc("c1-honest")
-    package = handoff_module.read(document)
+    package = handoff_module.read(document, in_process_export=True)
 
     assert [e.kind for e in package.admitted] == ["amount"]
     assert not any(

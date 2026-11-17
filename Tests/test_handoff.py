@@ -22,7 +22,7 @@ def doc(standing=STANDING_RECORD, text=TEXT, source_id="loan-8891"):
 
 
 def handoff_for(**kw):
-    return handoff.read(doc(**kw))
+    return handoff.read(doc(**kw), in_process_export=True)
 
 
 # -- standing ------------------------------------------------------------
@@ -76,7 +76,7 @@ def test_human_confirmed_claims_have_no_derivation_method():
         claim_id=target.claim_id, confirmed_value=500.0,
         confirmed_by="w.king", rationale="checked the source"))
     decisions = controller.submit_all(claims, document=d)
-    package = handoff.build(claims, decisions, d)
+    package = handoff.build(claims, decisions, d, in_process_export=True)
 
     confirmed = [e for e in package.admitted if e.claim_id == target.claim_id]
     assert confirmed and confirmed[0].derivation_method is None
@@ -91,7 +91,7 @@ def _confirmed_package(confirmed_by="w.king"):
     controller.record_confirmation(gate.HumanConfirmation(
         claim_id=target.claim_id, confirmed_value=500.0,
         confirmed_by=confirmed_by, rationale="checked the source"))
-    return target, handoff.build(claims, controller.submit_all(claims, document=d), d)
+    return target, handoff.build(claims, controller.submit_all(claims, document=d), d, in_process_export=True)
 
 
 def test_a_human_confirmed_claim_names_the_person_who_confirmed_it():
@@ -176,7 +176,7 @@ def test_claims_written_in_one_breath_share_a_bundle():
 
 def test_claims_in_different_sentences_do_not_share_a_bundle():
     text = "Paid $1,250.00 today. The rate was set at 6.25%."
-    package = handoff.read(doc(text=text))
+    package = handoff.read(doc(text=text), in_process_export=True)
     amount = [e for e in package.admitted if e.kind == "amount"][0]
     percent = [e for e in package.admitted if e.kind == "percent"][0]
     assert amount.bundle_id != percent.bundle_id
@@ -227,7 +227,7 @@ def test_mismatched_claims_and_decisions_refused():
     claims = extract.extract(d)
     decisions = gate.ConfidenceGate().submit_all(claims, document=d)
     with pytest.raises(HandoffError):
-        handoff.build(claims, decisions[:-1], d)
+        handoff.build(claims, decisions[:-1], d, in_process_export=True)
 
 
 def test_a_claim_with_no_decision_refused():
@@ -236,7 +236,7 @@ def test_a_claim_with_no_decision_refused():
     decisions = gate.ConfidenceGate().submit_all(claims, document=d)
     decisions[0].claim_id = "clm-someone-else"
     with pytest.raises(HandoffError):
-        handoff.build(claims, decisions, d)
+        handoff.build(claims, decisions, d, in_process_export=True)
 
 
 def test_handoff_does_not_re_judge_what_the_gate_decided():
@@ -244,7 +244,7 @@ def test_handoff_does_not_re_judge_what_the_gate_decided():
     d = doc()
     claims = extract.extract(d)
     permissive = gate.ConfidenceGate(default_threshold=0.0).submit_all(claims, document=d)
-    package = handoff.build(claims, permissive, d)
+    package = handoff.build(claims, permissive, d, in_process_export=True)
     assert len(package.admitted) == len(claims)
     assert not package.refused
 
@@ -303,7 +303,7 @@ def test_export_mac_version_is_bound_and_unknown_versions_are_rejected():
 
 
 def test_exports_carry_the_reasons_behind_their_confidence():
-    package = handoff.read(doc(text="Paid approximately $1,250.00 today."))
+    package = handoff.read(doc(text="Paid approximately $1,250.00 today."), in_process_export=True)
     everything = package.admitted + package.refused
     hedged = [e for e in everything if e.kind == "amount"][0]
     assert "HEDGE" in hedged.opacity_flags
@@ -341,14 +341,14 @@ def test_summary_counts_refusals_per_opacity_flag_and_says_they_overlap():
 def test_flag_counts_may_exceed_refused_when_a_claim_has_several_flags():
     text = ("A reasonable fee of $500 may be assessed unless the waiver applies. "
             "About 40 days may pass, roughly $75 if approved.")
-    package = handoff.read(doc(text=text))
+    package = handoff.read(doc(text=text), in_process_export=True)
     summary = package.summary()
     assert sum(summary["refused_by_opacity_flag"].values()) > summary["refused"]
     assert sum(summary["refused_by_verdict"].values()) == summary["refused"]
 
 
 def test_no_refusals_means_empty_breakdowns_and_no_render_line():
-    package = handoff.read(doc(text="The borrower paid $1,250.00 on 2026-03-14."))
+    package = handoff.read(doc(text="The borrower paid $1,250.00 on 2026-03-14."), in_process_export=True)
     assert not package.refused
     summary = package.summary()
     assert summary["refused_by_verdict"] == {} and summary["refused_by_opacity_flag"] == {}
