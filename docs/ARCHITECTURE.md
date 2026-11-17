@@ -20,7 +20,8 @@ The export signature is the boundary a consumer relies on. There are two version
 | Version | Mechanism | Who can verify | Default |
 |---|---|---|---|
 | Version 2 | HMAC with a key generated inside the HERALD process | Only that process | No, only when asked for by name (`in_process_export=True`) |
-| Version 3 | Ed25519 signature with an operator-held private key | Any process holding the pinned public key | Yes, the default (since 0.4.0) |
+| Version 3 | Ed25519 signature with an operator-held private key | Any process holding the pinned public key | No, only with `legacy_v3_export=True` (being phased out) |
+| Version 4 | Version 3 plus a signed identity block: handoff ID, signing time, audience, schema | Any process holding the pinned public key | Yes, the default signed form (since 0.6.0) |
 
 Version 2 is an integrity check inside one process. It cannot be used across a process boundary. Version 3 is the only form a separate system can check, and it is verified against keys the consumer chooses to trust.
 

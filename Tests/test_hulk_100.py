@@ -1115,7 +1115,7 @@ def test_policy_drift_what_a_gate_decision_actually_binds_to():
     # about. Updated to reflect the new signature rather than the old one.
     import inspect
     build_params = list(inspect.signature(handoff_module.build).parameters)
-    assert build_params == ["claims", "decisions", "document", "binding_pin", "export_signing_key", "in_process_export"], (
+    assert build_params == ["claims", "decisions", "document", "binding_pin", "export_signing_key", "in_process_export", "audience", "legacy_v3_export"], (
         f"handoff.build() now accepts {build_params}; if a policy/gate "
         "argument was added (distinct from the existing binding_pin), "
         "this test's premise (there is no such argument) needs to be "
