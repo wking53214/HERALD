@@ -193,3 +193,15 @@ def test_impossible_dates_in_every_format_are_refused_and_reported(text):
     claims, dropped = extract.extract_with_report(text, "t")
     assert not [c for c in claims if c.kind == KIND_DATE]
     assert dropped and all(d.kind == KIND_DATE for d in dropped)
+
+
+@pytest.mark.parametrize("text,raw", [
+    ("Invoice total $1,250.00 due.", "$1,250.00"),
+    ("Pay $5 big now", "$5"),
+    ("cost $5k today", "$5k"),
+    ("raised $5 bn.", "$5 bn"),
+])
+def test_amount_raw_has_no_trailing_space(text, raw):
+    c = first(text, KIND_AMOUNT)
+    assert c.raw == raw and c.raw == c.raw.strip()
+    assert text[c.span[0]:c.span[1]] == raw
