@@ -100,10 +100,10 @@ HERALD works with CNS absent. Its tests cover both cases.
 | Test command | `python -m pytest Tests`. `conftest.py` skips the connector tests when cns is absent and the absence tests when it is present. |
 | Lint and security | ruff 0.15.22 clean (re-run 2026-11-16 before PR #49 merged; the CI lint step also passed at `5540c6e`). bandit at the CI threshold (`-ll`, medium and above) clean. One low-severity finding, `calibration.py`: the constant `VERDICT_PASS` is flagged as a possible password string. Measured 2026-11-08 at `392dfd0`; re-checked 2026-11-10 at `63ed11b` with the same result. |
 | CI on main | Green at `5540c6e` on 2026-11-16: `test` (Python 3.12) and `cns` (Python 3.11 and 3.12). The CI matrix is Python 3.11, 3.12 and 3.13 from this PR onward; before it, `test` ran on 3.12 only and `cns` on 3.11 and 3.12. Python 3.10 is unsupported (`requires-python >=3.11`). |
-| Calibration | 28-case starter set: 28 pass, 0 false confidence, 0 over-caution. Run 2026-11-16. Seven further cases are recorded as known gaps (HERALD is falsely confident on them) and asserted to still fail; see docs/CALIBRATION.md. |
+| Calibration | 32-case starter set: 32 pass, 0 false confidence, 0 over-caution. Run 2026-11-16. Three further cases are recorded as known gaps (HERALD is falsely confident on them) and asserted to still fail; see docs/CALIBRATION.md. |
 | CNS pin | Optional `cns` extra, pinned to tag v4.1.0 (was v4.0.0; the 489-test count above was measured against 4.1.0, so the pin now matches what was measured). |
 | Consumers | TIE reads the export as data and does not import HERALD. CNS imports HERALD in its integration harness only. No production system imports HERALD. |
-| Commercial status | HERALD's value depends on pairing it with a specific field (for example, lending), because its calibration set is small (28 cases). |
+| Commercial status | HERALD's value depends on pairing it with a specific field (for example, lending), because its calibration set is small (32 cases). |
 
 The production package changed after `ec9412f`: PR #46 and PR #48 hardened the boundary, confirmation tracking, handoff errors and extraction speed, and PR #49 added `require_pin`, a command line pin check, and the optional confirmer allowlist (version 0.3.1). The code hash moves with each of these, so any consumer pin recorded before them must be re-recorded.
 
