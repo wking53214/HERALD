@@ -32,7 +32,7 @@ from typing import Dict, List, Optional
 
 from .errors import BindingError
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 
 _PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -103,3 +103,49 @@ class Binding:
 def current_pin(consumer: str) -> Binding:
     """A Binding for this exact build, for a consumer recording a fresh pin."""
     return Binding(consumer=consumer, version=VERSION, pinned_hash=code_hash())
+
+
+def require_pin(consumer: str, version: str, pinned_hash: Optional[str]) -> Binding:
+    """The enforcing form of a pin: a consumer calls this once at startup.
+
+    Binding.verify() accepts a version-only pin and reports it as weaker.
+    A consumer handling consequential claims should not be able to run on
+    that weaker pin by accident, so this refuses a missing hash outright,
+    then verifies version and code hash. It returns the verified Binding.
+    """
+    if not pinned_hash:
+        raise BindingError(
+            f"{consumer}: no code hash pinned. A version-only pin does not "
+            "detect changed code; pin the code hash too."
+        )
+    binding = Binding(consumer=consumer, version=version, pinned_hash=pinned_hash)
+    binding.verify()
+    return binding
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    """Command line: ``python -m herald.binding show`` prints this build's
+    version and code hash for recording a pin; ``python -m herald.binding
+    check CONSUMER VERSION HASH`` exits 0 if the running build matches the
+    pin and 1 (with the reason) if not. Meant for a consumer's startup
+    script or CI step, so a moved build fails loudly instead of silently."""
+    import sys
+
+    args = list(sys.argv[1:] if argv is None else argv)
+    if args == ["show"]:
+        print(f"version={VERSION}\ncode_hash={code_hash()}")
+        return 0
+    if len(args) == 4 and args[0] == "check":
+        try:
+            require_pin(args[1], args[2], args[3])
+        except BindingError as exc:
+            print(f"PIN FAILED: {exc}", file=sys.stderr)
+            return 1
+        print(f"pin ok: {args[1]} on HERALD {args[2]}")
+        return 0
+    print("usage: python -m herald.binding show | check CONSUMER VERSION HASH", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

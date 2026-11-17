@@ -9,7 +9,7 @@ HERALD reads a document and uses fixed text patterns (not AI) to pull out six ki
 - **ALPHA / OMEGA:** CNS's names for a check at the entry point and a check at the exit point.
 - **Admitted:** passed on to governance. It does not mean approved.
 
-**Release status:** version 0.3.0 in code. **No tag and no GitHub Release exist.** Tagging is the owner's decision. Apache-2.0, copyright William N. King (see `LICENSE` and `NOTICE`).
+**Release status:** version 0.3.1 in code. **No tag and no GitHub Release exist.** Tagging is the owner's decision. Apache-2.0, copyright William N. King (see `LICENSE` and `NOTICE`).
 
 ## 1. Where this fits in ≡TACK
 
@@ -59,13 +59,13 @@ For a five-minute tour of what HERALD does and refuses to do, run `python -m her
 - **Source binding.** Claims carry source identity and content hashes. The strict path (`ConfidenceGate(require_source=True)`, which `handoff.read()` uses) requires the original source document and verifies the citation before admission. The default `ConfidenceGate()` permits admission without rechecking the source, records `source_verified=False`, and logs a warning. Consumers handling consequential claims must enable `require_source=True`.
 - **Handoff contents.** Claims that fail integrity verification cannot be admitted. Low-confidence claims remain refused unless the required human confirmation is supplied. Refused claims are retained in the signed handoff with their reasons. They are never presented as admitted claims.
 - **Integrity is not truth.** A seal, MAC, digest or signature shows that content was not altered and, for a signature, that a trusted key made it. None of them shows that a claim is true.
-- **Authority is not identity.** A `HumanConfirmation` records the name of the person who confirmed a refused claim. HERALD does not check that the person may confirm claims of that kind. The consuming governance system decides that.
+- **Authority is not identity.** A `HumanConfirmation` records the name of the person who confirmed a refused claim. By default HERALD does not check that the person may confirm claims of that kind. A gate built with `authorized_confirmers=[...]` blocks a confirmation signed by anyone not on the list. That is a name match, not authentication: the consuming governance system still decides whether the name is really that person.
 - **Two export versions.** Version 2 is an HMAC with a process-local key, so it can only be checked in the process that made it. Version 3 is an Ed25519 signature that any process can check with a public key the receiver pins. Version 3 is opt-in: `build` produces version 2 unless a signing key is supplied. HERALD has no key registry, rotation or revocation. See `docs/KEY_MANAGEMENT.md`.
 - **Foreign-key refusal.** Checking a version 2 export in another process raises `ForeignKeyExportError` (a `SealIntegrityError`), which says the export came from a different process's key rather than that it was altered. `Handoff.from_dict(payload, trusted_keys=...)` loads a version 3 export through the same check.
 - **Human confirmation label.** `ConfidenceGate` blocks a claim that arrives labelled `HUMAN_CONFIRMED` unless a confirmation is supplied or on file for it, or that gate itself confirmed it. The label alone is not believed. The check is per gate object and in memory; it does not check that the confirming person was entitled to confirm.
 - **Boundary matching.** Governed kind names are caught after Unicode folding, a curated Cyrillic and Greek lookalike table, and separator-free matching of multi-word entries (`adverseaction`). The lookalike table is not exhaustive, and a single forbidden word hidden inside a longer separator-free word is not caught.
 - **Decision MAC.** Process-local, like version 2. It is tamper-evidence within one process, not tamper-proofing.
-- **Code-hash pin.** Covers the `.py` files in the `herald` package. It does not cover dependencies, the runtime, or configuration. `CONSTITUTION.md` section 7 requires consumers to pin HERALD's version and code hash. No consumer does this yet: CNS's integration harness checks out HERALD's main branch without a pin.
+- **Code-hash pin.** Covers the `.py` files in the `herald` package. It does not cover dependencies, the runtime, or configuration. `CONSTITUTION.md` section 7 requires consumers to pin HERALD's version and code hash. A consumer enforces the pin by calling `herald.binding.require_pin(consumer, version, code_hash)` at startup (it refuses a version-only pin), or by running `python -m herald.binding check CONSUMER VERSION HASH` in a startup script or CI step; `python -m herald.binding show` prints the values to record. No consumer does this yet: CNS's integration harness checks out HERALD's main branch without a pin.
 - **Unknown standing.** The CNS connector treats unknown standing as RETRY. Plain extraction still runs on it.
 - **Calibration.** It counts false confidence (blocking) and over-caution (tracked). It does not measure extraction precision, recall, or correctness on general text. See `docs/CALIBRATION.md`.
 
@@ -93,19 +93,19 @@ HERALD works with CNS absent. Its tests cover both cases.
 
 | Item | State |
 |---|---|
-| Version | 0.3.0 (`pyproject.toml` and `herald/binding.py` agree) |
+| Version | 0.3.1 (`pyproject.toml` and `herald/binding.py` agree) |
 | Tag and GitHub Release | None. Tagging is the owner's decision. |
-| Tests, without CNS | 445 passed, 0 failed. Clean venv, cns not installed. Measured 2026-11-08 at `392dfd0`; re-measured 2026-11-10 at `63ed11b` with the same result. |
-| Tests, with CNS 2.3.0 | 473 passed, 0 failed. Measured 2026-11-08 at `392dfd0`; re-measured 2026-11-10 at `63ed11b` with the same result. |
+| Tests, without CNS | 461 passed, 0 failed. Clean venv, cns not installed. Measured 2026-11-16 on the follow-up branch, which sits on `75c17ef` (main after PR #48, which reported 454). The 7 added tests cover the pin check and the confirmer allowlist. CI has not yet run on this branch. |
+| Tests, with CNS | Not re-measured since `63ed11b` (473 passed against CNS 2.3.0 on 2026-11-10). The `cns` CI job is the current check. |
 | Test command | `python -m pytest Tests`. `conftest.py` skips the connector tests when cns is absent and the absence tests when it is present. |
-| Lint and security | ruff 0.15.22 clean. bandit at the CI threshold (`-ll`, medium and above) clean. One low-severity finding, `calibration.py`: the constant `VERDICT_PASS` is flagged as a possible password string. Measured 2026-11-08 at `392dfd0`; re-checked 2026-11-10 at `63ed11b` with the same result. |
-| CI on main | Green at `63ed11b` on 2026-11-08 (GitHub Actions). |
+| Lint and security | ruff 0.15.22 clean (re-run 2026-11-16 on the follow-up branch). bandit at the CI threshold (`-ll`, medium and above) clean. One low-severity finding, `calibration.py`: the constant `VERDICT_PASS` is flagged as a possible password string. Measured 2026-11-08 at `392dfd0`; re-checked 2026-11-10 at `63ed11b` with the same result. |
+| CI on main | Last confirmed green at `63ed11b` on 2026-11-08 (GitHub Actions). No status is recorded here for `75c17ef` or later. |
 | Calibration | 24-case starter set: 24 pass, 0 false confidence, 0 over-caution. Run 2026-11-08 at `4e86a1b`. The set has no case for reference claims, so that kind is extracted but not calibrated. |
 | CNS pin | Optional `cns` extra, pinned to tag v4.0.0. |
 | Consumers | TIE reads the export as data and does not import HERALD. CNS imports HERALD in its integration harness only. No production system imports HERALD. |
 | Commercial status | HERALD's value depends on pairing it with a specific field (for example, lending), because its calibration set is small (24 cases). |
 
-The production package (`herald/`, `pyproject.toml`) has not changed since `ec9412f`. Later changes on main are documentation, and one test-only change: the ReDoS timing check now takes the median of five ratios (PR #39). The counts above were measured at `392dfd0` and re-measured at `63ed11b`.
+The production package changed after `ec9412f`: PR #46 and PR #48 hardened the boundary, confirmation tracking, handoff errors and extraction speed, and the follow-up branch adds `require_pin`, a command line pin check, and the optional confirmer allowlist (version 0.3.1). The code hash moves with each of these, so any consumer pin recorded before them must be re-recorded.
 
 ## 7. Read next
 
