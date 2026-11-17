@@ -65,7 +65,7 @@ For a five-minute tour of what HERALD does and refuses to do, run `python -m her
 - **Human confirmation label.** `ConfidenceGate` blocks a claim that arrives labelled `HUMAN_CONFIRMED` unless a confirmation is supplied or on file for it, or that gate itself confirmed it. The label alone is not believed. The check is per gate object and in memory; it does not check that the confirming person was entitled to confirm.
 - **Boundary matching.** Governed kind names are caught after Unicode folding, a curated Cyrillic and Greek lookalike table, and separator-free matching of multi-word entries (`adverseaction`). The lookalike table is not exhaustive, and a single forbidden word hidden inside a longer separator-free word is not caught.
 - **Decision MAC.** Process-local, like version 2. It is tamper-evidence within one process, not tamper-proofing.
-- **Code-hash pin.** Covers the `.py` files in the `herald` package. It does not cover dependencies, the runtime, or configuration. `CONSTITUTION.md` section 7 requires consumers to pin HERALD's version and code hash. A consumer enforces the pin by calling `herald.binding.require_pin(consumer, version, code_hash)` at startup (it refuses a version-only pin), or by running `python -m herald.binding check CONSUMER VERSION HASH` in a startup script or CI step; `python -m herald.binding show` prints the values to record. No consumer does this yet: CNS's integration harness checks out HERALD's main branch without a pin.
+- **Code-hash pin.** Covers the `.py` files in the `herald` package. It does not cover dependencies, the runtime, or configuration. `CONSTITUTION.md` section 7 requires consumers to pin HERALD's version and code hash. A consumer enforces the pin by calling `herald.binding.require_pin(consumer, version, code_hash)` at startup (it refuses a version-only pin), or by running `python -m herald.binding check CONSUMER VERSION HASH` in a startup script or CI step; `python -m herald.binding show` prints the values to record. CNS's integration job does this: it fetches HERALD at an exact commit, verifies version and code hash before any chain runs, and runs a negative control that must refuse a wrong hash (CNS PR #180). It pins one build, so moving HERALD means updating that pin on purpose. No production system consumes HERALD yet.
 - **Unknown standing.** The CNS connector treats unknown standing as RETRY. Plain extraction still runs on it.
 - **Calibration.** It counts false confidence (blocking) and over-caution (tracked). It does not measure extraction precision, recall, or correctness on general text. See `docs/CALIBRATION.md`.
 
@@ -95,17 +95,17 @@ HERALD works with CNS absent. Its tests cover both cases.
 |---|---|
 | Version | 0.3.1 (`pyproject.toml` and `herald/binding.py` agree) |
 | Tag and GitHub Release | None. Tagging is the owner's decision. |
-| Tests, without CNS | 461 passed, 0 failed. Clean venv, cns not installed. Measured 2026-11-16 on the follow-up branch, which sits on `75c17ef` (main after PR #48, which reported 454). The 7 added tests cover the pin check and the confirmer allowlist. CI has not yet run on this branch. |
-| Tests, with CNS | Not re-measured since `63ed11b` (473 passed against CNS 2.3.0 on 2026-11-10). The `cns` CI job is the current check. |
+| Tests, without CNS | 461 passed, 0 failed. Clean venv, cns not installed. Measured 2026-11-16 at `5540c6e` (main after PR #49). The `test` CI job passed on the same commit. |
+| Tests, with CNS | The `cns` CI job passed at `5540c6e` on Python 3.11 and 3.12 (it installs the cns extra and requires the connector tests to run). No test count was recorded for it. |
 | Test command | `python -m pytest Tests`. `conftest.py` skips the connector tests when cns is absent and the absence tests when it is present. |
-| Lint and security | ruff 0.15.22 clean (re-run 2026-11-16 on the follow-up branch). bandit at the CI threshold (`-ll`, medium and above) clean. One low-severity finding, `calibration.py`: the constant `VERDICT_PASS` is flagged as a possible password string. Measured 2026-11-08 at `392dfd0`; re-checked 2026-11-10 at `63ed11b` with the same result. |
-| CI on main | Last confirmed green at `63ed11b` on 2026-11-08 (GitHub Actions). No status is recorded here for `75c17ef` or later. |
+| Lint and security | ruff 0.15.22 clean (re-run 2026-11-16 before PR #49 merged; the CI lint step also passed at `5540c6e`). bandit at the CI threshold (`-ll`, medium and above) clean. One low-severity finding, `calibration.py`: the constant `VERDICT_PASS` is flagged as a possible password string. Measured 2026-11-08 at `392dfd0`; re-checked 2026-11-10 at `63ed11b` with the same result. |
+| CI on main | Green at `5540c6e` on 2026-11-16: `test` (Python 3.12) and `cns` (Python 3.11 and 3.12). Python 3.10 and 3.13 are not in the CI matrix. |
 | Calibration | 24-case starter set: 24 pass, 0 false confidence, 0 over-caution. Run 2026-11-08 at `4e86a1b`. The set has no case for reference claims, so that kind is extracted but not calibrated. |
 | CNS pin | Optional `cns` extra, pinned to tag v4.0.0. |
 | Consumers | TIE reads the export as data and does not import HERALD. CNS imports HERALD in its integration harness only. No production system imports HERALD. |
 | Commercial status | HERALD's value depends on pairing it with a specific field (for example, lending), because its calibration set is small (24 cases). |
 
-The production package changed after `ec9412f`: PR #46 and PR #48 hardened the boundary, confirmation tracking, handoff errors and extraction speed, and the follow-up branch adds `require_pin`, a command line pin check, and the optional confirmer allowlist (version 0.3.1). The code hash moves with each of these, so any consumer pin recorded before them must be re-recorded.
+The production package changed after `ec9412f`: PR #46 and PR #48 hardened the boundary, confirmation tracking, handoff errors and extraction speed, and PR #49 added `require_pin`, a command line pin check, and the optional confirmer allowlist (version 0.3.1). The code hash moves with each of these, so any consumer pin recorded before them must be re-recorded.
 
 ## 7. Read next
 
