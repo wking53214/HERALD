@@ -230,6 +230,15 @@ KNOWN_GAPS: List[GoldenCase] = [
                True, KIND_PERCENT, "consistent with: not a finding, a compatibility; scored 0.96"),
     GoldenCase("gap-astro-upper-limit", "The upper limit is 3 percent.", True, KIND_PERCENT,
                "upper limit: a bound, not a measurement; scored 0.96"),
+    # Cross-sentence contradiction. The detector is local and deterministic
+    # (CONSTITUTION.md section 9), so a claim is scored on the hedges near it
+    # and a correction in the NEXT sentence is invisible to it. Recorded so
+    # the gap is an assertion, not a memory.
+    GoldenCase("gap-conflict-amounts", "The balance was $4,500. The balance was actually $5,400.",
+               True, KIND_AMOUNT, "two sentences state conflicting balances; scored 0.95"),
+    GoldenCase("gap-conflict-correction",
+               "The borrower paid $1,250.00 on the account. That figure was later corrected.",
+               True, KIND_AMOUNT, "the next sentence says the figure was corrected; scored 0.95"),
 ]
 
 
