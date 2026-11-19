@@ -13,7 +13,7 @@ HERALD reads a document and uses fixed text patterns (not AI) to pull out six ki
 
 ## 1. Where this fits in ≡TACK
 
-≡TACK is William N. King's full library of repositories. One family inside it is the evidence spine, a five-step chain that takes a document from raw text to a stored, governed record: HERALD, then TIE, then Conservation_Kernel, then Governance_Gateway, then CCC. The chain exists so that every fact a system acts on can be traced, checked and kept. HERALD is step one. It receives a source document from whoever supplies it and hands a signed export to TIE, which records it as evidence. HERALD does not call TIE or any later step. In this README, "spine" means this five-repo chain only.
+≡TACK is William N. King's full library of repositories. One family inside it is the evidence spine, a five-step chain that takes a document from raw text to a stored, governed record: HERALD, then TIE, then Conservation_Kernel, then Governance_Gateway, then CCC. The chain exists so that every fact a system acts on can be traced, checked and kept. HERALD is step one. It receives a source document from whoever supplies it and hands a signed export to TIE, which records it as evidence. HERALD does not call TIE or any later step. In this README, "spine" means this five-repo chain only. The three middle hand-offs of the chain (TIE to Conservation_Kernel, and the two after it) are also shipped as library functions in the Spine repository. Spine passes its own 41 tests at its pinned versions and has no running service (EXECUTED 2026-11-19 at Spine `7717f12`). It pins HERALD at `75c17ef`, an older commit than this README's.
 
 ```text
 SourceDocument
@@ -73,11 +73,11 @@ For a five-minute tour of what HERALD does and refuses to do, run `python -m her
 
 CNS is the shared connecting layer between ≡TACK repositories. It holds the shapes of a gate decision (PASS, RETRY, TERMINAL_BREACH), not the decisions.
 
-- **HERALD's side:** `herald/cns_connector.py`. Optional. HERALD imports nothing from CNS unless this module is used. HERALD is not on PyPI, so install from a clone of this repository with the CNS extra (`pip install ".[cns]"` run inside the clone).
+- **HERALD's side:** `herald/cns_connector.py`. Optional. HERALD imports nothing from CNS unless this module is used. HERALD is not on PyPI, so install from a clone of this repository with the CNS extra (`pip install ".[cns]"` run inside the clone). Do not run `pip install 'herald[cns]'`, which the connector's own error message prints: a different package named `herald` (a notifications tool for download clients, version 0.4 on 2026-11-19, with no CNS connector) is on the public package index, and that command would install it instead (EXECUTED: the index entry's metadata was read; the extras install from a clone passed the test suite).
 - **CNS's side:** `cns_composition/repo_gates.py` in the CNS repository, which registers HERALD's source check at ALPHA and its confidence check at OMEGA.
 - **Connection list:** CNS's `contracts/cns-links.json` records the link in both directions (two-way).
 - **Built:** yes.
-- **Tested:** yes. The connector tests run against CNS v3.0.0 in CI (the `cns` job).
+- **Tested:** yes. The connector tests run in the CI `cns` job against the extra pinned in `pyproject.toml` (tag v4.1.0).
 - **Used on HERALD's normal path:** no. `handoff.read()` never calls CNS. Today the only real caller is CNS's integration harness (`chains/evidence_spine.py`), which runs one document through all five spine repos. Several downstream steps in that harness are supplied by harness-level adapters. It shows the pieces work together under tested conditions. It is not a production pipeline.
 
 How HERALD's results map to CNS outcomes:
@@ -89,6 +89,14 @@ How HERALD's results map to CNS outcomes:
 
 HERALD works with CNS absent. Its tests cover both cases.
 
+## Authority and failure behavior
+
+- **Role in the authority matrix.** Evaluation and evidence generation for extracted facts. HERALD does not define policy, enforce, authorize or authenticate a person. A signed export shows content was not altered and which key signed it. It does not show a fact is true or that anyone may act.
+- **Distinct jobs.** Extraction (patterns), gating (admit, refuse pending a named human, or block), evidence generation (the signed handoff) and transport are separate code paths (`extract.py`, `gate.py`, `handoff.py`). Evidence verification is the receiver's job (TIE's intake, or `Handoff.from_dict(payload, trusted_keys=...)`).
+- **Fail closed.** A claim that fails integrity is blocked, a governed-determination kind is refused at construction, and a `HUMAN_CONFIRMED` label without a confirmation on file is blocked. `build` and `read` refuse to make an export unless they are given a signing key and an audience, or the in-process kind is asked for by name (EXECUTED 2026-11-17 at `1e2bcca`; the only package file changed since is `herald/golden_set.py`, INSPECTED 2026-11-19).
+- **Fail open or weaker defaults.** The default `ConfidenceGate()` admits without re-checking the source (it logs a warning; EXECUTED 2026-11-17). The confirmer allowlist is off unless a gate is built with `authorized_confirmers`, so by default any recorded name can confirm. A version 2 export, when asked for, is process-local and cannot cross a process boundary. The boundary check's lookalike table is not exhaustive. One consumer pins HERALD's code hash: CNS's `chains` workflow pins commit `d7054aa`, version 0.6.0 and that commit's hash (VERIFIED 2026-11-17 by computing the hash at that commit). That pin is six merges behind this README's commit, whose hash is different (INSPECTED 2026-11-19: merges counted from `d7054aa` to `617ced4`; CNS's workflow still pins `d7054aa`). No production system consumes HERALD.
+- **Trust boundary.** The document supplier is untrusted for truth. The signing key holder is trusted for integrity. A `HumanConfirmation` is a recorded name, not a verified identity.
+
 ## 6. Status and evidence
 
 | Item | State |
@@ -97,6 +105,7 @@ HERALD works with CNS absent. Its tests cover both cases.
 | Tag and GitHub Release | None. Tagging is the owner's decision. |
 | Tests, without CNS | 507 passed, 0 failed. cns uninstalled. Measured 2026-11-19 on the calibration batch 2 branch (base `a72c191`, which includes PR #58). |
 | Tests, with CNS | 535 passed, 0 failed. Measured 2026-11-19 on the same branch with CNS 4.1.0 installed. The `cns` CI job is the checked result once the PR is merged. |
+| Tests, 2026-11-19 | EXECUTED at `617ced4` (Phase 2 final pass, local, Python 3.13, fresh environment): 507 passed, 0 failed without CNS. 535 passed, 0 failed with `HERALD_REQUIRE_CNS=1` against the pinned tag v4.1.0. These match the two rows above. An earlier Phase 2 run at `1e2bcca` (2026-11-17) gave 491 and 519, with v4.0.0 also passing. Not run: CI. |
 | Test command | `python -m pytest Tests`. `conftest.py` skips the connector tests when cns is absent and the absence tests when it is present. |
 | Lint and security | ruff 0.15.22 clean (re-run 2026-11-16 before PR #49 merged; the CI lint step also passed at `5540c6e`). bandit at the CI threshold (`-ll`, medium and above) clean. One low-severity finding, `calibration.py`: the constant `VERDICT_PASS` is flagged as a possible password string. Measured 2026-11-08 at `392dfd0`; re-checked 2026-11-10 at `63ed11b` with the same result. |
 | CI on main | Green at `5540c6e` on 2026-11-16: `test` (Python 3.12) and `cns` (Python 3.11 and 3.12). The CI matrix is Python 3.11, 3.12 and 3.13 from this PR onward; before it, `test` ran on 3.12 only and `cns` on 3.11 and 3.12. Python 3.10 is unsupported (`requires-python >=3.11`). |
