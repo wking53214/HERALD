@@ -95,15 +95,15 @@ HERALD works with CNS absent. Its tests cover both cases.
 |---|---|
 | Version | 0.6.0 (`pyproject.toml` and `herald/binding.py` agree) |
 | Tag and GitHub Release | None. Tagging is the owner's decision. |
-| Tests, without CNS | 487 passed, 0 failed. Clean venv, cns not installed. Measured 2026-11-16 on the calibration batch 1 branch. |
-| Tests, with CNS | 515 passed, 0 failed. Measured 2026-11-16 on the calibration batch 1 branch with CNS 4.1.0 installed. The `cns` CI job is the checked result once the PR is merged. |
+| Tests, without CNS | 507 passed, 0 failed. cns uninstalled. Measured 2026-11-19 on the calibration batch 2 branch (base `a72c191`, which includes PR #58). |
+| Tests, with CNS | 535 passed, 0 failed. Measured 2026-11-19 on the same branch with CNS 4.1.0 installed. The `cns` CI job is the checked result once the PR is merged. |
 | Test command | `python -m pytest Tests`. `conftest.py` skips the connector tests when cns is absent and the absence tests when it is present. |
 | Lint and security | ruff 0.15.22 clean (re-run 2026-11-16 before PR #49 merged; the CI lint step also passed at `5540c6e`). bandit at the CI threshold (`-ll`, medium and above) clean. One low-severity finding, `calibration.py`: the constant `VERDICT_PASS` is flagged as a possible password string. Measured 2026-11-08 at `392dfd0`; re-checked 2026-11-10 at `63ed11b` with the same result. |
 | CI on main | Green at `5540c6e` on 2026-11-16: `test` (Python 3.12) and `cns` (Python 3.11 and 3.12). The CI matrix is Python 3.11, 3.12 and 3.13 from this PR onward; before it, `test` ran on 3.12 only and `cns` on 3.11 and 3.12. Python 3.10 is unsupported (`requires-python >=3.11`). |
-| Calibration | 32-case starter set: 32 pass, 0 false confidence, 0 over-caution. Run 2026-11-16. Three further cases are recorded as known gaps (HERALD is falsely confident on them) and asserted to still fail; see docs/CALIBRATION.md. |
+| Calibration | 43-case starter set: 43 pass, 0 false confidence, 0 over-caution. Run 2026-11-19 (batch 2 adds clinical-administrative text). Five further cases are recorded as known gaps (HERALD is falsely confident on them) and asserted to still fail; see docs/CALIBRATION.md. |
 | CNS pin | Optional `cns` extra, pinned to tag v4.1.0 (was v4.0.0; the 489-test count above was measured against 4.1.0, so the pin now matches what was measured). |
 | Consumers | TIE reads the export as data and does not import HERALD. CNS imports HERALD in its integration harness only. No production system imports HERALD. |
-| Commercial status | HERALD's value depends on pairing it with a specific field (for example, lending), because its calibration set is small (32 cases). |
+| Commercial status | HERALD's value depends on pairing it with a specific field (for example, lending), because its calibration set is small (43 cases). |
 
 The production package changed after `ec9412f`: PR #46 and PR #48 hardened the boundary, confirmation tracking, handoff errors and extraction speed, and PR #49 added `require_pin`, a command line pin check, and the optional confirmer allowlist (version 0.3.1). The code hash moves with each of these, so any consumer pin recorded before them must be re-recorded.
 
