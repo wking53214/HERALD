@@ -138,6 +138,64 @@ STARTER_SET: List[GoldenCase] = [
                KIND_AMOUNT, "negation: the amount exists but the event did not"),
     GoldenCase("clin-ref-2", "Authorization AUTH-55102 was possibly issued in error.", True,
                KIND_REFERENCE, "possibly: whether the ID is valid at all is open"),
+
+    # -- batch 3 (2026-11): legal drafting ------------------------------
+    # Dates, amounts, periods and file numbers as they appear in contracts
+    # and filings. HERALD extracts these; it does not read what a clause
+    # obliges or permits (CONSTITUTION.md section 1). Judgments here are
+    # about whether the stated figure or date is itself unclear.
+    GoldenCase("legal-amount-1", "The Tenant shall pay $1,200 on the first day of each month.",
+               False, KIND_AMOUNT, "shall states an obligation; the figure is exact"),
+    GoldenCase("legal-date-1", "The agreement was executed on March 14, 2026.", False, KIND_DATE,
+               "execution date stated as fact"),
+    GoldenCase("legal-dur-1", "The term of the lease is 24 months.", False, KIND_DURATION,
+               "fixed term, no qualifier"),
+    GoldenCase("legal-ref-1", "Case No. CV-24012 was filed in the county court.", False,
+               KIND_REFERENCE, "docket number stated as fact"),
+    GoldenCase("legal-pct-1", "Interest accrues at 5.5 percent per annum.", False, KIND_PERCENT,
+               "stated rate, no hedging"),
+    GoldenCase("legal-amount-2", "The Tenant shall pay a reasonable fee of up to $500.", True,
+               KIND_AMOUNT, "reasonable: the amount is whatever is judged reasonable, capped at $500"),
+    GoldenCase("legal-dur-2",
+               "Payment of $1,200 is due within 30 days, provided that the invoice is received.",
+               True, KIND_DURATION, "provided that: the period runs only on an unstated event"),
+    GoldenCase("legal-amount-3", "To the extent permitted by law, the penalty is $250.", True,
+               KIND_AMOUNT, "to the extent: the amount applies only in part, by an unstated measure"),
+    GoldenCase("legal-amount-4", "Damages shall not exceed $10,000.", True, KIND_AMOUNT,
+               "negation: a ceiling, not a measured amount"),
+    GoldenCase("legal-amount-5",
+               "Fees of $500 and $250, or such other amount as the Court determines.", True,
+               KIND_AMOUNT, "and/or grouping, plus an open alternative"),
+    GoldenCase("legal-date-2", "Counsel appeared on or about April 2, 2026.", True, KIND_DATE,
+               "on or about: the date is approximate"),
+    # Over-caution, tracked and not blocking: a firm deadline that HERALD
+    # reports at 0.60 because "no" in "no later than" reads as a negation.
+    GoldenCase("legal-dur-3", "Payment is due no later than 30 days after receipt.", False,
+               KIND_DURATION, "a firm deadline; scored low because 'no' matches the negation list"),
+
+    # -- batch 4 (2026-11): astrophysics observation notes --------------
+    # Measurement language: durations, dates, counts, percent changes and
+    # catalogue IDs. Hedging in this field is often a measurement caveat.
+    GoldenCase("astro-dur-1", "The transit lasted 3.4 hours.", False, KIND_DURATION,
+               "recorded duration, no qualifier"),
+    GoldenCase("astro-date-1", "The flare was recorded on 2026-03-14.", False, KIND_DATE,
+               "observation date stated as fact"),
+    GoldenCase("astro-qty-1", "The survey catalogued 4,200 records.", False, KIND_QUANTITY,
+               "counted quantity, stated plainly"),
+    GoldenCase("astro-ref-1", "The target is HD-189733.", False, KIND_REFERENCE,
+               "catalogue ID stated as fact"),
+    GoldenCase("astro-pct-1", "Brightness rose by 4.2 percent.", False, KIND_PERCENT,
+               "measured change, no qualifier"),
+    GoldenCase("astro-dur-2", "The transit lasted approximately 3.4 hours.", True, KIND_DURATION,
+               "approximately: an estimate, not the recorded value"),
+    GoldenCase("astro-date-2", "The flare may have occurred on 2026-03-14.", True, KIND_DATE,
+               "may have: the event itself is uncertain"),
+    GoldenCase("astro-pct-2", "The star is roughly 4.2 percent brighter.", True, KIND_PERCENT,
+               "roughly: an estimate"),
+    GoldenCase("astro-qty-2", "The event was likely observed 2 times.", True, KIND_QUANTITY,
+               "likely: the count is a judgment, not a record"),
+    GoldenCase("astro-qty-3", "The object was not detected in 3 attempts.", True, KIND_QUANTITY,
+               "negation: a non-detection, not a count of detections"),
 ]
 
 # Cases a human judges ambiguous (or not a record reference) that HERALD
@@ -159,6 +217,19 @@ KNOWN_GAPS: List[GoldenCase] = [
     GoldenCase("gap-clin-either-amount", "Bill $1,200 or $1,800 depending on coding.", True,
                KIND_AMOUNT, "either-or between two amounts: coordination needs 'and' then 'or'; "
                "scored 0.95"),
+    GoldenCase("gap-legal-notwithstanding", "Notwithstanding the foregoing, the fee is $500.", True,
+               KIND_AMOUNT, "notwithstanding: the fee yields to an unseen clause; scored 0.95"),
+    GoldenCase("gap-legal-otherwise-agreed",
+               "Payment is due within 30 days, or as otherwise agreed in writing.", True,
+               KIND_DURATION, "as otherwise agreed: the period can be replaced; scored 0.90"),
+    GoldenCase("gap-astro-suggests", "The signal suggests a period of 12 days.", True,
+               KIND_DURATION, "suggests: the period is an inference; scored 0.90"),
+    GoldenCase("gap-astro-tilde", "The period is ~12 days.", True, KIND_DURATION,
+               "~ means approximately but is not a hedge word; scored 0.90"),
+    GoldenCase("gap-astro-consistent-with", "The data are consistent with a 4.2 percent dimming.",
+               True, KIND_PERCENT, "consistent with: not a finding, a compatibility; scored 0.96"),
+    GoldenCase("gap-astro-upper-limit", "The upper limit is 3 percent.", True, KIND_PERCENT,
+               "upper limit: a bound, not a measurement; scored 0.96"),
 ]
 
 
