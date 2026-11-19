@@ -135,3 +135,32 @@ def test_from_dict_loads_a_v3_export_only_with_the_pinned_key():
     exported["admitted"][0]["value"] = {"amount": 1.0, "currency": "USD"}
     with pytest.raises(SealIntegrityError):
         handoff.Handoff.from_dict(exported, trusted_keys=pinned(key))
+
+
+def test_from_dict_refuses_another_keys_signature_under_the_pinned_key_label():
+    """A key_id is a label, not a grant: from_dict() trusts only the public key object the caller pinned under
+    that id, so a signature from a different private key is refused even when the export claims the pinned label."""
+    package, key = signed_export()
+    forged = signed_export(Ed25519PrivateKey.generate())[0].to_dict()
+    forged["key_id"] = package.key_id
+    with pytest.raises(SealIntegrityError):
+        handoff.Handoff.from_dict(forged, trusted_keys=pinned(key))
+
+
+def test_from_dict_reconstructs_a_v3_export_in_a_separate_process_holding_only_the_public_pem(tmp_path):
+    """Through the public from_dict() path, not just verify_export(): the receiving process never sees the private
+    signing key, only the exported JSON and a public PEM, and gets back a usable Handoff."""
+    package, key = signed_export()
+    (tmp_path / "export.json").write_text(json.dumps(package.to_dict()))
+    (tmp_path / "public.pem").write_bytes(handoff.export_public_pem(key))
+    script = (
+        "import json,sys\n"
+        "from herald import handoff\n"
+        "key = handoff.load_export_public_key(open(sys.argv[2], 'rb').read())\n"
+        "r = handoff.Handoff.from_dict(json.load(open(sys.argv[1])), trusted_keys={handoff.export_key_id(key): key})\n"
+        "print(f'reconstructed version={r.export_mac_version} admitted={len(r.admitted)}')\n"
+    )
+    done = subprocess.run([sys.executable, "-c", script, str(tmp_path / "export.json"), str(tmp_path / "public.pem")],
+                          capture_output=True, text=True, timeout=60)
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.strip() == f"reconstructed version=3 admitted={len(package.admitted)}", done.stderr
