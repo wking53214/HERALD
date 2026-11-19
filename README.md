@@ -73,7 +73,7 @@ For a five-minute tour of what HERALD does and refuses to do, run `python -m her
 
 CNS is the shared connecting layer between ≡TACK repositories. It holds the shapes of a gate decision (PASS, RETRY, TERMINAL_BREACH), not the decisions.
 
-- **HERALD's side:** `herald/cns_connector.py`. Optional. HERALD imports nothing from CNS unless this module is used. HERALD is not on PyPI, so install from a clone of this repository with the CNS extra (`pip install ".[cns]"` run inside the clone). Do not run `pip install 'herald[cns]'`, which the connector's own error message prints: a different package named `herald` (a notifications tool for download clients, version 0.4 on 2026-11-19, with no CNS connector) is on the public package index, and that command would install it instead (EXECUTED: the index entry's metadata was read; the extras install from a clone passed the test suite).
+- **HERALD's side:** `herald/cns_connector.py`. Optional. HERALD imports nothing from CNS unless this module is used. HERALD is not on PyPI, so install from a clone of this repository with the CNS extra (`pip install ".[cns]"` run inside the clone). The connector's error message prints the same install from this repository's address, not a bare package name, because a different package named `herald` (a notifications tool for download clients) is on the public package index.
 - **CNS's side:** `cns_composition/repo_gates.py` in the CNS repository, which registers HERALD's source check at ALPHA and its confidence check at OMEGA.
 - **Connection list:** CNS's `contracts/cns-links.json` records the link in both directions (two-way).
 - **Built:** yes.

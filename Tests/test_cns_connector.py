@@ -1,6 +1,6 @@
 """The CNS connector translates HERALD's decisions without changing them.
 
-These tests need the optional ``cns`` extra: ``pip install 'herald[cns]'``.
+These tests need the optional ``cns`` extra: ``pip install 'herald[cns] @ git+https://github.com/wking53214/herald.git@main'``.
 Without it, ``Tests/test_cns_absent.py`` runs instead (see ``conftest.py``).
 """
 

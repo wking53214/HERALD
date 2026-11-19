@@ -66,7 +66,7 @@ claim does not bind to a different claim, or to the same claim after an edit.
 The verdict's ``source_verified`` flag and MAC are checked by HERALD's own
 ``verify_against``, not by the digest.
 
-Install with the extra: ``pip install 'herald[cns]'``.
+Install with the extra: ``pip install 'herald[cns] @ git+https://github.com/wking53214/herald.git@main'``.
 """
 
 from __future__ import annotations
@@ -110,7 +110,10 @@ __all__ = [
     "to_cns_result",
 ]
 
-INSTALL_HINT = "pip install 'herald[cns]'"
+INSTALL_HINT = (
+    "pip install 'herald[cns] @ "
+    "git+https://github.com/wking53214/herald.git@main'"
+)
 
 #: The ``gate`` field of a verdict.
 GATE_NAME = "herald_confidence"
