@@ -109,6 +109,35 @@ STARTER_SET: List[GoldenCase] = [
                "probably: the figure is a guess"),
     GoldenCase("hedge-amount-5", "The payment was apparently $1,250.", True, KIND_AMOUNT,
                "apparently: the figure is secondhand"),
+
+    # -- batch 2 (2026-11): clinical-administrative text -----------------
+    # A second English domain: admissions, billing and record IDs. Each case
+    # was scored against the real extractor before it was written in. These
+    # are administrative facts only; none asks HERALD to judge anything
+    # clinical.
+    GoldenCase("clin-date-1", "The patient was admitted on 2026-04-02.", False, KIND_DATE,
+               "ISO date, stated as fact"),
+    GoldenCase("clin-date-2", "The appointment is on April 9, 2026.", False, KIND_DATE,
+               "scheduled date stated plainly"),
+    GoldenCase("clin-amount-1", "The claim total was $3,480.50.", False, KIND_AMOUNT,
+               "billed total, past tense, no qualifier"),
+    GoldenCase("clin-amount-2", "Copay collected: $40.", False, KIND_AMOUNT,
+               "labelled amount, no qualifier"),
+    GoldenCase("clin-dur-1", "The stay lasted 6 days.", False, KIND_DURATION,
+               "observed length of stay"),
+    GoldenCase("clin-ref-1", "Record MRN-884211 was updated.", False, KIND_REFERENCE,
+               "record ID stated as fact"),
+    GoldenCase("clin-amount-3", "The deductible may be $1,500 depending on the plan.", True,
+               KIND_AMOUNT, "may: the amount is contingent on a plan not stated"),
+    GoldenCase("clin-dur-2", "The stay was approximately 6 days.", True, KIND_DURATION,
+               "approximately: an estimate, not the recorded length"),
+    GoldenCase("clin-date-3",
+               "Discharge is expected 2026-04-08, subject to physician review.", True, KIND_DATE,
+               "subject to: the date may change on review"),
+    GoldenCase("clin-amount-4", "Coverage was not approved for the $3,480.50 claim.", True,
+               KIND_AMOUNT, "negation: the amount exists but the event did not"),
+    GoldenCase("clin-ref-2", "Authorization AUTH-55102 was possibly issued in error.", True,
+               KIND_REFERENCE, "possibly: whether the ID is valid at all is open"),
 ]
 
 # Cases a human judges ambiguous (or not a record reference) that HERALD
@@ -124,6 +153,12 @@ KNOWN_GAPS: List[GoldenCase] = [
                KIND_REFERENCE, "a standard name that looks like an ID, not a record reference"),
     GoldenCase("gap-ref-lookalike-2", "COVID-19 delayed the shipment.", True,
                KIND_REFERENCE, "a disease name that looks like an ID, not a record reference"),
+    GoldenCase("gap-clin-conditional", "Follow-up in 2 weeks, if needed.", True, KIND_DURATION,
+               "if needed: the follow-up is conditional, but 'if needed' is not on the "
+               "conditional list; scored 0.90"),
+    GoldenCase("gap-clin-either-amount", "Bill $1,200 or $1,800 depending on coding.", True,
+               KIND_AMOUNT, "either-or between two amounts: coordination needs 'and' then 'or'; "
+               "scored 0.95"),
 ]
 
 
