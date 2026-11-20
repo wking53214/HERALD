@@ -205,3 +205,39 @@ def test_amount_raw_has_no_trailing_space(text, raw):
     c = first(text, KIND_AMOUNT)
     assert c.raw == raw and c.raw == c.raw.strip()
     assert text[c.span[0]:c.span[1]] == raw
+
+
+# -- number-plus-word text no extractor read is reported -----------------------
+
+def test_unrecognized_unit_is_reported_not_silent():
+    """Measured before: "25 seats and 3 widgets" returned no claims and an
+    empty dropped list, the same as a document with no counts in it."""
+    text = "Invoice lists 25 seats and 3 widgets."
+    claims, dropped, unrecognized = extract.extract_with_coverage(text, "t")
+    assert claims == [] and dropped == []
+    assert [u.raw for u in unrecognized] == ["25 seats", "3 widgets"]
+    assert all(text[u.span[0]:u.span[1]] == u.raw for u in unrecognized)
+
+
+def test_recognized_units_and_money_are_not_flagged():
+    text = "312 records, 30 days, 5% and $40 each, 4,500 USD."
+    assert extract.extract_with_coverage(text, "t")[2] == []
+
+
+def test_dates_and_connectors_are_not_flagged():
+    text = "Due 14 March 2026 and 2026-03-14, 5th of May, 3 and 4."
+    assert extract.extract_with_coverage(text, "t")[2] == []
+
+
+def test_coverage_leaves_claims_and_dropped_unchanged():
+    text = "Received 2026-03-14, then 2026-13-45; fee $1,250, 25 seats."
+    claims, dropped, _ = extract.extract_with_coverage(text, "t")
+    base_claims, base_dropped = extract.extract_with_report(text, "t")
+    assert [(c.kind, c.value, c.span) for c in claims] == [(c.kind, c.value, c.span) for c in base_claims]
+    assert dropped == base_dropped
+
+
+def test_an_unrecognized_count_is_not_a_claim():
+    _, _, unrecognized = extract.extract_with_coverage("25 seats", "t")
+    u = unrecognized[0]
+    assert not hasattr(u, "confidence") and not hasattr(u, "seal")

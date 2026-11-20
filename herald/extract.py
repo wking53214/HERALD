@@ -366,3 +366,73 @@ def extract_with_report(
         sorted(claims, key=lambda c: (c.span[0], c.extractor)),
         sorted(dropped, key=lambda d: (d.span[0], d.extractor)),
     )
+
+
+@dataclass(frozen=True)
+class UnrecognizedCount:
+    """A number followed by a word no extractor knows as a unit.
+
+    Example: "25 seats" or "3 visits". The quantity extractor only knows a
+    fixed list of unit words, so these produce no claim and, before this
+    existed, no trace either: a reader saw silence and took it for "nothing
+    here". This records only that a number-plus-word was seen, where, and
+    that it was NOT read. It guesses nothing about what the word means, is
+    not a claim, and is never sealed, hashed or admitted.
+    """
+
+    raw: str
+    span: Tuple[int, int]
+    reason: str = "a number followed by a word no extractor recognizes as a unit; not read"
+
+
+# Words that follow a number without naming what is being counted: months
+# ("14 March"), ordinal tails, and common connectors. Without this list the
+# report would flag ordinary prose, which would train readers to ignore it.
+_NOT_A_UNIT = frozenset("""
+a an the of and or to in on at for by with from is are was were per each as
+st nd rd th am pm january february march april may june july august
+september october november december jan feb mar apr jun jul aug sep sept oct
+nov dec
+""".split())
+
+_NUMBER_THEN_WORD = re.compile(
+    r"(?<![\d\-/.:,$\u00a3\u20ac\u00a5])(?P<num>\d[\d,]{0,24}(?:\.\d+)?)\s?(?P<word>[A-Za-z]{2,24})\b"
+)
+
+
+def find_unrecognized_counts(
+    text: str,
+    claims: List[CandidateClaim],
+    dropped: List[DroppedMatch],
+) -> List[UnrecognizedCount]:
+    """Number-plus-word spans that no extractor read and none reported.
+
+    Anything already covered by a claim or a dropped match is skipped, so
+    this only reports text the existing extractors were blind to.
+    """
+    covered = [c.span for c in claims] + [d.span for d in dropped]
+    found: List[UnrecognizedCount] = []
+    for m in _NUMBER_THEN_WORD.finditer(text):
+        if m.group("word").lower() in _NOT_A_UNIT:
+            continue
+        start, end = m.span()
+        if any(start < ce and cs < end for cs, ce in covered):
+            continue
+        found.append(UnrecognizedCount(raw=m.group(0), span=(start, end)))
+    return found
+
+
+def extract_with_coverage(
+    source: Union[SourceDocument, str],
+    source_id: Optional[str] = None,
+    specs: Optional[List[ExtractorSpec]] = None,
+    window: int = 60,
+) -> Tuple[List[CandidateClaim], List[DroppedMatch], List[UnrecognizedCount]]:
+    """``extract_with_report`` plus the number-plus-word text nothing read.
+
+    The first two lists are exactly what ``extract_with_report`` returns.
+    The third is a visibility aid only: it never changes a claim.
+    """
+    claims, dropped = extract_with_report(source, source_id, specs, window)
+    text = source.text if isinstance(source, SourceDocument) else source
+    return claims, dropped, find_unrecognized_counts(text, claims, dropped)
