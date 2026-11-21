@@ -282,7 +282,7 @@ def verify_export(payload: Mapping[str, Any], *,
                 f"export was signed with key {key_id!r}; this process holds {KEY_ID!r}. "
                 "A version 2 export can only be verified by the process that built it "
                 "(HMAC under a process-local key), so this is not evidence of tampering "
-                "and cannot be checked here. For cross-process use, build a version 3 "
+                "and cannot be checked here. For cross-process use, build a version 4 "
                 "export (export_signing_key=) and verify it with trusted_keys="
             )
     else:
@@ -630,7 +630,7 @@ def build(
     """
     if export_signing_key is None and not in_process_export:
         raise HandoffError(
-            "no export signing key given. A signed (version 3) export needs "
+            "no export signing key given. A signed export (version 4) needs "
             "export_signing_key=, an Ed25519 key you created and keep (see "
             "docs/KEY_MANAGEMENT.md). If this export will only ever be checked "
             "inside this same process, pass in_process_export=True to ask for "
