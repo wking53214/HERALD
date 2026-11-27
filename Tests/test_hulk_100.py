@@ -113,6 +113,24 @@ from herald.source import STANDING_ATTESTATION, STANDING_RECORD, SourceDocument
 from herald import run_calibration  # exactly what .github/workflows/ci.yml calls
 
 
+def _cpu_seconds(fn, trials=5):
+    """Fastest of `trials` runs of `fn`, in CPU time spent by this thread.
+
+    The timing checks below guard against regex backtracking blowups, which
+    are CPU-bound work: a quadratic pattern is slow in every trial. Wall-clock
+    time also counts the moments the operating system gave the CPU to other
+    programs, so on a busy machine one sample could miss a bound with nothing
+    wrong. CPU time of this thread leaves that out, and the fastest of several
+    trials drops the rest of the noise, while the thresholds stay as they were.
+    """
+    best = float("inf")
+    for _ in range(trials):
+        t0 = time.thread_time()
+        fn()
+        best = min(best, time.thread_time() - t0)
+    return best
+
+
 def _sealed_claim(**kw):
     base = dict(kind="amount", value=100, raw="$100", span=(0, 4), source_id="s")
     base.update(kw)
@@ -2756,12 +2774,7 @@ def test_nl_redos_missing_required_unit_is_now_bounded_not_quadratic():
 
     def timed(spec, n, trials=5):
         text = "$" + ("1," * n) + "000"  # digits with no unit word anywhere
-        best = float("inf")
-        for _ in range(trials):
-            t0 = time.time()
-            list(spec.pattern.finditer(text))
-            best = min(best, time.time() - t0)
-        return best
+        return _cpu_seconds(lambda: list(spec.pattern.finditer(text)), trials)
 
     # One ratio is noisy on a shared runner (a single sample has been seen at
     # 3.5x for a linear pattern). A quadratic pattern gives about 4x every
@@ -2812,13 +2825,8 @@ def test_nl_redos_tiny_document_no_longer_causes_disproportionate_full_extract_d
     padding = "word " * ((len(adversarial) // 5) + 1)
     control = (padding + "The call lasted 45 seconds.")[:len(adversarial)]
 
-    t0 = time.time()
-    extract_module.extract(control, source_id="control")
-    control_time = time.time() - t0
-
-    t0 = time.time()
-    extract_module.extract(adversarial, source_id="adversarial")
-    adversarial_time = time.time() - t0
+    control_time = _cpu_seconds(lambda: extract_module.extract(control, source_id="control"))
+    adversarial_time = _cpu_seconds(lambda: extract_module.extract(adversarial, source_id="adversarial"))
 
     assert control_time < 0.05, f"control unexpectedly slow: {control_time:.4f}s"
     assert adversarial_time < 0.05, (
@@ -4268,15 +4276,11 @@ def test_hmax_009_structured_reference_bounded_quantifiers_are_immune_to_the_red
     does it reach": it reaches exactly as far as the vulnerable pattern
     shape, not every extractor.
     """
-    import time
-
     spec = [s for s in extract_module.SPECS if s.name == "structured_reference"][0]
     timings = []
     for n in (500, 1000, 2000, 4000):
         text = "A" * n
-        t0 = time.perf_counter()
-        list(spec.pattern.finditer(text))
-        timings.append(time.perf_counter() - t0)
+        timings.append(_cpu_seconds(lambda text=text: list(spec.pattern.finditer(text))))
     # Linear growth: doubling input size should not multiply time by more
     # than a generous constant factor (quadratic/exponential blowup would
     # multiply it by 4x+ per doubling, compounding across 3 doublings).
@@ -4313,12 +4317,7 @@ def test_hmax_010_ambiguity_coordination_pattern_redos_is_now_bounded():
 
     def timed(n, trials=5):
         text = "x" * n  # long unbroken word-char run, no "and"/"or" anywhere
-        best = float("inf")
-        for _ in range(trials):
-            t0 = time.time()
-            coord_pattern.search(text)
-            best = min(best, time.time() - t0)
-        return best
+        return _cpu_seconds(lambda: coord_pattern.search(text), trials)
 
     small = timed(800)
     large = timed(1600)
