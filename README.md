@@ -77,7 +77,7 @@ CNS is the shared connecting layer between ≡TACK repositories. It holds the sh
 - **CNS's side:** `cns_composition/repo_gates.py` in the CNS repository, which registers HERALD's source check at ALPHA and its confidence check at OMEGA.
 - **Connection list:** CNS's `contracts/cns-links.json` records the link in both directions (two-way).
 - **Built:** yes.
-- **Tested:** yes. The connector tests run in the CI `cns` job against the extra pinned in `pyproject.toml` (tag v4.1.0).
+- **Tested:** yes. The connector tests run in the CI `cns` job against the extra pinned in `pyproject.toml` (tag v4.2.0).
 - **Used on HERALD's normal path:** no. `handoff.read()` never calls CNS. Today the only real caller is CNS's integration harness (`chains/evidence_spine.py`), which runs one document through all five spine repos. Several downstream steps in that harness are supplied by harness-level adapters. It shows the pieces work together under tested conditions. It is not a production pipeline.
 
 How HERALD's results map to CNS outcomes:
@@ -110,7 +110,7 @@ HERALD works with CNS absent. Its tests cover both cases.
 | Lint and security | ruff 0.15.22 clean (re-run 2026-11-16 before PR #49 merged; the CI lint step also passed at `5540c6e`). bandit at the CI threshold (`-ll`, medium and above) clean. One low-severity finding, `calibration.py`: the constant `VERDICT_PASS` is flagged as a possible password string. Measured 2026-11-08 at `392dfd0`; re-checked 2026-11-10 at `63ed11b` with the same result. |
 | CI on main | Green at `5540c6e` on 2026-11-16: `test` (Python 3.12) and `cns` (Python 3.11 and 3.12). The CI matrix is Python 3.11, 3.12 and 3.13 from this PR onward; before it, `test` ran on 3.12 only and `cns` on 3.11 and 3.12. Python 3.10 is unsupported (`requires-python >=3.11`). |
 | Calibration | 65-case starter set: 64 pass, 0 false confidence, 1 over-caution (tracked, not blocking). Run 2026-11-19 (batches 2 to 4 add clinical-administrative, legal and astrophysics text). Eleven further cases are recorded as known gaps (HERALD is falsely confident on them) and asserted to still fail; see docs/CALIBRATION.md. |
-| CNS pin | Optional `cns` extra, pinned to tag v4.1.0 (was v4.0.0; the 489-test count above was measured against 4.1.0, so the pin now matches what was measured). |
+| CNS pin | Optional `cns` extra, pinned to tag v4.2.0 (was v4.1.0). EXECUTED 2026-11-27 on branch `chore/cns-pin-v4.2.0`, Python 3.11: 540 passed with `HERALD_REQUIRE_CNS=1` against v4.2.0, 512 passed without CNS. |
 | Consumers | TIE reads the export as data and does not import HERALD. CNS imports HERALD in its integration harness only. No production system imports HERALD. |
 | Commercial status | HERALD's value depends on pairing it with a specific field (for example, lending), because its calibration set is small (65 cases). |
 
